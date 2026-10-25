@@ -1,5 +1,4 @@
 import { defineConfig, loadEnv } from 'vite';
-import { createLocalServices } from './server/runtime.ts';
 import { createHomeAssistantMiddleware } from './server/homeassistant.ts';
 
 export default defineConfig(({ mode }) => {
@@ -14,34 +13,14 @@ export default defineConfig(({ mode }) => {
   return {
     server: {
       host: '127.0.0.1', strictPort: true,
-      watch: { ignored: ['**/.pulse/**'] },
-      fs: { deny: ['.env', '.env.*', '*.{crt,pem}', '**/.git/**', '**/.pulse/**'] },
+      fs: { deny: ['.env', '.env.*', '*.{crt,pem}', '**/.git/**'] },
       proxy: haProxy,
     },
     preview: { host: '127.0.0.1', strictPort: true, proxy: haProxy },
     plugins: [{
-      name: 'pulse-local-services',
-      configureServer(server) {
-        const services = createLocalServices(server.config.root);
-        server.middlewares.use(services.discovery);
-        server.middlewares.use(services.matter);
-        server.middlewares.use(services.media);
-        server.middlewares.use(createHomeAssistantMiddleware(ha));
-        closeServices = services.close;
-        server.httpServer?.once('close', () => { void services.close(); });
-      },
-      configurePreviewServer(server) {
-        const services = createLocalServices(server.config.root);
-        server.middlewares.use(services.discovery);
-        server.middlewares.use(services.matter);
-        server.middlewares.use(services.media);
-        server.middlewares.use(createHomeAssistantMiddleware(ha));
-        closeServices = services.close;
-        server.httpServer.once('close', () => { void services.close(); });
-      },
-      async closeBundle() { await closeServices?.(); },
+      name: 'pulse-home-assistant',
+      configureServer(server) { server.middlewares.use(createHomeAssistantMiddleware(ha)); },
+      configurePreviewServer(server) { server.middlewares.use(createHomeAssistantMiddleware(ha)); },
     }],
   };
 });
-
-let closeServices: (() => Promise<void>) | undefined;
