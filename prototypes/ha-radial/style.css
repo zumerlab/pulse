@@ -1,0 +1,167 @@
+/* Sobre el estilo Grafito de zumly-radial: solo lo que agrega Home Assistant. */
+
+/* Conexión */
+.conn { display: inline-flex; align-items: center; gap: 8px; justify-self: center; font-size: 12px; color: var(--muted); }
+.conn-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--dim); }
+.conn-live .conn-dot { background: #3ecf8e; animation: live 2.4s ease-in-out infinite; }
+.conn-offline .conn-dot, .conn-connecting .conn-dot { background: var(--leve); }
+.conn-error .conn-dot { background: var(--grave); }
+@keyframes live { 50% { opacity: .35; } }
+.error { color: var(--grave); text-align: center; max-width: 46ch; }
+
+/* Tablero: siete sistemas y el último pulso de la casa */
+.board { gap: 28px; overflow-y: auto; align-content: safe center; }
+.tile { height: 160px; }
+.tile-big { font-size: 12px; color: var(--ink); max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tile.level-1 .tile-title, .tile.level-1 .tile-big { color: var(--leve); }
+.tile.level-2 .tile-title, .tile.level-2 .tile-big { color: var(--grave); }
+.tile.has-alert .mini-ring { animation: tile-call 1.6s ease-in-out infinite; }
+.tile.level-2 .mini-ring { animation-duration: .9s; }
+@keyframes tile-call { 50% { transform: scale(1.06); } }
+.ticker { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; min-height: 100px; width: min(420px, 100%); font-size: 12px; color: var(--muted); }
+.ticker li { display: flex; gap: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; animation: tick-in .5s ease-out; }
+.ticker li:first-child { color: var(--ink); }
+.ticker li.level-1 { color: var(--leve); }
+.ticker li.level-2 { color: var(--grave); }
+.ticker time { font-variant-numeric: tabular-nums; opacity: .7; }
+@keyframes tick-in { from { opacity: 0; transform: translateY(-4px); } }
+
+/* Sistema */
+/* --fit lo calcula la vista: achica el objeto cuando el escenario es chico. */
+.obj { transform: scale(calc(var(--zoom, 1.2) * var(--fit, 1))) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)); }
+.system { grid-template-columns: minmax(0, 1fr); }
+.strip { max-width: 100%; }
+.dots { flex-wrap: wrap; gap: 6px; max-width: 100%; }
+.system { grid-template-rows: auto 1fr auto auto auto; }
+.sys-title { padding-top: 8px; }
+.face-wait { font-size: 11px; letter-spacing: 1px; color: var(--muted); animation: live 1s ease-in-out infinite; }
+/* Lo enviado y no confirmado late: el anillo muestra lo que Home Assistant dice, no lo pedido. */
+.is-pending, o-arc.is-pending { animation: live .9s ease-in-out infinite; }
+.layer.is-seen .disc::after { display: none; }
+.strip .plain { min-height: 36px; padding: 6px 12px; }
+
+/* Satélites: avisos que esperan, con el ícono de su canal (regla 3) */
+.sat { display: grid; place-items: center; border-radius: 50%; background: var(--bg); cursor: pointer; pointer-events: auto; }
+.sat.level-1 { color: var(--leve); box-shadow: 0 0 0 1.5px var(--leve); }
+.sat.level-2 { color: var(--grave); box-shadow: 0 0 0 1.5px var(--grave); }
+.sat .glyph { width: 12px; height: 12px; }
+
+/* Detalle */
+.detail { overflow-y: auto; align-content: start; padding-top: 48px; grid-template-columns: minmax(0, 1fr); }
+.detail-big { font-size: clamp(36px, 14vw, 64px); overflow-wrap: anywhere; }
+.detail-big.level-1, .detail-why.level-1 { color: var(--leve); }
+.detail-big.level-2, .detail-why.level-2 { color: var(--grave); }
+.detail-why { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.detail-why .primary { margin-left: 0; }
+.switches label .state { margin-left: auto; font-size: 12px; color: var(--muted); }
+.switches label.fail.level-1 { border-color: var(--leve); }
+.switches label.fail.level-2 { border-color: var(--grave); }
+.switches input:disabled + * { opacity: .6; }
+.camera { width: 100%; border-radius: 10px; border: 1px solid var(--line); }
+.entities { font-size: 12px; color: var(--muted); }
+.entities summary { cursor: pointer; }
+.entities ul { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 4px; }
+.entities li { display: flex; gap: 8px; flex-wrap: wrap; }
+.entities code { color: var(--ink); opacity: .7; }
+.entities strong { margin-left: auto; color: var(--ink); font-weight: 500; }
+
+@media (max-width: 600px) {
+  .tiles { flex-wrap: wrap; gap: 8px 4px; }
+  .tile { height: 112px; }
+  .tile-big { font-size: 10px; max-width: 64px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .is-pending, .tile.has-alert .mini-ring, .conn-live .conn-dot, .face-wait { animation: none; }
+}
+
+/* ─── Tablero: selector de vista ───────────────────────── */
+.modes { display: inline-flex; justify-self: center; gap: 2px; padding: 3px; border-radius: 999px; border: 1px solid var(--line); margin-top: 6px; }
+.mode { border: 0; background: none; padding: 6px 14px; border-radius: 999px; font-size: 12px; color: var(--muted); cursor: pointer; }
+.mode[aria-pressed="true"] { background: rgba(255,255,255,.08); color: var(--ink); }
+.board.mode-orbita, .board.mode-capas {
+  grid-template-rows: auto minmax(0, 1fr) auto; grid-template-columns: minmax(0, 1fr);
+  align-content: stretch; justify-items: stretch; gap: 12px;
+}
+.board-body { position: relative; min-height: 0; display: grid; place-items: center; }
+
+/* ─── Órbita: el pulso en el centro, los sistemas alrededor ─ */
+.orbit-board { position: absolute; inset: 0; }
+/* En la órbita, lo que llama ya está en el centro: el titular sobra. */
+.board.mode-orbita .board-head h1, .board.mode-orbita .ticker { display: none; }
+/* El centro escala con su propio tamaño (unidades cqw), no con la pantalla:
+   así nunca desborda, aunque la órbita lo achique. */
+.hub {
+  position: absolute; left: 50%; top: 50%; width: var(--hub, calc(var(--S) * .58)); aspect-ratio: 1; translate: -50% -50%;
+  container-type: inline-size;
+}
+.hub-ring-slot, .hub-ring { position: absolute; inset: 0; width: 100%; }
+.hub.beat .hub-ring { animation: hub-beat .7s ease-out; }
+@keyframes hub-beat { 30% { transform: scale(1.04); filter: brightness(1.6); } }
+.hub-face {
+  position: absolute; inset: 9%; border-radius: 50%; overflow: hidden; background: rgba(255,255,255,.04);
+  display: grid; place-items: center; padding: 14% 12% 24%;
+}
+.slide { display: grid; justify-items: center; gap: 2cqw; text-align: center; min-width: 0; animation: slide-in .45s ease-out; }
+@keyframes slide-in { from { opacity: 0; transform: translateY(6px); } }
+.slide .eyebrow { font-size: clamp(8px, 3.4cqw, 12px); letter-spacing: .14em; }
+.slide.level-1 .eyebrow, .slide.level-1 .slide-big { color: var(--leve); }
+.slide.level-2 .eyebrow, .slide.level-2 .slide-big { color: var(--grave); }
+.slide-big { font-size: clamp(14px, 10.5cqw, 46px); font-weight: 600; letter-spacing: -.5px; line-height: 1.05; hyphens: auto; }
+.slide-big.is-calling { color: var(--leve); }
+.slide-why {
+  font-size: clamp(10px, 4.4cqw, 15px); color: var(--muted); max-width: 28ch;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+.slide-go { min-height: 0; padding: 1.6cqw 4cqw; margin: 1cqw 0 0; font-size: clamp(10px, 3.8cqw, 13px); border-radius: 999px; }
+.hub-rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 1.2cqw; min-width: 76cqw; max-width: 100%; font-size: clamp(9px, 4cqw, 14px); color: var(--muted); }
+.hub-rows li { display: flex; gap: 8px; justify-content: space-between; white-space: nowrap; min-width: 0; }
+.hub-rows li span { overflow: hidden; text-overflow: ellipsis; }
+.hub-rows li:first-child { color: var(--ink); }
+.hub-rows strong { font-weight: 550; font-variant-numeric: tabular-nums; }
+@container (max-width: 260px) {
+  .hub-rows li:nth-child(n+2) { display: none; }
+  .slide-why { -webkit-line-clamp: 2; }
+  .slide-go { display: none; }   /* chico: se abre tocando la tarjeta del sistema */
+}
+/* Puntos del carrusel: uno por aviso más el pulso; el color dice la gravedad. */
+.hub-dots { position: absolute; left: 50%; bottom: 14%; translate: -50% 0; display: flex; gap: 2px; }
+.hub-dot { width: clamp(14px, 9cqw, 22px); height: 22px; padding: 0; border: 0; background: none; cursor: pointer; display: grid; place-items: center; }
+.hub-dot::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--dim); transition: transform .2s; }
+.hub-dot.level-1::before { background: var(--leve); }
+.hub-dot.level-2::before { background: var(--grave); }
+.hub-dot.pulse::before { background: var(--muted); }
+.hub-dot[aria-current="true"]::before { transform: scale(1.6); box-shadow: 0 0 0 2px var(--bg), 0 0 0 3px currentColor; }
+.otile {
+  position: absolute; left: 50%; top: 50%; width: max(calc(var(--S) * .13), 110px); padding: 0; border: 0; background: none;
+  display: grid; justify-items: center; gap: 4px; cursor: pointer;
+  /* Centrado en el anillo: el texto cuelga debajo. */
+  transform: translate(-50%, calc(var(--S) * -.065))
+    translate(calc(sin(var(--a)) * var(--rx)), calc(cos(var(--a)) * var(--ry) * -1));
+}
+/* Texto encima: el anillo queda abajo del botón y su centro, en el punto de la órbita. */
+.otile.label-above {
+  grid-auto-flow: row; grid-template-areas: "title" "big" "ring";
+  transform: translate(-50%, calc(-100% + var(--S) * .065))
+    translate(calc(sin(var(--a)) * var(--rx)), calc(cos(var(--a)) * var(--ry) * -1));
+}
+.otile.label-above .otile-ring { grid-area: ring; }
+.otile.label-above .tile-title { grid-area: title; }
+.otile.label-above .tile-big { grid-area: big; }
+.otile-ring { position: relative; width: calc(var(--S) * .13); aspect-ratio: 1; display: grid; place-items: center; }
+.otile-ring .bigbang { position: absolute; inset: 0; width: 100%; }
+.otile-glyph .glyph { width: calc(var(--S) * .045); height: calc(var(--S) * .045); }
+.otile .tile-title { font-size: clamp(10px, calc(var(--S) * .02), 13px); }
+.otile .tile-big { font-size: clamp(10px, calc(var(--S) * .019), 12px); }
+.otile.level-1 .tile-title, .otile.level-1 .tile-big { color: var(--leve); }
+.otile.level-2 .tile-title, .otile.level-2 .tile-big { color: var(--grave); }
+.otile.has-alert .otile-ring { animation: tile-call 1.6s ease-in-out infinite; }
+.otile.level-2 .otile-ring { animation-duration: .9s; }
+
+/* ─── Capas: un solo objeto, un sistema por capa ───────── */
+.board-stage { position: absolute; inset: 0; }
+.board-stage .obj, .board-stage[data-zoom="alert"] .obj { --zoom: 1.1; }
+.board-stage .obj .depth { --o-back-opacity: .6; }
+.board-stage .face-label { max-width: 150px; }
+
+@media (prefers-reduced-motion: reduce) { .hub.beat .hub-ring, .otile.has-alert .otile-ring, .slide { animation: none; } }
+.board.mode-capas .ticker { justify-self: center; }

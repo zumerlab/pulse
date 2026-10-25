@@ -1,0 +1,149 @@
+/* Estilo Grafito del recetario. */
+:root {
+  color-scheme: dark;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --bg: #0e1013;
+  --ink: #f2f3f5;
+  --muted: #9aa0a8;
+  --dim: #3a3f47;
+  --line: #262a31;
+  --leve: #ffb020;
+  --grave: #ff5a4f;
+  background: var(--bg);
+  color: var(--ink);
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); }
+h1, p { margin: 0; }
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+[hidden] { display: none !important; }
+
+.shell { position: relative; height: 100dvh; overflow: hidden; }
+.zumly-canvas { background: var(--bg); }
+.z-view { width: 100%; height: 100%; background: var(--bg); }
+
+.eyebrow { font-size: 11px; letter-spacing: 1.8px; font-weight: 650; color: var(--muted); }
+.plain, .primary { min-height: 44px; padding: 10px 16px; border-radius: 8px; border: 1px solid var(--dim); background: transparent; cursor: pointer; }
+.plain:hover { border-color: var(--muted); }
+.primary { background: var(--ink); color: var(--bg); border-color: var(--ink); font-weight: 650; margin-left: 10px; }
+
+/* ─── Tablero ─────────────────────────────────────────── */
+.board { height: 100%; display: grid; align-content: center; justify-items: center; gap: 36px; padding: 24px 16px; }
+.board-head { text-align: center; display: grid; gap: 10px; }
+.board-head h1 { font-size: clamp(22px, 3vw, 32px); font-weight: 550; letter-spacing: -.6px; }
+.tiles { display: flex; flex-wrap: wrap; justify-content: center; gap: 22px; }
+.tile { position: relative; width: 120px; height: 140px; padding: 0; border: 0; background: none; display: grid; justify-items: center; align-content: start; gap: 10px; }
+.mini-glyph { position: absolute; top: 29px; }
+.tile-title { font-size: 13px; color: var(--muted); }
+.tile.has-alert .tile-title { color: var(--grave); }
+
+/* ─── Anillos (Orbit) ────────────────────────────────── */
+/* El universo mide lo que su caja: el anillo de orbit-12 toca el borde. */
+.mini-ring { width: 84px; }
+.glyph { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.arc-label { --o-fill: transparent; --o-color: var(--muted); letter-spacing: .08em; }
+.ring-hit { --o-fill: transparent; }
+.ring-hit:hover, .ring-hit:focus-visible { --o-fill: rgba(255, 255, 255, .08); outline: none; }
+
+/* ─── Sistema ─────────────────────────────────────────── */
+.system { height: 100%; display: grid; grid-template-rows: 1fr auto auto; justify-items: center; padding: 16px; gap: 14px; }
+.stage { position: relative; width: 100%; overflow: hidden; perspective: 900px; }
+.obj {
+  position: absolute; inset: 0; display: grid; place-items: center;
+  transform-style: preserve-3d;
+  /* El contenedor 3D no recibe clics (§11.8): los satélites y los arcos
+     interactive traen los suyos. */
+  pointer-events: none;
+  transform: scale(var(--zoom, 1.2)) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
+  transition: transform .8s cubic-bezier(.2,.8,.2,1);
+}
+.stage[data-zoom="alert"] .obj { --zoom: 1.7; }
+.obj > .bigbang { width: 240px; }
+.obj .depth {
+  --o-perspective: 900;             /* la misma que .stage */
+  --o-depth-grow: .42;
+  --o-back-opacity: .55;
+}
+.obj .depth.is-flat { --o-depth-step: 0; }
+.stage.is-locked .ring-hit { pointer-events: none; }
+.layer.is-alert[data-level="2"] .arc-label { --o-color: var(--grave); }
+.layer.is-alert[data-level="1"] .arc-label { --o-color: var(--leve); }
+
+.disc {
+  position: relative; width: 100%; height: 100%; border-radius: 50%;
+  display: grid; place-content: center; justify-items: center; gap: 4px;
+  background: rgba(255,255,255,.06); backdrop-filter: blur(6px); border: 0;
+  color: var(--ink); text-align: center;
+}
+.face-name { font-size: 12px; letter-spacing: 1.4px; text-transform: uppercase; color: var(--muted); }
+.face-big { font-size: 34px; font-weight: 600; letter-spacing: -1px; }
+.face-label { font-size: 13px; color: var(--muted); }
+.layer.is-alert[data-level="2"] .face-big { color: var(--grave); }
+.layer.is-alert[data-level="1"] .face-big { color: var(--leve); }
+
+/* Onda: sale del disco del aviso de adelante. */
+.layer-front.is-alert .disc::after {
+  content: ""; position: absolute; inset: -14px; border-radius: 50%;
+  border: 2px solid var(--grave); pointer-events: none; animation: wave .9s ease-out infinite;
+}
+.layer-front.is-alert[data-level="1"] .disc::after { border-color: var(--leve); animation-duration: 1.6s; }
+@keyframes wave { from { transform: scale(1); opacity: .8; } to { transform: scale(1.35); opacity: 0; } }
+
+.strip { min-height: 44px; display: flex; align-items: center; flex-wrap: wrap; justify-content: center; gap: 6px; color: var(--muted); text-align: center; }
+.strip strong { color: var(--ink); }
+.controls { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; padding-bottom: 56px; }
+
+/* ─── Detalle ─────────────────────────────────────────── */
+.detail { height: 100%; max-width: 520px; margin: 0 auto; display: grid; align-content: center; gap: 14px; padding: 24px 16px; }
+.detail h1 { display: flex; align-items: center; gap: 12px; font-size: 30px; font-weight: 550; }
+.detail-big { font-size: 64px; font-weight: 600; letter-spacing: -2px; }
+.detail-label, .hint { color: var(--muted); }
+.detail-why { color: var(--grave); }
+.slider { display: grid; gap: 8px; color: var(--muted); }
+.slider input { width: 100%; accent-color: var(--ink); }
+.segments { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+.segments li { padding: 10px 14px; border: 1px solid var(--dim); border-radius: 8px; color: var(--muted); }
+.segments li.on { color: var(--ink); border-color: var(--muted); }
+.segments li.fail { color: var(--grave); border-color: var(--grave); }
+
+@media (prefers-reduced-motion: reduce) {
+  .obj { transition: none; }
+  .disc::after { animation: none; }
+}
+
+
+/* ─── Controles directos ───────────────────────────────── */
+.dial { touch-action: none; cursor: grab; outline: none; }
+.dial:active { cursor: grabbing; }
+.knob { background: var(--ink); border-radius: 50%; pointer-events: none; box-shadow: 0 0 0 3px var(--bg); }
+.layer:has(.dial:focus-visible) .knob { box-shadow: 0 0 0 3px var(--bg), 0 0 0 5px var(--ink); }
+.toggle { cursor: pointer; outline: none; }
+.toggle:focus-visible { filter: drop-shadow(0 0 3px var(--ink)); }
+.how { flex-basis: 100%; font-size: 12px; color: var(--muted); }
+.switches { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+.switches label { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 14px; border: 1px solid var(--dim); border-radius: 8px; cursor: pointer; }
+.switches input { width: 18px; height: 18px; accent-color: var(--ink); }
+
+/* ─── Celular ──────────────────────────────────────────── */
+.dots { display: flex; justify-content: center; gap: 10px; }
+.dot { width: 34px; height: 34px; padding: 6px; border: 0; border-radius: 50%; background: none; cursor: pointer; opacity: .45; }
+.dot[aria-current] { opacity: 1; background: rgba(255,255,255,.06); }
+.dot .bigbang { width: 22px; }
+.dot.has-alert { opacity: 1; animation: dot-call 1.6s ease-in-out infinite; }
+.dot.level-2 { animation-duration: .9s; }
+@keyframes dot-call { 50% { transform: scale(1.18); } }
+@media (max-width: 600px) {
+  .tiles { flex-wrap: nowrap; gap: 6px; }
+  .tile { width: 64px; height: 96px; gap: 6px; }
+  .mini-ring { width: 56px; }
+  .mini-glyph { top: 19px; }
+  .mini-glyph svg { width: 20px; height: 20px; }
+  .tile-title { font-size: 11px; }
+  .controls { padding-bottom: 8px; }
+  .system { gap: 10px; padding-bottom: 64px; }
+  /* Con dos capas y menos crecimiento, 1,1× deja entrar el anillo de atrás. */
+  .obj { --zoom: 1.1; }
+}
+@media (prefers-reduced-motion: reduce) { .dot.has-alert { animation: none; } }

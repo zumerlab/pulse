@@ -1,0 +1,49 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev"
+      ],
+      "port": 5173
+    },
+    {
+      "name": "orbit-demo",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "/Users/martin/GitHub/zumerlab/orbit/scripts/demo.mjs"
+      ],
+      "port": 5174
+    },
+    {
+      "name": "orbit-docs",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "/Users/martin/GitHub/zumerlab/docs",
+        "run",
+        "dev",
+        "--",
+        "--port",
+        "4321"
+      ],
+      "port": 4321
+    },
+    {
+      "name": "proto",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "vite",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "5180",
+        "--force"
+      ],
+      "port": 5180
+    }
+  ]
+}
