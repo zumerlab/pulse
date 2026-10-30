@@ -23,16 +23,16 @@ export function readBody(request: IncomingMessage): Promise<Record<string, unkno
         const value: unknown = JSON.parse(body);
         if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error();
         resolve(value as Record<string, unknown>);
-      } catch { reject(new Error('Solicitud inválida.')); }
+      } catch { reject(new Error('Invalid request.')); }
     };
     const onData = (chunk: Buffer) => {
       bytes += chunk.length;
-      if (bytes > 2048) { finish(new Error('Solicitud demasiado grande.')); return; }
+      if (bytes > 2048) { finish(new Error('Request too large.')); return; }
       body += chunk.toString('utf8');
     };
     const onEnd = () => finish();
-    const onError = () => finish(new Error('Solicitud interrumpida.'));
-    const timer = setTimeout(() => finish(new Error('Solicitud incompleta.')), 5000);
+    const onError = () => finish(new Error('Request interrupted.'));
+    const timer = setTimeout(() => finish(new Error('Incomplete request.')), 5000);
     request.on('data', onData).once('end', onEnd).once('error', onError).once('aborted', onError);
   });
 }

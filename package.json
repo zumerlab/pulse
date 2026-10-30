@@ -11,10 +11,13 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --host 127.0.0.1",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "playwright test",
+    "test:ui": "playwright test --ui"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
+    "@playwright/test": "1.63.0",
     "@types/node": "22.20.4",
     "@zumer/orbit": "^2.1.0",
     "eslint": "10.11.0",

@@ -1,4 +1,4 @@
-/* Estilo Grafito del recetario. */
+/* The Graphite style from the cookbook. */
 :root {
   color-scheme: dark;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -7,8 +7,8 @@
   --muted: #9aa0a8;
   --dim: #3a3f47;
   --line: #262a31;
-  --leve: #ffb020;
-  --grave: #ff5a4f;
+  --minor: #ffb020;      /* level 1 alert */
+  --critical: #ff5a4f;   /* level 2 alert */
   background: var(--bg);
   color: var(--ink);
 }
@@ -29,7 +29,7 @@ button { font: inherit; color: inherit; }
 .plain:hover { border-color: var(--muted); }
 .primary { background: var(--ink); color: var(--bg); border-color: var(--ink); font-weight: 650; margin-left: 10px; }
 
-/* ─── Tablero ─────────────────────────────────────────── */
+/* ─── Board ───────────────────────────────────────────── */
 .board { height: 100%; display: grid; align-content: center; justify-items: center; gap: 36px; padding: 24px 16px; }
 .board-head { text-align: center; display: grid; gap: 10px; }
 .board-head h1 { font-size: clamp(22px, 3vw, 32px); font-weight: 550; letter-spacing: -.6px; }
@@ -37,24 +37,24 @@ button { font: inherit; color: inherit; }
 .tile { position: relative; width: 120px; height: 140px; padding: 0; border: 0; background: none; display: grid; justify-items: center; align-content: start; gap: 10px; }
 .mini-glyph { position: absolute; top: 29px; }
 .tile-title { font-size: 13px; color: var(--muted); }
-.tile.has-alert .tile-title { color: var(--grave); }
+.tile.has-alert .tile-title { color: var(--critical); }
 
-/* ─── Anillos (Orbit) ────────────────────────────────── */
-/* El universo mide lo que su caja: el anillo de orbit-12 toca el borde. */
+/* ─── Rings (Orbit) ───────────────────────────────────── */
+/* The universe measures its box: the orbit-12 ring touches the edge. */
 .mini-ring { width: 84px; }
 .glyph { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .arc-label { --o-fill: transparent; --o-color: var(--muted); }
 .ring-hit { --o-fill: transparent; }
 .ring-hit:hover, .ring-hit:focus-visible { --o-fill: rgba(255, 255, 255, .08); outline: none; }
 
-/* ─── Sistema ─────────────────────────────────────────── */
+/* ─── System ──────────────────────────────────────────── */
 .system { height: 100%; display: grid; grid-template-rows: 1fr auto auto; justify-items: center; padding: 16px; gap: 14px; }
 .stage { position: relative; width: 100%; overflow: hidden; perspective: 900px; }
 .obj {
   position: absolute; inset: 0; display: grid; place-items: center;
   transform-style: preserve-3d;
-  /* El contenedor 3D no recibe clics (§11.8): los satélites y los arcos
-     interactive traen los suyos. */
+  /* The 3D container takes no clicks (cookbook §11.8): the satellites and the
+     interactive arcs bring their own. */
   pointer-events: none;
   transform: scale(var(--zoom, 1.2)) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
   transition: transform .8s cubic-bezier(.2,.8,.2,1);
@@ -62,14 +62,14 @@ button { font: inherit; color: inherit; }
 .stage[data-zoom="alert"] .obj { --zoom: 1.7; }
 .obj > .bigbang { width: 240px; }
 .obj .depth {
-  --o-perspective: 900;             /* la misma que .stage */
+  --o-perspective: 900;             /* the same as .stage */
   --o-depth-grow: .42;
   --o-back-opacity: .55;
 }
 .obj .depth.is-flat { --o-depth-step: 0; }
 .stage.is-locked .ring-hit { pointer-events: none; }
-.layer.is-alert[data-level="2"] .arc-label { --o-color: var(--grave); }
-.layer.is-alert[data-level="1"] .arc-label { --o-color: var(--leve); }
+.layer.is-alert[data-level="2"] .arc-label { --o-color: var(--critical); }
+.layer.is-alert[data-level="1"] .arc-label { --o-color: var(--minor); }
 
 .disc {
   position: relative; width: 100%; height: 100%; border-radius: 50%;
@@ -80,35 +80,35 @@ button { font: inherit; color: inherit; }
 .face-name { font-size: 15px; color: var(--muted); }
 .face-big { font-size: 34px; font-weight: 600; letter-spacing: -1px; }
 .face-label { font-size: 13px; color: var(--muted); }
-.layer.is-alert[data-level="2"] .face-big { color: var(--grave); }
-.layer.is-alert[data-level="1"] .face-big { color: var(--leve); }
+.layer.is-alert[data-level="2"] .face-big { color: var(--critical); }
+.layer.is-alert[data-level="1"] .face-big { color: var(--minor); }
 
-/* Onda: sale del disco del aviso de adelante. */
+/* Wave: comes out of the disc of the front alert. */
 .layer-front.is-alert .disc::after {
   content: ""; position: absolute; inset: -14px; border-radius: 50%;
-  border: 2px solid var(--grave); pointer-events: none; animation: wave .9s ease-out infinite;
+  border: 2px solid var(--critical); pointer-events: none; animation: wave .9s ease-out infinite;
 }
-.layer-front.is-alert[data-level="1"] .disc::after { border-color: var(--leve); animation-duration: 1.6s; }
+.layer-front.is-alert[data-level="1"] .disc::after { border-color: var(--minor); animation-duration: 1.6s; }
 @keyframes wave { from { transform: scale(1); opacity: .8; } to { transform: scale(1.35); opacity: 0; } }
-/* Si la falla es un segmento, la onda sale de él (o-arc.ripple de Orbit), no del disco. */
+/* When the failure is a segment, the wave comes out of it (Orbit's o-arc.ripple), not of the disc. */
 .layer-front.is-alert:has(o-arc.ripple) .disc::after { display: none; }
 
 .strip { min-height: 44px; display: flex; align-items: center; flex-wrap: wrap; justify-content: center; gap: 6px; color: var(--muted); text-align: center; }
 .strip strong { color: var(--ink); }
 .controls { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; padding-bottom: 56px; }
 
-/* ─── Detalle ─────────────────────────────────────────── */
+/* ─── Detail ──────────────────────────────────────────── */
 .detail { height: 100%; max-width: 520px; margin: 0 auto; display: grid; align-content: center; gap: 14px; padding: 24px 16px; }
 .detail h1 { display: flex; align-items: center; gap: 12px; font-size: 30px; font-weight: 550; }
 .detail-big { font-size: 64px; font-weight: 600; letter-spacing: -2px; }
 .detail-label, .hint { color: var(--muted); }
-.detail-why { color: var(--grave); }
+.detail-why { color: var(--critical); }
 .slider { display: grid; gap: 8px; color: var(--muted); }
 .slider input { width: 100%; accent-color: var(--ink); }
 .segments { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
 .segments li { padding: 10px 14px; border: 1px solid var(--dim); border-radius: 8px; color: var(--muted); }
 .segments li.on { color: var(--ink); border-color: var(--muted); }
-.segments li.fail { color: var(--grave); border-color: var(--grave); }
+.segments li.fail { color: var(--critical); border-color: var(--critical); }
 
 @media (prefers-reduced-motion: reduce) {
   .obj { transition: none; }
@@ -116,7 +116,7 @@ button { font: inherit; color: inherit; }
 }
 
 
-/* ─── Controles directos ───────────────────────────────── */
+/* ─── Direct controls ─────────────────────────────────── */
 .dial { touch-action: none; cursor: grab; outline: none; }
 .dial:active { cursor: grabbing; }
 .knob { background: var(--ink); border-radius: 50%; pointer-events: none; box-shadow: 0 0 0 3px var(--bg); }
@@ -128,7 +128,7 @@ button { font: inherit; color: inherit; }
 .switches label { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 14px; border: 1px solid var(--dim); border-radius: 8px; cursor: pointer; }
 .switches input { width: 18px; height: 18px; accent-color: var(--ink); }
 
-/* ─── Celular ──────────────────────────────────────────── */
+/* ─── Phone ───────────────────────────────────────────── */
 .dots { display: flex; justify-content: center; gap: 10px; }
 .dot { width: 34px; height: 34px; padding: 6px; border: 0; border-radius: 50%; background: none; cursor: pointer; opacity: .45; }
 .dot[aria-current] { opacity: 1; background: rgba(255,255,255,.06); }
@@ -145,7 +145,7 @@ button { font: inherit; color: inherit; }
   .tile-title { font-size: 11px; }
   .controls { padding-bottom: 8px; }
   .system { gap: 10px; padding-bottom: 64px; }
-  /* Con dos capas y menos crecimiento, 1,1× deja entrar el anillo de atrás. */
+  /* With two layers and less growth, 1.1× lets the ring behind fit. */
   .obj { --zoom: 1.1; }
 }
 @media (prefers-reduced-motion: reduce) { .dot.has-alert { animation: none; } }

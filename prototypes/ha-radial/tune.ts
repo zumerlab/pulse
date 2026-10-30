@@ -1,6 +1,8 @@
-// Ajuste en vivo de la órbita y las capas del tablero, solo en desarrollo
-// (`npm run dev`). Los valores se guardan en el navegador; "Copiar" deja en el
-// portapapeles los que hay que pasar al código cuando uno convence.
+// Live tuning of the board's orbit and layers, development only (`npm run dev`).
+// The values are kept in the browser; "Copy" puts on the clipboard the ones to
+// carry into the code once they convince.
+
+import { t } from '../shared/i18n.ts';
 
 export type Tune = {
   orbit: number; tile: number; align: number; hub: number; orbitStep: number;
@@ -8,7 +10,7 @@ export type Tune = {
   tilt: number;
 };
 
-// Los valores que usa el código hoy.
+// The values the code uses today.
 export const DEFAULTS: Tune = {
   orbit: 10, tile: 3.5, align: 20, hub: 11, orbitStep: -110,
   layerGrow: 0.16, layerStep: -70, layerZoom: 1.1, layerOpacity: 0.6,
@@ -17,30 +19,30 @@ export const DEFAULTS: Tune = {
 
 type Control = { key: keyof Tune; label: string; min: number; max: number; step: number; unit?: string };
 const GROUPS: [string, Control[]][] = [
-  ['Órbita', [
-    { key: 'orbit', label: 'Órbita de los sistemas', min: 6, max: 12, step: 1 },
-    { key: 'tile', label: 'Anillo de cada sistema (carriles)', min: 2, max: 5, step: 0.1 },
-    { key: 'align', label: 'Corrimiento hacia adentro', min: 0, max: 60, step: 1, unit: 'px' },
-    { key: 'hub', label: 'Pulso del centro (carriles)', min: 6, max: 14, step: 0.5 },
-    { key: 'orbitStep', label: 'Distancia de los sistemas atrás', min: -250, max: 0, step: 5, unit: 'px' },
+  ['Orbit', [
+    { key: 'orbit', label: 'Systems orbit', min: 6, max: 12, step: 1 },
+    { key: 'tile', label: 'Ring of each system (lanes)', min: 2, max: 5, step: 0.1 },
+    { key: 'align', label: 'Inward offset', min: 0, max: 60, step: 1, unit: 'px' },
+    { key: 'hub', label: 'Center pulse (lanes)', min: 6, max: 14, step: 0.5 },
+    { key: 'orbitStep', label: 'Distance of the systems behind', min: -250, max: 0, step: 5, unit: 'px' },
   ]],
-  ['Capas', [
-    { key: 'layerGrow', label: 'Crecimiento por capa', min: 0, max: 0.42, step: 0.01 },
-    { key: 'layerStep', label: 'Distancia entre capas', min: -150, max: 0, step: 5, unit: 'px' },
-    { key: 'layerZoom', label: 'Zoom del objeto', min: 0.7, max: 1.5, step: 0.05 },
-    { key: 'layerOpacity', label: 'Opacidad de las capas de atrás', min: 0.2, max: 1, step: 0.05 },
+  ['Layers', [
+    { key: 'layerGrow', label: 'Growth per layer', min: 0, max: 0.42, step: 0.01 },
+    { key: 'layerStep', label: 'Distance between layers', min: -150, max: 0, step: 5, unit: 'px' },
+    { key: 'layerZoom', label: 'Object zoom', min: 0.7, max: 1.5, step: 0.05 },
+    { key: 'layerOpacity', label: 'Opacity of the layers behind', min: 0.2, max: 1, step: 0.05 },
   ]],
   ['3D', [
-    { key: 'tilt', label: 'Inclinación máxima', min: 0, max: 20, step: 1, unit: '°' },
+    { key: 'tilt', label: 'Maximum tilt', min: 0, max: 20, step: 1, unit: '°' },
   ]],
 ];
 
 const KEY = 'pulse-ha-tune';
 export const tune: Tune = { ...DEFAULTS };
-try { Object.assign(tune, JSON.parse(localStorage.getItem(KEY) ?? '{}')); } catch { /* sin almacenamiento: valores del código */ }
+try { Object.assign(tune, JSON.parse(localStorage.getItem(KEY) ?? '{}')); } catch { /* no storage: code values */ }
 
-// Lo que es CSS va en variables de la raíz; lo que cambia el marcado (la órbita,
-// el crecimiento de las capas) pide redibujar el tablero.
+// What is CSS goes into root variables; what changes the markup (the orbit,
+// the growth of the layers) asks the board to redraw.
 function apply() {
   const s = document.documentElement.style;
   s.setProperty('--t-tile', String(tune.tile));
@@ -59,11 +61,11 @@ export function mountTunePanel() {
   if (!import.meta.env.DEV) return;
   const panel = document.createElement('details');
   panel.className = 'tune';
-  panel.innerHTML = `<summary>Ajustes</summary>${GROUPS.map(([title, controls]) => `<fieldset><legend>${title}</legend>${
+  panel.innerHTML = `<summary>${t.tuning}</summary>${GROUPS.map(([title, controls]) => `<fieldset><legend>${title}</legend>${
     controls.map((c) => `<label><span>${c.label}</span><output data-out="${c.key}"></output>
       <input type="range" data-key="${c.key}" min="${c.min}" max="${c.max}" step="${c.step}"></label>`).join('')}</fieldset>`).join('')}
-    <div class="tune-actions"><button type="button" class="plain" data-tune="copy">Copiar</button><button type="button" class="plain" data-tune="reset">Volver a los del código</button></div>`;
-  // Los gestos sobre el panel no son de Zumly.
+    <div class="tune-actions"><button type="button" class="plain" data-tune="copy">${t.copy}</button><button type="button" class="plain" data-tune="reset">${t.resetTuning}</button></div>`;
+  // Gestures over the panel are not Zumly's.
   panel.dataset.noSwipe = '';
   for (const type of ['wheel', 'keydown', 'mouseup', 'touchend', 'click']) panel.addEventListener(type, (e) => e.stopPropagation());
   document.body.append(panel);
@@ -78,7 +80,7 @@ export function mountTunePanel() {
     }
   };
   const changed = () => {
-    try { localStorage.setItem(KEY, JSON.stringify(tune)); } catch { /* solo para recordar */ }
+    try { localStorage.setItem(KEY, JSON.stringify(tune)); } catch { /* only to remember */ }
     apply();
     sync();
     window.dispatchEvent(new Event('pulse-tune'));
@@ -97,8 +99,8 @@ export function mountTunePanel() {
       const text = controls.map((c) => `${c.label}: ${fmt(c, tune[c.key])}`).join('\n');
       void navigator.clipboard?.writeText(text);
       const btn = e.target as HTMLElement;
-      btn.textContent = 'Copiado';
-      setTimeout(() => { btn.textContent = 'Copiar'; }, 1200);
+      btn.textContent = t.copied;
+      setTimeout(() => { btn.textContent = t.copy; }, 1200);
     }
   });
   sync();

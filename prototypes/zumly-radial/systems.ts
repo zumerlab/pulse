@@ -1,12 +1,17 @@
+// Demo data for the prototype with simulated readings. A system is plain data:
+// 2 to 4 channels that compete for attention, ordered front to back, each with
+// a normal state and an alert state. The texts are English; another language
+// would be another file with the same shape.
+
 export type Channel = {
   name: string;
-  glyph: string;
-  type: 'p' | 's';
+  glyph: string;             // SVG path, 24×24
+  type: 'p' | 's';           // 'p' progress (0..1) · 's' segments (2..8)
   segs?: number;
-  level: 1 | 2;
-  // Controles directos desde el objeto. dial: el anillo de adelante se
-  // arrastra y fija un valor de min a max. toggles: un nombre por segmento,
-  // cada uno se prende o se apaga con un toque.
+  level: 1 | 2;              // 1 minor · 2 critical
+  // Direct controls on the object. dial: the front ring is dragged and sets a
+  // value from min to max. toggles: one name per segment, each one switched
+  // on or off with a tap.
   dial?: { min: number; max: number; step: number; unit: string; label: string };
   toggles?: string[];
   ok: { v?: number; on?: number; big: string; label: string };
@@ -25,70 +30,70 @@ const disk = 'M4 6h16v5H4z M4 13h16v5H4z M7 8.5h.01 M7 15.5h.01';
 const paw = 'M8 10a2 2 0 1 0 0-4 2 2 0 0 0 0 4z M16 10a2 2 0 1 0 0-4 2 2 0 0 0 0 4z M12 20c-3 0-5-2-5-4s2-4 5-4 5 2 5 4-2 4-5 4z';
 
 export const systems: Record<string, PulseSystem> = {
-  casa: {
-    title: 'Casa', front: ['clima', 'luces', 'sec', 'cam'],
+  home: {
+    title: 'Home', front: ['climate', 'lights', 'security', 'cameras'],
     ch: {
-      clima: { name: 'Clima', glyph: drop, type: 'p', level: 1,
-        dial: { min: 16, max: 30, step: 0.5, unit: '°', label: 'objetivo' },
-        ok: { v: 0.5, big: '21,5°', label: 'objetivo 23°' },
-        al: { v: 0.95, big: '28°', label: 'rinde 30% menos', why: 'El filtro del aire está sucio', verb: 'Pedir filtro' } },
-      luces: { name: 'Luces', glyph: bulb, type: 's', segs: 5, level: 1,
-        toggles: ['Living', 'Cocina', 'Dormitorio', 'Baño', 'Patio'],
-        ok: { on: 2, big: '2 de 5', label: 'living y cocina' },
-        al: { on: 5, seg: 4, big: 'Patio', label: 'encendida de día', why: 'Quedó prendida desde anoche', verb: 'Apagar' } },
-      sec: { name: 'Seguridad', glyph: shield, type: 's', segs: 6, level: 2,
-        ok: { on: 6, big: 'Cerrada', label: '6 de 6 aberturas' },
-        al: { on: 6, seg: 3, big: 'Abierta', label: 'ventana del baño', why: 'Se abrió con la alarma armada', verb: 'Ya la cerré' } },
-      cam: { name: 'Cámaras', glyph: cam, type: 's', segs: 3, level: 2,
-        ok: { on: 3, big: 'Sin movimiento', label: '3 cámaras' },
-        al: { on: 3, seg: 1, big: 'Movimiento', label: 'patio', why: 'Alguien en el patio', verb: 'Ver cámara' } },
+      climate: { name: 'Climate', glyph: drop, type: 'p', level: 1,
+        dial: { min: 16, max: 30, step: 0.5, unit: '°', label: 'target' },
+        ok: { v: 0.5, big: '21.5°', label: 'target 23°' },
+        al: { v: 0.95, big: '28°', label: '30% less efficient', why: 'The air filter is dirty', verb: 'Order a filter' } },
+      lights: { name: 'Lights', glyph: bulb, type: 's', segs: 5, level: 1,
+        toggles: ['Living room', 'Kitchen', 'Bedroom', 'Bathroom', 'Backyard'],
+        ok: { on: 2, big: '2 of 5', label: 'living room and kitchen' },
+        al: { on: 5, seg: 4, big: 'Backyard', label: 'on in daylight', why: 'Left on since last night', verb: 'Turn off' } },
+      security: { name: 'Security', glyph: shield, type: 's', segs: 6, level: 2,
+        ok: { on: 6, big: 'Closed', label: '6 of 6 openings' },
+        al: { on: 6, seg: 3, big: 'Open', label: 'bathroom window', why: 'Opened with the alarm armed', verb: 'I closed it' } },
+      cameras: { name: 'Cameras', glyph: cam, type: 's', segs: 3, level: 2,
+        ok: { on: 3, big: 'No motion', label: '3 cameras' },
+        al: { on: 3, seg: 1, big: 'Motion', label: 'backyard', why: 'Someone in the backyard', verb: 'View camera' } },
     },
   },
-  auto: {
-    title: 'Auto', front: ['bat', 'cubiertas'],
+  car: {
+    title: 'Car', front: ['battery', 'tires'],
     ch: {
-      bat: { name: 'Batería', glyph: bolt, type: 'p', level: 1,
+      battery: { name: 'Battery', glyph: bolt, type: 'p', level: 1,
         ok: { v: 0.74, big: '74%', label: '310 km' },
-        al: { v: 0.12, big: '12%', label: '45 km', why: 'Carga baja para el viaje de mañana', verb: 'Programar carga' } },
-      cubiertas: { name: 'Cubiertas', glyph: disk, type: 's', segs: 4, level: 2,
-        ok: { on: 4, big: '32 psi', label: '4 de 4' },
-        al: { on: 4, seg: 2, big: '21 psi', label: 'trasera izquierda', why: 'Pierde presión', verb: 'Buscar gomería' } },
+        al: { v: 0.12, big: '12%', label: '45 km', why: 'Not enough charge for tomorrow’s trip', verb: 'Schedule charging' } },
+      tires: { name: 'Tires', glyph: disk, type: 's', segs: 4, level: 2,
+        ok: { on: 4, big: '32 psi', label: '4 of 4' },
+        al: { on: 4, seg: 2, big: '21 psi', label: 'rear left', why: 'Losing pressure', verb: 'Find a tire shop' } },
     },
   },
-  mascota: {
-    title: 'Mascota', front: ['comida', 'paseo'],
+  pet: {
+    title: 'Pet', front: ['food', 'walks'],
     ch: {
-      comida: { name: 'Comida', glyph: paw, type: 'p', level: 1,
-        ok: { v: 0.6, big: '60%', label: 'dispensador' },
-        al: { v: 0.08, big: '8%', label: 'queda 1 ración', why: 'El dispensador está casi vacío', verb: 'Recargar' } },
-      paseo: { name: 'Paseo', glyph: paw, type: 's', segs: 3, level: 1,
-        ok: { on: 2, big: '2 de 3', label: 'hoy' },
-        al: { on: 1, seg: 1, big: '1 de 3', label: 'hoy', why: 'Faltan paseos', verb: 'Agendar' } },
+      food: { name: 'Food', glyph: paw, type: 'p', level: 1,
+        ok: { v: 0.6, big: '60%', label: 'dispenser' },
+        al: { v: 0.08, big: '8%', label: '1 serving left', why: 'The dispenser is almost empty', verb: 'Refill' } },
+      walks: { name: 'Walks', glyph: paw, type: 's', segs: 3, level: 1,
+        ok: { on: 2, big: '2 of 3', label: 'today' },
+        al: { on: 1, seg: 1, big: '1 of 3', label: 'today', why: 'Walks are overdue', verb: 'Schedule' } },
     },
   },
-  salud: {
-    title: 'Salud', front: ['pulso', 'sueno'],
+  health: {
+    title: 'Health', front: ['pulse', 'sleep'],
     ch: {
-      pulso: { name: 'Pulso', glyph: heart, type: 'p', level: 2,
-        ok: { v: 0.5, big: '68', label: 'en reposo' },
-        al: { v: 0.9, big: '118', label: 'en reposo', why: 'Pulso alto sin actividad', verb: 'Registrar' } },
-      sueno: { name: 'Sueño', glyph: heart, type: 'p', level: 1,
-        ok: { v: 0.88, big: '7 h', label: 'anoche' },
-        al: { v: 0.5, big: '4 h', label: 'anoche', why: 'Dormiste poco', verb: 'Recordatorio' } },
+      pulse: { name: 'Pulse', glyph: heart, type: 'p', level: 2,
+        ok: { v: 0.5, big: '68', label: 'resting' },
+        al: { v: 0.9, big: '118', label: 'resting', why: 'High pulse with no activity', verb: 'Log it' } },
+      sleep: { name: 'Sleep', glyph: heart, type: 'p', level: 1,
+        ok: { v: 0.88, big: '7 h', label: 'last night' },
+        al: { v: 0.5, big: '4 h', label: 'last night', why: 'You slept little', verb: 'Set a reminder' } },
     },
   },
-  servidor: {
-    title: 'Servidor', front: ['nodos', 'disco', 'red'],
+  server: {
+    title: 'Server', front: ['nodes', 'disk', 'network'],
     ch: {
-      nodos: { name: 'Nodos', glyph: disk, type: 's', segs: 4, level: 2,
-        ok: { on: 4, big: '4 de 4', label: 'en línea' },
-        al: { on: 4, seg: 3, big: '3 de 4', label: 'nodo-3 caído', why: 'nodo-3 no responde', verb: 'Reiniciar' } },
-      disco: { name: 'Disco', glyph: disk, type: 'p', level: 1,
-        ok: { v: 0.41, big: '41%', label: 'usado' },
-        al: { v: 0.93, big: '93%', label: 'usado', why: 'Los logs crecen rápido', verb: 'Rotar logs' } },
-      red: { name: 'Red', glyph: bolt, type: 'p', level: 1,
-        ok: { v: 0.3, big: '120 Mb/s', label: 'salida' },
-        al: { v: 0.97, big: '960 Mb/s', label: 'salida', why: 'Tráfico inusual', verb: 'Ver conexiones' } },
+      nodes: { name: 'Nodes', glyph: disk, type: 's', segs: 4, level: 2,
+        ok: { on: 4, big: '4 of 4', label: 'online' },
+        al: { on: 4, seg: 3, big: '3 of 4', label: 'node-3 down', why: 'node-3 is not responding', verb: 'Restart' } },
+      disk: { name: 'Disk', glyph: disk, type: 'p', level: 1,
+        ok: { v: 0.41, big: '41%', label: 'used' },
+        al: { v: 0.93, big: '93%', label: 'used', why: 'Logs are growing fast', verb: 'Rotate logs' } },
+      network: { name: 'Network', glyph: bolt, type: 'p', level: 1,
+        ok: { v: 0.3, big: '120 Mb/s', label: 'out' },
+        al: { v: 0.97, big: '960 Mb/s', label: 'out', why: 'Unusual traffic', verb: 'View connections' } },
     },
   },
 };

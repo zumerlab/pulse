@@ -1,9 +1,11 @@
 import type { Call, HassState, States } from './ha.ts';
+import { listOf, num } from '../shared/i18n.ts';
 
-// Cada canal se lee del estado vivo de Home Assistant: no hay estados "ok" y
-// "aviso" escritos a mano. El aviso sale de una regla sobre los datos y su
-// acción es una llamada real a un servicio. Si falta la entidad, el canal no
-// aparece (otra instalación de Home Assistant arma su propio objeto).
+// Every channel is read from Home Assistant's live state: there are no
+// hand-written "ok" and "alert" states. An alert comes out of a rule over the
+// data and its action is a real service call. If the entity is missing, the
+// channel does not appear (another Home Assistant installation builds its own
+// object).
 
 export type Seg = { label: string; on: boolean; entity: string; act?: Call };
 export type Dial = {
@@ -12,25 +14,25 @@ export type Dial = {
 };
 export type Alert = {
   level: 1 | 2; big: string; label: string; why: string;
-  verb: string; calls: Call[];      // sin llamadas, el verbo solo da el aviso por visto
-  busy?: boolean;                   // ya se está resolviendo: sin botón hasta que Home Assistant confirme
-  fail?: number[];                 // segmentos que se pintan con el color del aviso
+  verb: string; calls: Call[];      // without calls, the verb only marks the alert as seen
+  busy?: boolean;                   // already being resolved: no button until Home Assistant confirms
+  fail?: number[];                  // segments painted in the alert color
 };
 export type Reading = {
   kind: 'p' | 's';
-  v?: number;                       // progreso 0..1
+  v?: number;                       // progress 0..1
   segs?: Seg[];
   dial?: Dial;
   big: string; label: string;
   alert?: Alert;
-  entities: string[];               // de qué entidades depende (detalle y "enviando")
+  entities: string[];               // which entities it depends on (detail and "sending")
   camera?: string;
 };
 export type Channel = { key: string; name: string; glyph: string; read: (s: States, u: Units) => Reading | null };
 export type PulseSystem = { id: string; title: string; channels: Channel[] };
 export type Units = { temp: string };
 
-// Código de la alarma del demo de Home Assistant (manual, "1234").
+// Alarm code of the Home Assistant demo (manual, "1234").
 const ALARM_CODE = '1234';
 
 const g = {
@@ -57,42 +59,39 @@ const g = {
   robot: 'M5 12a7 7 0 0 1 14 0v4H5z M9 12h.01 M15 12h.01 M3 19h18',
 };
 
-// Nombres cortos en castellano para las entidades del demo; si no, el de HA.
+// Short names for the demo's entities; otherwise Home Assistant's friendly name.
 const short: Record<string, string> = {
-  'light.bed_light': 'Dormitorio', 'light.ceiling_lights': 'Techo', 'light.kitchen_lights': 'Cocina',
-  'light.office_rgbw_lights': 'Oficina', 'light.living_room_rgbww_lights': 'Living',
-  'light.entrance_color_white_lights': 'Entrada',
-  'switch.decorative_lights': 'Guirnaldas', 'switch.ac': 'Aire',
-  'lock.front_door': 'Puerta principal', 'lock.kitchen_door': 'Puerta cocina',
-  'lock.poorly_installed_door': 'Puerta mal instalada', 'lock.openable_lock': 'Cerradura',
-  'binary_sensor.movement_backyard': 'Movimiento patio', 'binary_sensor.basement_floor_wet': 'Agua sótano',
-  'cover.living_room_window': 'Ventana living', 'cover.hall_window': 'Ventana pasillo',
-  'cover.kitchen_window': 'Ventana cocina', 'cover.garage_door': 'Portón', 'cover.pergola_roof': 'Pérgola',
-  'valve.front_garden': 'Jardín frente', 'valve.back_garden': 'Jardín fondo', 'valve.orchard': 'Huerta',
-  'valve.trees': 'Árboles', 'media_player.bedroom': 'Dormitorio', 'media_player.kitchen': 'Cocina',
-  'media_player.living_room': 'Living', 'media_player.lounge_room': 'Tele', 'media_player.walkman': 'Walkman',
-  'siren.siren': 'Sirena', 'siren.siren_with_all_features': 'Sirena 2',
+  'light.bed_light': 'Bedroom', 'light.ceiling_lights': 'Ceiling', 'light.kitchen_lights': 'Kitchen',
+  'light.office_rgbw_lights': 'Office', 'light.living_room_rgbww_lights': 'Living room',
+  'light.entrance_color_white_lights': 'Entrance',
+  'switch.decorative_lights': 'Fairy lights', 'switch.ac': 'AC',
+  'lock.front_door': 'Front door', 'lock.kitchen_door': 'Kitchen door',
+  'lock.poorly_installed_door': 'Poorly installed door', 'lock.openable_lock': 'Lock',
+  'binary_sensor.movement_backyard': 'Backyard motion', 'binary_sensor.basement_floor_wet': 'Basement water',
+  'cover.living_room_window': 'Living room window', 'cover.hall_window': 'Hall window',
+  'cover.kitchen_window': 'Kitchen window', 'cover.garage_door': 'Garage door', 'cover.pergola_roof': 'Pergola',
+  'valve.front_garden': 'Front garden', 'valve.back_garden': 'Back garden', 'valve.orchard': 'Orchard',
+  'valve.trees': 'Trees', 'media_player.bedroom': 'Bedroom', 'media_player.kitchen': 'Kitchen',
+  'media_player.living_room': 'Living room', 'media_player.lounge_room': 'TV', 'media_player.walkman': 'Walkman',
+  'siren.siren': 'Siren', 'siren.siren_with_all_features': 'Siren 2',
 };
 
 export const nameOf = (s: States, id: string) => {
   const floor = /^vacuum\.demo_vacuum_(\d+)_/.exec(id)?.[1];
-  return short[id] ?? (floor ? `Aspiradora piso ${floor}` : s.get(id)?.attributes.friendly_name ?? id);
+  return short[id] ?? (floor ? `Floor ${floor} vacuum` : s.get(id)?.attributes.friendly_name ?? id);
 };
-const num = (n: number, d = 1) => n.toLocaleString('es-AR', { maximumFractionDigits: d });
 const clamp = (v: number) => Math.min(1, Math.max(0, v));
 const attr = (e: HassState, k: string) => e.attributes[k] as number | undefined;
 const ofDomain = (s: States, domain: string, only?: string[]) =>
   (only ?? [...s.keys()].filter((id) => id.startsWith(`${domain}.`)).sort()).filter((id) => s.has(id));
-const list = (names: string[]) => {
-  const low = names.map((n) => n.toLowerCase());
-  return low.length <= 1 ? (low[0] ?? '') : `${low.slice(0, -1).join(', ')} y ${low.at(-1)}`;
-};
+const list = (names: string[]) => listOf(names.map((n) => n.toLowerCase()));
 const call = (domain: string, service: string, entity_id: string | string[], data = {}): Call =>
   ({ domain, service, data: { entity_id, ...data } });
 const busy = (state: string) => /ing$/.test(state) && state !== 'playing';
+const cap = (t: string) => t.replace(/^./, (c) => c.toUpperCase());
 
-// Dial de temperatura de un termostato o calefón. Muestra la medida; el anillo
-// es el objetivo, que es lo que se cambia.
+// Temperature dial of a thermostat or water heater. It shows the measurement;
+// the ring is the target, which is what changes.
 function thermostat(id: string, domain: 'climate' | 'water_heater', label: (e: HassState) => string,
   alert?: (s: States, e: HassState) => Alert | undefined) {
   return (s: States, u: Units): Reading | null => {
@@ -102,7 +101,7 @@ function thermostat(id: string, domain: 'climate' | 'water_heater', label: (e: H
     const cur = attr(e, 'current_temperature');
     return {
       kind: 'p', v: clamp((t - min) / (max - min)), entities: [id],
-      dial: { min, max, step: attr(e, 'target_temp_step') ?? 1, unit: '°', label: 'objetivo', value: t, entity: id,
+      dial: { min, max, step: attr(e, 'target_temp_step') ?? 1, unit: '°', label: 'target', value: t, entity: id,
         set: (x) => call(domain, 'set_temperature', id, { temperature: x }) },
       big: cur != null ? `${num(cur)}${u.temp}` : `${num(t)}°`, label: label(e), alert: alert?.(s, e),
     };
@@ -110,20 +109,22 @@ function thermostat(id: string, domain: 'climate' | 'water_heater', label: (e: H
 }
 
 const hvacAction: Record<string, string> = {
-  heating: 'calentando', cooling: 'enfriando', idle: 'en espera', off: 'apagado', drying: 'secando', fan: 'ventilando',
+  heating: 'heating', cooling: 'cooling', idle: 'idle', off: 'off', drying: 'drying', fan: 'fan',
 };
 const hvacMode: Record<string, string> = {
-  off: 'apagado', heat: 'calor', cool: 'frío', heat_cool: 'auto', auto: 'auto', dry: 'seco', fan_only: 'ventilador',
+  off: 'off', heat: 'heat', cool: 'cool', heat_cool: 'auto', auto: 'auto', dry: 'dry', fan_only: 'fan only',
 };
-const coverState: Record<string, string> = { open: 'abierta', closed: 'cerrada', opening: 'abriendo…', closing: 'cerrando…' };
+const coverState: Record<string, string> = { open: 'open', closed: 'closed', opening: 'opening…', closing: 'closing…' };
 const alarmState: Record<string, string> = {
-  disarmed: 'Desarmada', armed_home: 'En casa', armed_away: 'Fuera', armed_night: 'Noche',
-  armed_vacation: 'Vacaciones', armed_custom_bypass: 'Personal', arming: 'Armando…', pending: 'Por sonar',
-  triggered: 'Disparada', disarming: 'Desarmando…',
+  disarmed: 'Disarmed', armed_home: 'Home', armed_away: 'Away', armed_night: 'Night',
+  armed_vacation: 'Vacation', armed_custom_bypass: 'Custom', arming: 'Arming…', pending: 'About to sound',
+  triggered: 'Triggered', disarming: 'Disarming…',
 };
 const armed = (s: States) => /^armed_/.test(s.get('alarm_control_panel.security')?.state ?? '');
+const thermoLabel = (e: HassState) =>
+  `target ${num(attr(e, 'temperature')!)}° · ${hvacAction[String(e.attributes.hvac_action)] ?? hvacMode[e.state] ?? e.state}`;
 
-// Segmentos de entidades que se prenden y se apagan con un toque.
+// Segments of entities switched on and off with a tap.
 function switches(ids: string[], s: States, isOn: (e: HassState) => boolean, act: (e: HassState) => Call | undefined): Seg[] {
   return ids.map((id) => { const e = s.get(id)!; return { label: nameOf(s, id), on: isOn(e), entity: id, act: act(e) }; });
 }
@@ -139,107 +140,105 @@ function coverDial(id: string) {
     const p = attr(e, 'current_position')!;
     return {
       kind: 'p', v: p / 100, entities: [id],
-      dial: { min: 0, max: 100, step: 10, unit: '%', label: 'abierta', value: p, entity: id,
+      dial: { min: 0, max: 100, step: 10, unit: '%', label: 'open', value: p, entity: id,
         set: (x) => call('cover', 'set_cover_position', id, { position: x }) },
-      big: p === 0 ? 'Cerrada' : `${p}%`, label: busy(e.state) ? coverState[e.state] : p === 0 ? 'del todo' : 'abierta',
+      big: p === 0 ? 'Closed' : `${p}%`, label: busy(e.state) ? coverState[e.state] : p === 0 ? 'all the way' : 'open',
     };
   };
 }
 
 export const systems: PulseSystem[] = [
-  { id: 'luces', title: 'Luces', channels: [
-    { key: 'luces', name: 'Luces', glyph: g.bulb, read: (s) => {
+  { id: 'lights', title: 'Lights', channels: [
+    { key: 'lights', name: 'Lights', glyph: g.bulb, read: (s) => {
       const ids = ofDomain(s, 'light');
       if (!ids.length) return null;
       const segs = switches(ids, s, (e) => e.state === 'on', (e) => call('light', 'toggle', e.entity_id));
       const on = segs.filter((x) => x.on);
-      return { kind: 's', segs, entities: ids, big: `${on.length} de ${segs.length}`,
-        label: on.length ? list(on.map((x) => x.label)) : 'todas apagadas' };
+      return { kind: 's', segs, entities: ids, big: `${on.length} of ${segs.length}`,
+        label: on.length ? list(on.map((x) => x.label)) : 'all off' };
     } },
-    { key: 'brillo', name: 'Brillo living', glyph: g.sun, read: (s) => {
+    { key: 'brightness', name: 'Living room brightness', glyph: g.sun, read: (s) => {
       const id = 'light.living_room_rgbww_lights', e = s.get(id);
       if (!e) return null;
       const pct = e.state === 'on' ? Math.round((attr(e, 'brightness') ?? 255) / 2.55) : 0;
-      return { kind: 'p', v: pct / 100, entities: [id], big: pct ? `${pct}%` : 'Apagada', label: 'living',
-        dial: { min: 0, max: 100, step: 5, unit: '%', label: 'brillo', value: pct, entity: id,
+      return { kind: 'p', v: pct / 100, entities: [id], big: pct ? `${pct}%` : 'Off', label: 'living room',
+        dial: { min: 0, max: 100, step: 5, unit: '%', label: 'brightness', value: pct, entity: id,
           set: (x) => x ? call('light', 'turn_on', id, { brightness_pct: x }) : call('light', 'turn_off', id) } };
     } },
-    { key: 'enchufes', name: 'Enchufes', glyph: g.plug, read: (s) => {
+    { key: 'plugs', name: 'Plugs', glyph: g.plug, read: (s) => {
       const ids = ofDomain(s, 'switch');
       if (!ids.length) return null;
       const segs = switches(ids, s, (e) => e.state === 'on', (e) => call('switch', 'toggle', e.entity_id));
       const on = segs.filter((x) => x.on);
-      return { kind: 's', segs, entities: ids, big: `${on.length} de ${segs.length}`,
-        label: on.length ? list(on.map((x) => x.label)) : 'todos apagados' };
+      return { kind: 's', segs, entities: ids, big: `${on.length} of ${segs.length}`,
+        label: on.length ? list(on.map((x) => x.label)) : 'all off' };
     } },
   ] },
 
-  { id: 'clima', title: 'Clima', channels: [
-    { key: 'calefaccion', name: 'Calefacción', glyph: g.flame,
-      read: thermostat('climate.heatpump', 'climate',
-        (e) => `objetivo ${num(attr(e, 'temperature')!)}° · ${hvacAction[String(e.attributes.hvac_action)] ?? hvacMode[e.state] ?? e.state}`,
-        // Regla entre entidades: calienta con ventanas abiertas.
+  { id: 'climate', title: 'Climate', channels: [
+    { key: 'heating', name: 'Heating', glyph: g.flame,
+      read: thermostat('climate.heatpump', 'climate', thermoLabel,
+        // Rule across entities: heating with the windows open.
         (s, e) => {
           const open = openWindows(s);
           if (e.attributes.hvac_action !== 'heating' || !open.length) return undefined;
           if (open.every((id) => s.get(id)!.state === 'closing')) {
-            return { level: 1, big: 'Cerrando', label: `${open.length} ventanas`, why: 'Se están cerrando las ventanas',
+            return { level: 1, big: 'Closing', label: `${open.length} windows`, why: 'The windows are closing',
               verb: '', calls: [], busy: true };
           }
-          return { level: 1, big: 'Ventanas', label: `${open.length} abiertas`,
-            why: `Calienta con ${list(open.map((id) => nameOf(s, id)))} abiertas`, verb: 'Cerrar ventanas',
+          return { level: 1, big: 'Windows', label: `${open.length} open`,
+            why: `Heating with ${list(open.map((id) => nameOf(s, id)))} open`, verb: 'Close windows',
             calls: [call('cover', 'close_cover', open)] };
         }) },
-    { key: 'aire', name: 'Aire', glyph: g.fan,
-      read: thermostat('climate.hvac', 'climate',
-        (e) => `objetivo ${num(attr(e, 'temperature')!)}° · ${hvacAction[String(e.attributes.hvac_action)] ?? hvacMode[e.state] ?? e.state}`) },
+    { key: 'ac', name: 'Air conditioning', glyph: g.fan, read: thermostat('climate.hvac', 'climate', thermoLabel) },
     { key: 'ecobee', name: 'Ecobee', glyph: g.thermo, read: (s, u) => {
       const id = 'climate.ecobee', e = s.get(id);
       if (!e || attr(e, 'current_temperature') == null) return null;
       const min = attr(e, 'min_temp') ?? 7, max = attr(e, 'max_temp') ?? 35, cur = attr(e, 'current_temperature')!;
       const lo = attr(e, 'target_temp_low'), hi = attr(e, 'target_temp_high');
       return { kind: 'p', v: clamp((cur - min) / (max - min)), entities: [id], big: `${num(cur)}${u.temp}`,
-        label: lo != null && hi != null ? `entre ${num(lo)}° y ${num(hi)}°` : hvacMode[e.state] ?? e.state };
+        label: lo != null && hi != null ? `between ${num(lo)}° and ${num(hi)}°` : hvacMode[e.state] ?? e.state };
     } },
-    { key: 'humedad', name: 'Humedad', glyph: g.drop, read: (s) => {
+    { key: 'humidity', name: 'Humidity', glyph: g.drop, read: (s) => {
+      // The first id is a simulated sensor of the local test installation.
       const id = ['sensor.humedad_simulada', 'sensor.outside_humidity'].find((x) => s.has(x));
       if (!id) return null;
       const h = Number(s.get(id)!.state), dry = 'humidifier.dehumidifier', dryOff = s.get(dry)?.state === 'off';
       return { kind: 'p', v: clamp(h / 100), entities: [id], big: `${num(h, 0)}%`, label: nameOf(s, id).toLowerCase(),
-        alert: h >= 70 ? { level: 1, big: `${num(h, 0)}%`, label: 'humedad alta', why: 'Pasó el 70% de humedad',
-          verb: dryOff ? 'Prender deshumidificador' : 'Entendido', calls: dryOff ? [call('humidifier', 'turn_on', dry)] : [] }
+        alert: h >= 70 ? { level: 1, big: `${num(h, 0)}%`, label: 'high humidity', why: 'Humidity went past 70%',
+          verb: dryOff ? 'Turn on dehumidifier' : 'Got it', calls: dryOff ? [call('humidifier', 'turn_on', dry)] : [] }
           : undefined };
     } },
   ] },
 
-  { id: 'seguridad', title: 'Seguridad', channels: [
-    { key: 'alarma', name: 'Alarma', glyph: g.shield, read: (s) => {
+  { id: 'security', title: 'Security', channels: [
+    { key: 'alarm', name: 'Alarm', glyph: g.shield, read: (s) => {
       const id = 'alarm_control_panel.security', e = s.get(id);
       if (!e) return null;
       const modes: [string, string, string][] = [
-        ['disarmed', 'Desarmada', 'alarm_disarm'], ['armed_home', 'En casa', 'alarm_arm_home'], ['armed_away', 'Fuera', 'alarm_arm_away']];
+        ['disarmed', 'Disarmed', 'alarm_disarm'], ['armed_home', 'Home', 'alarm_arm_home'], ['armed_away', 'Away', 'alarm_arm_away']];
       const next = String(e.attributes.next_state ?? '');
       const segs = modes.map(([st, label, service]) => ({ label, entity: id,
         on: e.state === st || (e.state === 'arming' && next === st),
         act: e.state === st ? undefined : call('alarm_control_panel', service, id, { code: ALARM_CODE }) }));
       const fired = e.state === 'triggered' || e.state === 'pending';
       return { kind: 's', segs, entities: [id], big: alarmState[e.state] ?? e.state,
-        label: e.state === 'arming' ? `pasa a ${alarmState[next]?.toLowerCase() ?? 'armada'}` : 'tocá un modo',
-        alert: fired ? { level: 2, big: alarmState[e.state], label: 'alarma', fail: [0, 1, 2],
-          why: e.state === 'triggered' ? 'La alarma se disparó' : 'La alarma está por sonar', verb: 'Desarmar',
+        label: e.state === 'arming' ? `switching to ${alarmState[next]?.toLowerCase() ?? 'armed'}` : 'tap a mode',
+        alert: fired ? { level: 2, big: alarmState[e.state], label: 'alarm', fail: [0, 1, 2],
+          why: e.state === 'triggered' ? 'The alarm went off' : 'The alarm is about to sound', verb: 'Disarm',
           calls: [call('alarm_control_panel', 'alarm_disarm', id, { code: ALARM_CODE })] } : undefined };
     } },
-    { key: 'sirena', name: 'Sirenas', glyph: g.siren, read: (s) => {
+    { key: 'sirens', name: 'Sirens', glyph: g.siren, read: (s) => {
       const ids = ofDomain(s, 'siren');
       if (!ids.length) return null;
       const segs = switches(ids, s, (e) => e.state === 'on', (e) => call('siren', e.state === 'on' ? 'turn_off' : 'turn_on', e.entity_id));
       const on = segs.filter((x) => x.on);
-      return { kind: 's', segs, entities: ids, big: on.length ? 'Sonando' : 'En silencio', label: on.length ? list(on.map((x) => x.label)) : `${ids.length} sirenas`,
-        alert: on.length ? { level: 2, big: 'Sonando', label: list(on.map((x) => x.label)), fail: on.map((x) => segs.indexOf(x)),
-          why: on.length > 1 ? 'Hay sirenas sonando' : 'Una sirena está sonando', verb: 'Apagar',
+      return { kind: 's', segs, entities: ids, big: on.length ? 'Sounding' : 'Silent', label: on.length ? list(on.map((x) => x.label)) : `${ids.length} sirens`,
+        alert: on.length ? { level: 2, big: 'Sounding', label: list(on.map((x) => x.label)), fail: on.map((x) => segs.indexOf(x)),
+          why: on.length > 1 ? 'Sirens are sounding' : 'A siren is sounding', verb: 'Turn off',
           calls: [call('siren', 'turn_off', on.map((x) => x.entity))] } : undefined };
     } },
-    { key: 'cerraduras', name: 'Cerraduras', glyph: g.lock, read: (s) => {
+    { key: 'locks', name: 'Locks', glyph: g.lock, read: (s) => {
       const ids = ofDomain(s, 'lock');
       if (!ids.length) return null;
       const segs = switches(ids, s, (e) => ['locked', 'locking'].includes(e.state),
@@ -249,60 +248,60 @@ export const systems: PulseSystem[] = [
       const open = segs.filter((x) => !x.on);
       let alert: Alert | undefined;
       if (jammed >= 0) {
-        alert = { level: 2, big: 'Trabada', label: segs[jammed].label.toLowerCase(), fail: [jammed],
-          why: `${segs[jammed].label} no terminó de cerrar`, verb: 'Reintentar', calls: [call('lock', 'lock', ids[jammed])] };
+        alert = { level: 2, big: 'Jammed', label: segs[jammed].label.toLowerCase(), fail: [jammed],
+          why: `${segs[jammed].label} did not finish locking`, verb: 'Retry', calls: [call('lock', 'lock', ids[jammed])] };
       } else if (armed(s) && open.length) {
-        alert = { level: 1, big: 'Sin llave', label: list(open.map((x) => x.label)), fail: open.map((x) => segs.indexOf(x)),
-          why: 'Alarma armada con puertas sin llave', verb: 'Cerrar con llave', calls: [call('lock', 'lock', open.map((x) => x.entity))] };
+        alert = { level: 1, big: 'Unlocked', label: list(open.map((x) => x.label)), fail: open.map((x) => segs.indexOf(x)),
+          why: 'Alarm armed with doors unlocked', verb: 'Lock', calls: [call('lock', 'lock', open.map((x) => x.entity))] };
       }
-      return { kind: 's', segs, entities: ids, big: `${shut} de ${segs.length}`, label: 'con llave', alert };
+      return { kind: 's', segs, entities: ids, big: `${shut} of ${segs.length}`, label: 'locked', alert };
     } },
-    { key: 'sensores', name: 'Sensores', glyph: g.eye, read: (s) => {
+    { key: 'sensors', name: 'Sensors', glyph: g.eye, read: (s) => {
       const ids = ofDomain(s, 'binary_sensor', ['binary_sensor.movement_backyard', 'binary_sensor.basement_floor_wet']);
       if (!ids.length) return null;
-      // Encendido = el sensor funciona; el que detecta algo es el que se pinta.
+      // On = the sensor works; the one that detects something is the one painted.
       const segs = ids.map((id) => ({ label: nameOf(s, id), on: s.get(id)!.state !== 'unavailable', entity: id }));
       const wet = s.get('binary_sensor.basement_floor_wet')?.state === 'on';
       const moving = s.get('binary_sensor.movement_backyard')?.state === 'on';
       const camera = s.has('camera.demo_camera') ? 'camera.demo_camera' : undefined;
       let alert: Alert | undefined;
-      if (wet) alert = { level: 2, big: 'Agua', label: 'sótano', fail: [ids.indexOf('binary_sensor.basement_floor_wet')],
-        why: 'Se mojó el piso del sótano', verb: 'Entendido', calls: [] };
-      else if (moving && armed(s)) alert = { level: 2, big: 'Movimiento', label: 'patio', fail: [ids.indexOf('binary_sensor.movement_backyard')],
-        why: 'Movimiento en el patio con la alarma armada', verb: 'Entendido', calls: [] };
+      if (wet) alert = { level: 2, big: 'Water', label: 'basement', fail: [ids.indexOf('binary_sensor.basement_floor_wet')],
+        why: 'The basement floor is wet', verb: 'Got it', calls: [] };
+      else if (moving && armed(s)) alert = { level: 2, big: 'Motion', label: 'backyard', fail: [ids.indexOf('binary_sensor.movement_backyard')],
+        why: 'Motion in the backyard with the alarm armed', verb: 'Got it', calls: [] };
       return { kind: 's', segs, entities: [...ids, ...(camera ? [camera] : [])], camera,
-        big: moving ? 'Movimiento' : 'Quieto', label: moving ? 'en el patio' : 'patio y sótano', alert };
+        big: moving ? 'Motion' : 'Still', label: moving ? 'in the backyard' : 'backyard and basement', alert };
     } },
   ] },
 
-  { id: 'aberturas', title: 'Aberturas', channels: [
-    { key: 'living', name: 'Ventana living', glyph: g.window, read: coverDial('cover.living_room_window') },
-    { key: 'pasillo', name: 'Ventana pasillo', glyph: g.window, read: coverDial('cover.hall_window') },
-    { key: 'porton', name: 'Portón', glyph: g.garage, read: (s) => {
+  { id: 'openings', title: 'Openings', channels: [
+    { key: 'living', name: 'Living room window', glyph: g.window, read: coverDial('cover.living_room_window') },
+    { key: 'hall', name: 'Hall window', glyph: g.window, read: coverDial('cover.hall_window') },
+    { key: 'garage', name: 'Garage door', glyph: g.garage, read: (s) => {
       const id = 'cover.garage_door', e = s.get(id);
       if (!e) return null;
       const open = e.state !== 'closed';
       const night = s.get('sun.sun')?.state === 'below_horizon';
-      return { kind: 's', entities: [id], big: coverState[e.state]?.replace(/^./, (c) => c.toUpperCase()) ?? e.state,
-        label: night ? 'es de noche' : 'es de día',
-        segs: [{ label: 'Portón', on: !open, entity: id, act: busy(e.state) ? undefined : call('cover', open ? 'close_cover' : 'open_cover', id) }],
-        alert: open && night ? { level: 1, big: busy(e.state) ? coverState[e.state] : 'Abierto', label: 'de noche', fail: [0],
-          why: e.state === 'closing' ? 'El portón se está cerrando' : 'El portón quedó abierto de noche', busy: busy(e.state),
-          verb: 'Cerrar', calls: [call('cover', 'close_cover', id)] } : undefined };
+      return { kind: 's', entities: [id], big: coverState[e.state] ? cap(coverState[e.state]) : e.state,
+        label: night ? 'it is night' : 'it is daytime',
+        segs: [{ label: 'Garage door', on: !open, entity: id, act: busy(e.state) ? undefined : call('cover', open ? 'close_cover' : 'open_cover', id) }],
+        alert: open && night ? { level: 1, big: busy(e.state) ? cap(coverState[e.state]) : 'Open', label: 'at night', fail: [0],
+          why: e.state === 'closing' ? 'The garage door is closing' : 'The garage door was left open at night', busy: busy(e.state),
+          verb: 'Close', calls: [call('cover', 'close_cover', id)] } : undefined };
     } },
-    { key: 'riego', name: 'Riego', glyph: g.sprout, read: (s) => {
+    { key: 'irrigation', name: 'Irrigation', glyph: g.sprout, read: (s) => {
       const ids = ofDomain(s, 'valve');
       if (!ids.length) return null;
       const segs = switches(ids, s, (e) => ['open', 'opening'].includes(e.state),
         (e) => busy(e.state) ? undefined : call('valve', e.state === 'open' ? 'close_valve' : 'open_valve', e.entity_id));
       const on = segs.filter((x) => x.on);
-      return { kind: 's', segs, entities: ids, big: on.length ? `${on.length} regando` : 'Cerrado',
-        label: on.length ? list(on.map((x) => x.label)) : `${ids.length} válvulas` };
+      return { kind: 's', segs, entities: ids, big: on.length ? `${on.length} watering` : 'Closed',
+        label: on.length ? list(on.map((x) => x.label)) : `${ids.length} valves` };
     } },
   ] },
 
-  { id: 'multimedia', title: 'Multimedia', channels: [
-    { key: 'sonando', name: 'Sonando', glyph: g.play, read: (s) => {
+  { id: 'media', title: 'Media', channels: [
+    { key: 'playing', name: 'Playing', glyph: g.play, read: (s) => {
       const ids = ofDomain(s, 'media_player',
         ['media_player.living_room', 'media_player.kitchen', 'media_player.bedroom', 'media_player.lounge_room', 'media_player.walkman']);
       if (!ids.length) return null;
@@ -310,66 +309,67 @@ export const systems: PulseSystem[] = [
         (e) => ['playing', 'paused'].includes(e.state) ? call('media_player', 'media_play_pause', e.entity_id) : undefined);
       const on = segs.filter((x) => x.on);
       const title = on.length ? String(s.get(on[0].entity)!.attributes.media_title ?? '') : '';
-      return { kind: 's', segs, entities: ids, big: on.length ? `${on.length} de ${segs.length}` : 'Silencio',
-        label: on.length ? (title.length > 26 ? `${title.slice(0, 25)}…` : title || list(on.map((x) => x.label))) : 'todo en pausa' };
+      return { kind: 's', segs, entities: ids, big: on.length ? `${on.length} of ${segs.length}` : 'Silence',
+        label: on.length ? (title.length > 26 ? `${title.slice(0, 25)}…` : title || list(on.map((x) => x.label))) : 'all paused' };
     } },
-    { key: 'volumen', name: 'Volumen living', glyph: g.volume, read: (s) => {
+    { key: 'volume', name: 'Living room volume', glyph: g.volume, read: (s) => {
       const id = 'media_player.living_room', e = s.get(id);
       if (!e || attr(e, 'volume_level') == null) return null;
       const pct = Math.round(attr(e, 'volume_level')! * 100);
-      return { kind: 'p', v: pct / 100, entities: [id], big: `${pct}%`, label: e.state === 'playing' ? 'living, sonando' : 'living',
-        dial: { min: 0, max: 100, step: 5, unit: '%', label: 'volumen', value: pct, entity: id,
+      return { kind: 'p', v: pct / 100, entities: [id], big: `${pct}%`, label: e.state === 'playing' ? 'living room, playing' : 'living room',
+        dial: { min: 0, max: 100, step: 5, unit: '%', label: 'volume', value: pct, entity: id,
           set: (x) => call('media_player', 'volume_set', id, { volume_level: x / 100 }) } };
     } },
   ] },
 
-  { id: 'energia', title: 'Energía', channels: [
-    { key: 'consumo', name: 'Consumo', glyph: g.bolt, read: (s) => {
+  { id: 'energy', title: 'Energy', channels: [
+    { key: 'power', name: 'Power', glyph: g.bolt, read: (s) => {
+      // The first id is a simulated sensor of the local test installation.
       const id = ['sensor.consumo_simulado', 'sensor.power_consumption'].find((x) => s.has(x));
       if (!id) return null;
-      const w = Number(s.get(id)!.state), cap = 3000;
-      return { kind: 'p', v: clamp(w / cap), entities: [id], big: `${num(w, 0)} W`, label: `de ${num(cap)} W`,
-        alert: w > 2000 ? { level: 1, big: `${num(w, 0)} W`, label: 'consumo alto', why: 'Pasó los 2000 W',
-          verb: 'Entendido', calls: [] } : undefined };
+      const w = Number(s.get(id)!.state), capW = 3000;
+      return { kind: 'p', v: clamp(w / capW), entities: [id], big: `${num(w, 0)} W`, label: `of ${num(capW)} W`,
+        alert: w > 2000 ? { level: 1, big: `${num(w, 0)} W`, label: 'high consumption', why: 'Consumption went past 2000 W',
+          verb: 'Got it', calls: [] } : undefined };
     } },
-    { key: 'monoxido', name: 'Monóxido', glyph: g.air, read: (s) => {
+    { key: 'co', name: 'Carbon monoxide', glyph: g.air, read: (s) => {
       const id = 'sensor.carbon_monoxide', e = s.get(id);
       if (!e) return null;
       const ppm = Number(e.state);
-      // 35 ppm: límite de una hora de la EPA; 100 ppm ya es peligroso.
+      // 35 ppm: the EPA's one-hour limit; 100 ppm is already dangerous.
       const level = ppm >= 100 ? 2 : ppm >= 35 ? 1 : 0;
-      return { kind: 'p', v: clamp(ppm / 150), entities: [id], big: `${num(ppm, 0)} ppm`, label: 'monóxido de carbono',
-        alert: level ? { level: level as 1 | 2, big: `${num(ppm, 0)} ppm`, label: 'monóxido',
-          why: level === 2 ? 'Monóxido peligroso: ventilar y salir' : 'Monóxido por encima de 35 ppm', verb: 'Entendido', calls: [] }
+      return { kind: 'p', v: clamp(ppm / 150), entities: [id], big: `${num(ppm, 0)} ppm`, label: 'carbon monoxide',
+        alert: level ? { level: level as 1 | 2, big: `${num(ppm, 0)} ppm`, label: 'carbon monoxide',
+          why: level === 2 ? 'Dangerous carbon monoxide: ventilate and leave' : 'Carbon monoxide above 35 ppm', verb: 'Got it', calls: [] }
           : undefined };
     } },
-    { key: 'agua', name: 'Agua caliente', glyph: g.tap,
+    { key: 'water', name: 'Hot water', glyph: g.tap,
       read: thermostat('water_heater.demo_water_heater', 'water_heater',
-        (e) => `objetivo ${num(attr(e, 'temperature')!)}° · ${String(e.attributes.operation_mode ?? e.state)}`) },
+        (e) => `target ${num(attr(e, 'temperature')!)}° · ${String(e.attributes.operation_mode ?? e.state)}`) },
   ] },
 
-  { id: 'mantenimiento', title: 'Mantenimiento', channels: [
-    { key: 'updates', name: 'Actualizaciones', glyph: g.box, read: (s) => {
+  { id: 'maintenance', title: 'Maintenance', channels: [
+    { key: 'updates', name: 'Updates', glyph: g.box, read: (s) => {
       const ids = ofDomain(s, 'update');
       if (!ids.length) return null;
-      // Encendido = al día; el pendiente es el que se pinta.
+      // On = up to date; the pending one is the one painted.
       const segs = ids.map((id) => ({ label: String(s.get(id)!.attributes.title ?? nameOf(s, id)), on: true, entity: id }));
       const pending = ids.filter((id) => s.get(id)!.state === 'on');
       const running = ids.find((id) => s.get(id)!.attributes.in_progress);
       if (running) {
         const p = s.get(running)!.attributes.update_percentage as number | null;
-        return { kind: 'p', v: (p ?? 0) / 100, entities: ids, big: p != null ? `${num(p, 0)}%` : 'Instalando',
+        return { kind: 'p', v: (p ?? 0) / 100, entities: ids, big: p != null ? `${num(p, 0)}%` : 'Installing',
           label: String(s.get(running)!.attributes.title ?? nameOf(s, running)) };
       }
       const installable = pending.filter((id) => (Number(s.get(id)!.attributes.supported_features) & 1) === 1);
-      return { kind: 's', segs, entities: ids, big: pending.length ? `${pending.length} pendientes` : 'Al día',
-        label: `${ids.length - pending.length} de ${ids.length} al día`,
-        alert: pending.length ? { level: 1, big: `${pending.length} nuevas`, label: 'actualizaciones', fail: pending.map((id) => ids.indexOf(id)),
-          why: installable.length ? `${segs[ids.indexOf(installable[0])].label} tiene versión nueva` : 'Hay versiones nuevas',
-          verb: installable.length ? 'Instalar' : 'Entendido',
+      return { kind: 's', segs, entities: ids, big: pending.length ? `${pending.length} pending` : 'Up to date',
+        label: `${ids.length - pending.length} of ${ids.length} up to date`,
+        alert: pending.length ? { level: 1, big: `${pending.length} new`, label: 'updates', fail: pending.map((id) => ids.indexOf(id)),
+          why: installable.length ? `${segs[ids.indexOf(installable[0])].label} has a new version` : 'There are new versions',
+          verb: installable.length ? 'Install' : 'Got it',
           calls: installable.length ? [call('update', 'install', installable[0])] : [] } : undefined };
     } },
-    { key: 'aspiradoras', name: 'Aspiradoras', glyph: g.robot, read: (s) => {
+    { key: 'vacuums', name: 'Vacuums', glyph: g.robot, read: (s) => {
       const ids = ofDomain(s, 'vacuum');
       if (!ids.length) return null;
       const segs = ids.map((id, i) => {
@@ -377,11 +377,11 @@ export const systems: PulseSystem[] = [
         const cleaning = e.state === 'cleaning';
         const act = cleaning ? (f & 16 ? call('vacuum', 'return_to_base', id) : f & 8 ? call('vacuum', 'stop', id) : undefined)
           : f & 8192 ? call('vacuum', 'start', id) : undefined;
-        return { label: `Piso ${i}`, on: cleaning, entity: id, act };
+        return { label: `Floor ${i}`, on: cleaning, entity: id, act };
       });
       const on = segs.filter((x) => x.on);
-      return { kind: 's', segs, entities: ids, big: on.length ? `${on.length} limpiando` : 'En la base',
-        label: on.length ? list(on.map((x) => x.label)) : `${ids.length} aspiradoras` };
+      return { kind: 's', segs, entities: ids, big: on.length ? `${on.length} cleaning` : 'Docked',
+        label: on.length ? list(on.map((x) => x.label)) : `${ids.length} vacuums` };
     } },
   ] },
 ];

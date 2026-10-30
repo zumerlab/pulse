@@ -1,7 +1,7 @@
-// Cliente mínimo de la API WebSocket de Home Assistant: login con el token que
-// entrega el servidor local, estados iniciales, cambios en vivo y servicios.
-// Un solo socket hace todo: la lectura llega empujada y las llamadas usan el
-// mismo canal, sin sondeo REST.
+// Minimal client for Home Assistant's WebSocket API: login with the token the
+// local server hands out, initial states, live changes and services. One socket
+// does everything: readings are pushed and calls use the same channel, with no
+// REST polling.
 
 export type HassState = {
   entity_id: string;
@@ -21,7 +21,7 @@ export class HomeAssistant {
   status: Status = 'connecting';
   error = '';
   version = '';
-  unit = '°';       // unidad de temperatura de la instalación (°C o °F)
+  unit = '°';       // temperature unit of the installation (°C or °F)
   private ws: WebSocket | null = null;
   private id = 1;
   private pending = new Map<number, Pending>();
@@ -44,7 +44,7 @@ export class HomeAssistant {
     try {
       const response = await fetch('/api/ha/session', { cache: 'no-store' });
       const body = await response.json() as { accessToken?: string; error?: string };
-      if (!response.ok || !body.accessToken) throw new Error(body.error ?? 'Sin sesión.');
+      if (!response.ok || !body.accessToken) throw new Error(body.error ?? 'No session.');
       token = body.accessToken;
     } catch (error) {
       this.setStatus('error', error instanceof Error ? error.message : String(error));
@@ -57,7 +57,7 @@ export class HomeAssistant {
     ws.addEventListener('close', () => {
       if (this.ws !== ws) return;
       this.ws = null;
-      for (const p of this.pending.values()) p.reject(new Error('Se cortó la conexión.'));
+      for (const p of this.pending.values()) p.reject(new Error('The connection dropped.'));
       this.pending.clear();
       this.setStatus('offline');
       this.reconnect();
@@ -71,13 +71,13 @@ export class HomeAssistant {
 
   private send(msg: Record<string, unknown>) {
     const ws = this.ws;
-    if (!ws || ws.readyState !== WebSocket.OPEN) return Promise.reject(new Error('Sin conexión con Home Assistant.'));
+    if (!ws || ws.readyState !== WebSocket.OPEN) return Promise.reject(new Error('No connection to Home Assistant.'));
     const id = this.id++;
     ws.send(JSON.stringify({ id, ...msg }));
     return new Promise<unknown>((resolve, reject) => {
       this.pending.set(id, { resolve, reject });
       setTimeout(() => {
-        if (this.pending.delete(id)) reject(new Error('Home Assistant no respondió.'));
+        if (this.pending.delete(id)) reject(new Error('Home Assistant did not answer.'));
       }, 10_000);
     });
   }
@@ -89,12 +89,12 @@ export class HomeAssistant {
         this.ws?.send(JSON.stringify({ type: 'auth', access_token: token }));
         return;
       case 'auth_invalid':
-        this.setStatus('error', String(msg.message ?? 'Token inválido.'));
+        this.setStatus('error', String(msg.message ?? 'Invalid token.'));
         this.ws?.close();
         return;
       case 'auth_ok': {
         this.retry = 1000;
-        // Suscribirse antes de pedir los estados: un cambio en el medio no se pierde.
+        // Subscribe before asking for the states: a change in between is not lost.
         const sub = this.send({ type: 'subscribe_events', event_type: 'state_changed' });
         const config = this.send({ type: 'get_config' }) as Promise<{ unit_system?: { temperature?: string } }>;
         const all = await this.send({ type: 'get_states' }) as HassState[];
@@ -111,7 +111,7 @@ export class HomeAssistant {
         if (!p) return;
         this.pending.delete(Number(msg.id));
         if (msg.success) p.resolve(msg.result);
-        else p.reject(new Error(String((msg.error as { message?: string })?.message ?? 'Falló el servicio.')));
+        else p.reject(new Error(String((msg.error as { message?: string })?.message ?? 'The service failed.')));
         return;
       }
       case 'event': {

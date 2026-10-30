@@ -1,33 +1,33 @@
-/* Sobre el estilo Grafito de zumly-radial: solo lo que agrega Home Assistant. */
+/* On top of the Graphite style of zumly-radial: only what Home Assistant adds. */
 
-/* Conexión */
+/* Connection */
 .conn { display: inline-flex; align-items: center; gap: 8px; justify-self: center; font-size: 12px; color: var(--muted); }
 .conn-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--dim); }
 .conn-live .conn-dot { background: #3ecf8e; animation: live 2.4s ease-in-out infinite; }
-.conn-offline .conn-dot, .conn-connecting .conn-dot { background: var(--leve); }
-.conn-error .conn-dot { background: var(--grave); }
+.conn-offline .conn-dot, .conn-connecting .conn-dot { background: var(--minor); }
+.conn-error .conn-dot { background: var(--critical); }
 @keyframes live { 50% { opacity: .35; } }
-.error { color: var(--grave); text-align: center; max-width: 46ch; }
+.error { color: var(--critical); text-align: center; max-width: 46ch; }
 
-/* Tablero: siete sistemas y el último pulso de la casa */
+/* Board: seven systems and the home's latest pulse */
 .board { gap: 28px; overflow-y: auto; align-content: safe center; }
 .tile { height: 160px; }
 .tile-big { font-size: 12px; color: var(--ink); max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.tile.level-1 .tile-title, .tile.level-1 .tile-big { color: var(--leve); }
-.tile.level-2 .tile-title, .tile.level-2 .tile-big { color: var(--grave); }
+.tile.level-1 .tile-title, .tile.level-1 .tile-big { color: var(--minor); }
+.tile.level-2 .tile-title, .tile.level-2 .tile-big { color: var(--critical); }
 .tile.has-alert .mini-ring { animation: tile-call 1.6s ease-in-out infinite; }
 .tile.level-2 .mini-ring { animation-duration: .9s; }
 @keyframes tile-call { 50% { transform: scale(1.06); } }
 .ticker { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; min-height: 100px; width: min(420px, 100%); font-size: 12px; color: var(--muted); }
 .ticker li { display: flex; gap: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; animation: tick-in .5s ease-out; }
 .ticker li:first-child { color: var(--ink); }
-.ticker li.level-1 { color: var(--leve); }
-.ticker li.level-2 { color: var(--grave); }
+.ticker li.level-1 { color: var(--minor); }
+.ticker li.level-2 { color: var(--critical); }
 .ticker time { font-variant-numeric: tabular-nums; opacity: .7; }
 @keyframes tick-in { from { opacity: 0; transform: translateY(-4px); } }
 
-/* Sistema */
-/* --fit lo calcula la vista: achica el objeto cuando el escenario es chico. */
+/* System */
+/* --fit is computed by the view: it shrinks the object when the stage is small. */
 .obj { transform: scale(calc(var(--zoom, 1.2) * var(--fit, 1))) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)); }
 .system { grid-template-columns: minmax(0, 1fr); }
 .strip { max-width: 100%; }
@@ -35,27 +35,27 @@
 .system { grid-template-rows: auto 1fr auto auto auto; }
 .sys-title { padding-top: 8px; }
 .face-wait { font-size: 12px; color: var(--muted); animation: live 1s ease-in-out infinite; }
-/* Lo enviado y no confirmado late: el anillo muestra lo que Home Assistant dice, no lo pedido. */
+/* What was sent and not confirmed beats: the ring shows what Home Assistant says, not what was asked. */
 .is-pending, o-arc.is-pending { animation: live .9s ease-in-out infinite; }
 .layer.is-seen .disc::after { display: none; }
 .strip .plain { min-height: 36px; padding: 6px 12px; }
 
-/* Satélites: avisos que esperan, con el ícono de su canal (regla 3) */
+/* Satellites: alerts that wait, with their channel's icon (rule 3) */
 .sat { display: grid; place-items: center; border-radius: 50%; background: var(--bg); cursor: pointer; pointer-events: auto; }
-.sat.level-1 { color: var(--leve); box-shadow: 0 0 0 1.5px var(--leve); }
-.sat.level-2 { color: var(--grave); box-shadow: 0 0 0 1.5px var(--grave); }
+.sat.level-1 { color: var(--minor); box-shadow: 0 0 0 1.5px var(--minor); }
+.sat.level-2 { color: var(--critical); box-shadow: 0 0 0 1.5px var(--critical); }
 .sat .glyph { width: 12px; height: 12px; }
 
-/* Detalle */
+/* Detail */
 .detail { overflow-y: auto; align-content: start; padding-top: 48px; grid-template-columns: minmax(0, 1fr); }
 .detail-big { font-size: clamp(36px, 14vw, 64px); overflow-wrap: anywhere; }
-.detail-big.level-1, .detail-why.level-1 { color: var(--leve); }
-.detail-big.level-2, .detail-why.level-2 { color: var(--grave); }
+.detail-big.level-1, .detail-why.level-1 { color: var(--minor); }
+.detail-big.level-2, .detail-why.level-2 { color: var(--critical); }
 .detail-why { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .detail-why .primary { margin-left: 0; }
 .switches label .state { margin-left: auto; font-size: 12px; color: var(--muted); }
-.switches label.fail.level-1 { border-color: var(--leve); }
-.switches label.fail.level-2 { border-color: var(--grave); }
+.switches label.fail.level-1 { border-color: var(--minor); }
+.switches label.fail.level-2 { border-color: var(--critical); }
 .switches input:disabled + * { opacity: .6; }
 .camera { width: 100%; border-radius: 10px; border: 1px solid var(--line); }
 .entities { font-size: 12px; color: var(--muted); }
@@ -74,33 +74,33 @@
   .is-pending, .tile.has-alert .mini-ring, .conn-live .conn-dot, .face-wait { animation: none; }
 }
 
-/* ─── Tablero: selector de vista ───────────────────────── */
+/* ─── Board: view selector ─────────────────────────────── */
 .modes { display: inline-flex; justify-self: center; gap: 2px; padding: 3px; border-radius: 999px; border: 1px solid var(--line); margin-top: 6px; }
 .mode { border: 0; background: none; padding: 6px 14px; border-radius: 999px; font-size: 12px; color: var(--muted); cursor: pointer; }
 .mode[aria-pressed="true"] { background: rgba(255,255,255,.08); color: var(--ink); }
-.board.mode-orbita, .board.mode-capas {
+.board.mode-orbit, .board.mode-layers {
   grid-template-rows: auto minmax(0, 1fr) auto; grid-template-columns: minmax(0, 1fr);
   align-content: stretch; justify-items: stretch; gap: 12px;
 }
 .board-body { position: relative; min-height: 0; display: grid; place-items: center; }
 
-/* ─── Órbita: el pulso en el centro, los sistemas alrededor ─ */
-/* Visible: el texto de los sistemas de abajo puede pasar apenas el borde del universo. */
+/* ─── Orbit: the pulse in the center, the systems around ── */
+/* Visible: the text of the systems at the bottom may go just past the edge of the universe. */
 .orbit-stage { position: absolute; inset: 0; overflow: visible; }
-/* Sin zoom; las capas de atrás conservan tamaño y color (solo se alejan). */
+/* No zoom; the layers behind keep size and color (they only move away). */
 .orbit-stage .obj { --zoom: 1; }
 .orbit-stage .obj .depth { --o-depth-grow: 0; --o-back-opacity: 1; --o-depth-step: var(--t-orbit-step, -110); }
-/* El universo es el cuadrado más grande que entra (--S). El anillo de cada
-   sistema ocupa su satélite: 3,5 carriles (0,15 del universo). Se corren 20 px
-   hacia adentro para que entre el texto que cuelga afuera. */
+/* The universe is the largest square that fits (--S). Each system's ring fills
+   its satellite: 3.5 lanes (0.15 of the universe). They shift 20 px inward so
+   the text hanging outside fits. */
 .orbit-stage .obj > .bigbang { width: var(--S); }
 .orbit-stage .orbit-tiles { --o-size-ratio: var(--t-tile, 3.5); --o-alignment: var(--t-align, 20px); }
-/* El pulso: el satélite del centro, de 11 carriles (0,46 del universo). */
+/* The pulse: the center satellite, 11 lanes (0.46 of the universe). */
 .orbit-stage .hub-orbit { --o-size-ratio: var(--t-hub, 11); }
-/* En la órbita, lo que llama ya está en el centro: el titular sobra. */
-.board.mode-orbita .board-head h1, .board.mode-orbita .ticker { display: none; }
-/* El centro escala con su propio tamaño (unidades cqw), no con la pantalla:
-   así nunca desborda, aunque la órbita lo achique. */
+/* In the orbit, what calls is already in the center: the headline is redundant. */
+.board.mode-orbit .board-head h1, .board.mode-orbit .ticker { display: none; }
+/* The center scales with its own size (cqw units), not with the screen: it
+   never overflows, even when the orbit shrinks it. */
 .hub { position: relative; width: 100%; aspect-ratio: 1; container-type: inline-size; }
 .hub-ring-slot, .hub-ring { position: absolute; inset: 0; width: 100%; }
 .hub.beat .hub-ring { animation: hub-beat .7s ease-out; }
@@ -112,10 +112,10 @@
 .slide { display: grid; justify-items: center; gap: 2cqw; text-align: center; min-width: 0; animation: slide-in .45s ease-out; }
 @keyframes slide-in { from { opacity: 0; transform: translateY(6px); } }
 .slide .eyebrow { font-size: clamp(10px, 4.4cqw, 15px); }
-.slide.level-1 .eyebrow, .slide.level-1 .slide-big { color: var(--leve); }
-.slide.level-2 .eyebrow, .slide.level-2 .slide-big { color: var(--grave); }
+.slide.level-1 .eyebrow, .slide.level-1 .slide-big { color: var(--minor); }
+.slide.level-2 .eyebrow, .slide.level-2 .slide-big { color: var(--critical); }
 .slide-big { font-size: clamp(14px, 10.5cqw, 46px); font-weight: 600; letter-spacing: -.5px; line-height: 1.05; hyphens: auto; }
-.slide-big.is-calling { color: var(--leve); }
+.slide-big.is-calling { color: var(--minor); }
 .slide-why {
   font-size: clamp(10px, 4.4cqw, 15px); color: var(--muted); max-width: 28ch;
   display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
@@ -129,18 +129,18 @@
 @container (max-width: 260px) {
   .hub-rows li:nth-child(n+2) { display: none; }
   .slide-why { -webkit-line-clamp: 2; }
-  .slide-go { display: none; }   /* chico: se abre tocando la tarjeta del sistema */
+  .slide-go { display: none; }   /* small: opens by tapping the system's tile */
 }
-/* Puntos del carrusel: uno por aviso más el pulso; el color dice la gravedad. */
+/* Carousel dots: one per alert plus the pulse; the color tells the level. */
 .hub-dots { position: absolute; left: 50%; bottom: 14%; translate: -50% 0; display: flex; gap: 2px; }
 .hub-dot { width: clamp(14px, 9cqw, 22px); height: 22px; padding: 0; border: 0; background: none; cursor: pointer; display: grid; place-items: center; }
 .hub-dot::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--dim); transition: transform .2s; }
-.hub-dot.level-1::before { background: var(--leve); }
-.hub-dot.level-2::before { background: var(--grave); }
+.hub-dot.level-1::before { background: var(--minor); }
+.hub-dot.level-2::before { background: var(--critical); }
 .hub-dot.pulse::before { background: var(--muted); }
 .hub-dot[aria-current="true"]::before { transform: scale(1.6); box-shadow: 0 0 0 2px var(--bg), 0 0 0 3px currentColor; }
-/* El botón es el satélite entero: el anillo lo llena y el texto cuelga afuera
-   con `.outward-y` de Orbit: encima en la mitad de arriba, debajo en el resto. */
+/* The button is the whole satellite: the ring fills it and the text hangs
+   outside with Orbit's `.outward-y`: above in the top half, below in the rest. */
 .otile { position: relative; width: 100%; aspect-ratio: 1; padding: 0; border: 0; background: none; cursor: pointer; }
 .otile-label { width: max(100%, 110px); display: grid; justify-items: center; gap: 4px; }
 .otile-ring { position: relative; width: 100%; aspect-ratio: 1; display: grid; place-items: center; }
@@ -148,21 +148,21 @@
 .otile-glyph .glyph { width: calc(var(--S) * .045); height: calc(var(--S) * .045); }
 .otile .tile-title { font-size: clamp(10px, calc(var(--S) * .02), 13px); }
 .otile .tile-big { font-size: clamp(10px, calc(var(--S) * .019), 12px); }
-.otile.level-1 .tile-title, .otile.level-1 .tile-big { color: var(--leve); }
-.otile.level-2 .tile-title, .otile.level-2 .tile-big { color: var(--grave); }
+.otile.level-1 .tile-title, .otile.level-1 .tile-big { color: var(--minor); }
+.otile.level-2 .tile-title, .otile.level-2 .tile-big { color: var(--critical); }
 .otile.has-alert .otile-ring { animation: tile-call 1.6s ease-in-out infinite; }
 .otile.level-2 .otile-ring { animation-duration: .9s; }
 
-/* ─── Capas: un solo objeto, un sistema por capa ───────── */
+/* ─── Layers: a single object, one system per layer ────── */
 .board-stage { position: absolute; inset: 0; }
 .board-stage .obj, .board-stage[data-zoom="alert"] .obj { --zoom: var(--t-layer-zoom, 1.1); }
 .board-stage .obj .depth { --o-back-opacity: var(--t-layer-opacity, .6); --o-depth-step: var(--t-layer-step, -70); }
 .board-stage .face-label { max-width: 150px; }
 
 @media (prefers-reduced-motion: reduce) { .hub.beat .hub-ring, .otile.has-alert .otile-ring, .slide { animation: none; } }
-.board.mode-capas .ticker { justify-self: center; }
+.board.mode-layers .ticker { justify-self: center; }
 
-/* ─── Ajustes (solo en desarrollo) ─────────────────────── */
+/* ─── Tuning (development only) ────────────────────────── */
 .tune {
   position: fixed; right: 12px; bottom: 12px; z-index: 50; width: min(300px, calc(100vw - 24px));
   max-height: calc(100vh - 24px); overflow: auto; padding: 10px 12px;
@@ -172,8 +172,8 @@
 .tune fieldset { border: 0; margin: 10px 0 0; padding: 0; display: grid; gap: 8px; }
 .tune legend { color: var(--ink); padding: 0; margin-bottom: 4px; }
 .tune label { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; }
-.tune input { grid-column: 1 / -1; width: 100%; accent-color: var(--leve); }
+.tune input { grid-column: 1 / -1; width: 100%; accent-color: var(--minor); }
 .tune output { font-variant-numeric: tabular-nums; }
-.tune output.changed { color: var(--leve); }
+.tune output.changed { color: var(--minor); }
 .tune-actions { display: flex; gap: 8px; margin-top: 12px; }
 .tune-actions button { min-height: 0; padding: 4px 10px; font-size: 12px; }

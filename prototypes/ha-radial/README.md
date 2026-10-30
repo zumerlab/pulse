@@ -1,138 +1,143 @@
-# Prototipo · Pulse sobre Home Assistant
+# Prototype · Pulse over Home Assistant
 
-El objeto radial de `zumly-radial`, ahora con un Home Assistant real (el demo
-por defecto, corriendo en Docker). Misma gramática: tablero → sistema en capas →
-detalle. Lo nuevo es que nada está escrito a mano: lecturas, avisos y su
-resolución vienen del estado vivo.
+The radial object of `zumly-radial`, now with a real Home Assistant (the default
+demo, running in Docker). Same grammar: board → layered system → detail. What is
+new is that nothing is written by hand: readings, alerts and their resolution
+come from the live state. The object itself (rings, layers, dial gestures,
+Zumly setup) is the shared `../shared/radial.ts`; `model.ts` turns Home
+Assistant's state into the readings it draws.
 
 ```sh
-cp .env.example .env.local   # HA_URL, HA_USERNAME, HA_PASSWORD (o HA_TOKEN)
+cp .env.example .env.local   # HA_URL, HA_USERNAME, HA_PASSWORD (or HA_TOKEN)
 npm run dev
 ```
 
-Abrir `/prototypes/ha-radial/`.
+Open `/prototypes/ha-radial/`.
 
-## Conexión: WebSocket
+## Connection: WebSocket
 
-Un solo socket hace todo: `get_states` al entrar, `subscribe_events`
-(`state_changed`) para los cambios y `call_service` para las órdenes. REST
-obligaría a sondear; con el socket los cambios llegan empujados (una persiana
-que se cierra se ve moverse de a 10%).
+One socket does everything: `get_states` on entry, `subscribe_events`
+(`state_changed`) for changes and `call_service` for commands. REST would force
+polling; with the socket the changes arrive pushed (a cover closing is seen
+moving 10% at a time).
 
-- **El navegador no ve la contraseña.** `server/homeassistant.ts` hace el login
-  (`/auth/login_flow` → `/auth/token`), guarda el refresh token en memoria y
-  entrega solo un access token corto en `/api/ha/session` (solo desde esta
-  máquina).
-- **Mismo origen.** El socket va a `/api/ha/websocket` y Vite lo pasa a
-  Home Assistant; las imágenes de cámara, por `/api/camera_proxy`.
-- Si se corta, reintenta con espera creciente (hasta 15 s) y pide un token nuevo.
+- **The browser never sees the password.** `server/homeassistant.ts` does the
+  login (`/auth/login_flow` → `/auth/token`), keeps the refresh token in memory
+  and hands out only a short access token at `/api/ha/session` (only from this
+  machine).
+- **Same origin.** The socket goes to `/api/ha/websocket` and Vite passes it to
+  Home Assistant; camera images go through `/api/camera_proxy`.
+- If it drops, it retries with growing waits (up to 15 s) and asks for a new token.
 
-## Sistemas (del demo)
+## Systems (from the demo)
 
-| Sistema | Canales | Controles en el anillo |
+| System | Channels | Controls on the ring |
 |---|---|---|
-| Luces | 6 luces · brillo del living · enchufes | segmentos = `light.toggle`; dial = `brightness_pct` |
-| Clima | calefacción · aire · Ecobee · humedad | dial = `climate.set_temperature` |
-| Seguridad | alarma · sirenas · cerraduras · sensores | modos de alarma (código del demo), sirenas, cerraduras |
-| Aberturas | ventana living · ventana pasillo · portón · riego | dial = `set_cover_position`; válvulas |
-| Multimedia | reproductores · volumen del living | play/pausa; dial = `volume_set` |
-| Energía | consumo · monóxido · agua caliente | dial = `water_heater.set_temperature` |
-| Mantenimiento | actualizaciones · aspiradoras | instalar; arrancar / volver a la base |
+| Lights | 6 lights · living room brightness · plugs | segments = `light.toggle`; dial = `brightness_pct` |
+| Climate | heating · air conditioning · Ecobee · humidity | dial = `climate.set_temperature` |
+| Security | alarm · sirens · locks · sensors | alarm modes (the demo's code), sirens, locks |
+| Openings | living room window · hall window · garage door · irrigation | dial = `set_cover_position`; valves |
+| Media | players · living room volume | play/pause; dial = `volume_set` |
+| Energy | power · carbon monoxide · hot water | dial = `water_heater.set_temperature` |
+| Maintenance | updates · vacuums | install; start / return to base |
 
-Los modelos están en `model.ts`: cada canal es una función del estado. Si falta
-una entidad, el canal no aparece; otra instalación arma su propio objeto.
+The models are in `model.ts`: each channel is a function of the state. If an
+entity is missing, the channel does not appear; another installation builds its
+own object.
 
-## Tres vistas del tablero
+## Three views of the board
 
-Un selector arriba (se recuerda en el navegador) cambia cómo se mira la casa
-entera. Las tres usan los mismos datos y abren el mismo sistema al tocarlas.
+A selector at the top (remembered in the browser) changes how the whole home is
+looked at. All three use the same data and open the same system when tapped.
 
-| Vista | Qué es | Para qué sirve |
+| View | What it is | What it is for |
 |---|---|---|
-| **Grilla** | Un mini anillo por sistema y los últimos cambios abajo | Ver todo parejo, leer rápido |
-| **Órbita** | El pulso de la casa en el centro y los 7 sistemas alrededor | Pantalla principal: el centro late con cada cambio |
-| **Capas** | Un solo objeto, un sistema por capa (la gramática del sistema, un nivel arriba) | Ver "qué llama" como profundidad: lo urgente adelante |
+| **Grid** | A mini ring per system and the latest changes below | See everything evenly, read fast |
+| **Orbit** | The home's pulse in the center and the 7 systems around it | Main screen: the center beats with every change |
+| **Layers** | A single object, one system per layer (the system's grammar, one level up) | See "what calls" as depth: the urgent in front |
 
-- **Órbita.** El anillo del centro tiene un segmento por sistema, frente a su
-  tarjeta, pintado si ese sistema llama. Adentro, una cosa a la vez: cada aviso
-  (el más grave primero, con "Abrir") y al final el pulso (cuántos avisos y las
-  tres entidades que cambiaron último, con su valor vivo). Pasa solo cada 6 s;
-  se frena con el puntero o el foco encima; los puntos de abajo (color = gravedad)
-  eligen uno. Los sistemas no cambian de lugar: lo que se mueve es el color.
-  - Toda la vista es un sistema de Orbit: el universo (`.bigbang`) es el cuadrado
-    más grande que entra; los sistemas son satélites de `orbit-10` (anillo de 3,5
-    carriles, corridos 20 px hacia adentro para el texto) y el pulso es el
-    satélite `at-center` de `orbit-0` (11 carriles). Nada se posiciona a mano.
-  - Los sistemas van corridos medio paso (`--o-from`: ninguno justo arriba), cada
-    uno frente a su segmento del anillo del centro. En la mitad de arriba el texto
-    va sobre el anillo: nada cuelga hacia el centro. Lo resuelve `.outward-y`
-    de Orbit (antes, un `clamp()` sobre `--o-dir-y` en el CSS).
-  - En 3D, como el objeto de cada sistema: `.depth` de Orbit con el pulso adelante
-    (`layer-front`) y los sistemas un paso atrás (`data-depth="1"`), sin achicarse
-    ni apagarse. El puntero inclina el conjunto ±7° (no en el celular).
-  - El texto del centro escala con él (unidades `cqw`): no desborda en ventanas
-    bajas.
-- **Capas.** Siete capas que crecen 16% cada una (en lugar de 42%), todas a la
-  vista: rompe la regla de "máximo 3 capas" a propósito, para probar el objeto
-  integrado. Adelante va el sistema que más llama; tocar una banda trae ese
-  sistema al frente hasta que llegue un aviso nuevo; tocar el centro entra.
-  En 3D, como la órbita: cada capa 70 px más atrás y el puntero inclina el objeto ±7°.
+- **Orbit.** The center ring has one segment per system, facing its tile,
+  painted if that system calls. Inside, one thing at a time: each alert (the most
+  serious first, with "Open") and at the end the pulse (how many alerts and the
+  three entities that changed last, with their live value). It advances on its
+  own every 6 s; it holds with the pointer or the focus over it; the dots below
+  (color = level) pick one. The systems do not change place: what moves is the color.
+  - The whole view is one Orbit system: the universe (`.bigbang`) is the largest
+    square that fits; the systems are satellites of `orbit-10` (a 3.5-lane ring,
+    shifted 20 px inward for the text) and the pulse is the `at-center` satellite
+    of `orbit-0` (11 lanes). Nothing is positioned by hand.
+  - The systems are shifted half a step (`--o-from`: none right at the top), each
+    facing its segment of the center ring. In the top half the text goes above
+    the ring: nothing hangs toward the center. Orbit's `.outward-y` solves it
+    (before, a `clamp()` over `--o-dir-y` in the CSS).
+  - In 3D, like each system's object: Orbit's `.depth` with the pulse in front
+    (`layer-front`) and the systems one step behind (`data-depth="1"`), without
+    shrinking or dimming. The pointer tilts the whole ±7° (not on the phone).
+  - The center's text scales with it (`cqw` units): it does not overflow in short windows.
+- **Layers.** Seven layers that grow 16% each (instead of 42%), all in view: it
+  breaks the "3 layers at most" rule on purpose, to try the integrated object.
+  In front goes the system that calls the most; tapping a band brings that
+  system to the front until a new alert arrives; tapping the center enters.
+  In 3D, like the orbit: each layer 70 px further back and the pointer tilts the object ±7°.
 
-## Ajustes en vivo (solo en desarrollo)
+## Live tuning (development only)
 
-Con `npm run dev` aparece abajo a la derecha un panel "Ajustes" para probar
-tamaños y distancias de la órbita y las capas sin tocar el código: órbita y
-anillo de los sistemas, pulso del centro, distancia en 3D, crecimiento,
-distancia, zoom y opacidad de las capas, e inclinación. Los valores quedan
-guardados en el navegador; el número en color es el que se movió del valor del
-código. "Copiar" deja la lista en el portapapeles para pasarla al código; "Volver
-a los del código" los descarta. En el build no aparece (`tune.ts`).
+With `npm run dev` a "Tuning" panel appears at the bottom right to try sizes and
+distances of the orbit and the layers without touching the code: orbit and ring
+of the systems, center pulse, distance in 3D, growth, distance, zoom and opacity
+of the layers, and tilt. The values are kept in the browser; the colored number
+is the one that moved from the code's value. "Copy" puts the list on the
+clipboard to carry into the code; "Back to code values" discards them. It does
+not appear in the build (`tune.ts`).
 
-## Avisos: reglas sobre el estado
+## Alerts: rules over the state
 
-| Aviso | Regla | Acción |
+| Alert | Rule | Action |
 |---|---|---|
-| Sirenas sonando (grave) | algún `siren` en `on` | Apagar |
-| Cerradura trabada (grave) | `lock` en `jammed` | Reintentar |
-| Movimiento en el patio (grave) | sensor en `on` **y** alarma armada | Entendido |
-| Agua en el sótano (grave) | sensor de humedad en `on` | Entendido |
-| Alarma disparada (grave) | `triggered` / `pending` | Desarmar |
-| Calienta con ventanas abiertas (leve) | calefacción `heating` **y** ventanas abiertas | Cerrar ventanas |
-| Sin llave con la alarma armada (leve) | alarma armada **y** cerraduras abiertas | Cerrar con llave |
-| Portón abierto de noche (leve) | portón abierto **y** sol bajo el horizonte | Cerrar |
-| Monóxido (leve ≥ 35 ppm, grave ≥ 100) | `sensor.carbon_monoxide` | Entendido |
-| Actualizaciones (leve) | `update` en `on` | Instalar |
+| Sirens sounding (critical) | some `siren` is `on` | Turn off |
+| Lock jammed (critical) | `lock` in `jammed` | Retry |
+| Motion in the backyard (critical) | sensor `on` **and** alarm armed | Got it |
+| Water in the basement (critical) | humidity sensor `on` | Got it |
+| Alarm triggered (critical) | `triggered` / `pending` | Disarm |
+| Heating with windows open (minor) | heating `heating` **and** windows open | Close windows |
+| Unlocked with the alarm armed (minor) | alarm armed **and** locks open | Lock |
+| Garage door open at night (minor) | garage open **and** sun below the horizon | Close |
+| Carbon monoxide (minor ≥ 35 ppm, critical ≥ 100) | `sensor.carbon_monoxide` | Got it |
+| Updates (minor) | `update` is `on` | Install |
 
-Las reglas cruzadas son lo interesante: armar la alarma desde el anillo hace
-aparecer "movimiento" y "sin llave" sin que ningún dispositivo cambie.
+The cross rules are the interesting part: arming the alarm from the ring makes
+"motion" and "unlocked" appear without any device changing.
 
-## Qué se afinó respecto de zumly-radial
+## What was refined over zumly-radial
 
-- **Se ve lo confirmado, no lo pedido.** Una orden marca su segmento o dial como
-  *enviando* (late) hasta que Home Assistant manda el estado nuevo, o 8 s. El dial
-  se mueve en el lugar mientras se arrastra y la orden sale al soltar (con
-  teclado o rueda, tras 0,5 s quieto). Si Home Assistant falla, el error aparece
-  en la franja y el valor vuelve.
-- **Avisos en curso.** Mientras las ventanas se cierran, el aviso sigue con
-  "en curso…" y sin botón; se va cuando Home Assistant confirma `closed`.
-- **Varios segmentos en falla** se pintan todos (dos sirenas, dos puertas). Si el
-  aviso llama (adelante y sin silenciar), la onda sale de esos segmentos
-  (`o-arc.ripple` de Orbit); el disco ondea solo cuando el canal es un dial.
-- **Regla 1 (estable)** con tiempo de llegada real; **regla 3 (satélites)**: los
-  avisos que esperan orbitan el anillo de adelante con su ícono y se traen con
-  un toque. **Silenciar** saca la onda y manda el aviso detrás; si el aviso cambia
-  de texto, vuelve.
-- **Un aviso grave nuevo abre su sistema solo** si se está en el tablero.
-- **Tamaño según el espacio:** el objeto se achica (`--fit`) si el disco de
-  adelante no entra con el zoom de aviso. Resuelve el hallazgo 3 de zumly-radial.
-- **Tablero con pulso:** estado de la conexión, una línea con lo que llama y los
-  últimos cambios de las entidades que se muestran.
-- **Detalle:** los mismos controles, las entidades de Home Assistant detrás de
-  cada canal y la imagen de la cámara cuando hay movimiento.
+- **What is shown is what was confirmed, not what was asked.** A command marks
+  its segment or dial as *sending* (it beats) until Home Assistant sends the new
+  state, or 8 s. The dial moves in place while it is dragged and the command goes
+  out on release (with keyboard or wheel, after 0.5 s still). If Home Assistant
+  fails, the error shows in the strip and the value comes back.
+- **Alerts in progress.** While the windows close, the alert stays with
+  "in progress…" and no button; it leaves when Home Assistant confirms `closed`.
+- **Several failing segments** are all painted (two sirens, two doors). If the
+  alert calls (in front and not muted), the wave comes out of those segments
+  (Orbit's `o-arc.ripple`); the disc ripples only when the channel is a dial.
+- **Rule 1 (stable)** with real arrival time; **rule 3 (satellites)**: the
+  waiting alerts orbit the front ring with their icon and are brought with a tap.
+  **Mute** removes the wave and sends the alert behind; if the alert's text
+  changes, it comes back.
+- **A new critical alert opens its system on its own** only when on the board.
+- **Size by available space:** the object shrinks (`--fit`) if the front disc
+  does not fit with the alert zoom. Solves finding 3 of zumly-radial.
+- **Board with pulse:** connection status, a line with what calls and the latest
+  changes of the entities shown.
+- **Detail:** the same controls, the Home Assistant entities behind each channel
+  and the camera image when there is motion.
 
-## Notas del demo
+## Demo notes
 
-- La unidad es la de la instalación (el demo viene en °F).
-- El código de la alarma del demo es `1234` (está en `model.ts`).
-- "Poorly Installed Door" se traba a propósito al cerrarla: queda como aviso grave.
-- Las sirenas del demo arrancan encendidas: es el primer aviso que aparece.
+- The unit is the installation's (the demo comes in °F).
+- The demo's alarm code is `1234` (it is in `model.ts`).
+- "Poorly Installed Door" jams on purpose when locked: it stays as a critical alert.
+- The demo's sirens start on: it is the first alert that appears.
+- The humidity and power channels look first for two simulated sensors of the
+  local test installation (`sensor.humedad_simulada`, `sensor.consumo_simulado`)
+  and then for the demo's.

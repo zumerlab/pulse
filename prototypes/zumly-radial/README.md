@@ -1,176 +1,178 @@
-# Prototipo · Zumly + objeto radial
+# Prototype · Zumly + radial object
 
-Tablero Mini → sistema → detalle de un canal. Zumly maneja la
-navegación entre niveles; Orbit dibuja los anillos y mueve las capas en
-profundidad (`.depth`, `data-depth`, `.layer-front`).
+Mini board → system → detail of a channel. Zumly handles the navigation between
+levels; Orbit draws the rings and moves the layers in depth (`.depth`,
+`data-depth`, `.layer-front`). The data is simulated (`systems.ts`); the texts
+come from `../shared/i18n.ts` and the object itself (rings, layer markup, the
+dial's gestures, the Zumly setup) from `../shared/radial.ts`, shared with
+`ha-radial`.
 
-Orbit y Zumly vienen de npm (`@zumer/orbit` 2.1.0 y `zumly` 1.2.2). Después de
-cambiar una versión, reiniciar Vite con `npm run dev -- --force`: si no, sirve
-la anterior desde su caché de dependencias. Para probar una rama sin publicar,
-un `.tgz` en `vendor/` (ver `../coordinacion/README.md`).
+Orbit and Zumly come from npm (`@zumer/orbit` 2.1.0 and `zumly` 1.2.2). After
+changing a version, restart Vite with `npm run dev -- --force`: otherwise it
+serves the previous one from its dependency cache. To try an unpublished branch,
+a `.tgz` in `vendor/` (see `../coordinacion/README.md`).
 
 ```sh
 npm run dev
 ```
 
-Abrir `/prototypes/zumly-radial/`.
+Open `/prototypes/zumly-radial/`.
 
-## Reparto
+## Who does what
 
-| Movimiento | Quién |
+| Movement | Who |
 |---|---|
-| Tablero → sistema → detalle (y volver) | Zumly (`.zoom-me`, `zoomIn`; para volver: el botón con el nombre del nivel de arriba (`depthNav.style: 'title'`), rueda, flecha izquierda, pellizco; el gesto se ve mientras dura con `gestures.follow`) |
-| Reordenar capas en z | Orbit (`data-depth` en cada `.gravity-spot` de capa, transición de 0,8 s) |
-| Zoom 1,2× / 1,7×, paralaje, onda | El objeto (`.obj` con `transform`) |
+| Board → system → detail (and back) | Zumly (`.zoom-me`, `zoomIn`; to go back: the button with the name of the level above (`depthNav.style: 'title'`), wheel, left arrow, pinch; the gesture is visible while it lasts with `gestures.follow`) |
+| Reordering layers in z | Orbit (`data-depth` on each layer's `.gravity-spot`, 0.8 s transition) |
+| Zoom 1.2× / 1.7×, parallax, wave | The object (`.obj` with `transform`) |
 
-Estructura: `.stage` (perspectiva 900 px) › `.obj` (zoom y paralaje,
-`preserve-3d`, sin clics) › `.bigbang` de 240 px (el universo) ›
-`.gravity-spot.depth.outer-perspective` › una `.gravity-spot` por canal con
-`data-depth`. El tamaño sale del universo: `orbit-12` toca su borde y un carril
-mide radio / 12 = 10 px. Cada capa tiene el anillo en `orbit-12`; la de adelante,
-la cara en un satélite `at-center` de `orbit-0`; las de atrás, la etiqueta con
-`range="auto"` y un `o-arc interactive` transparente con `hit-width` que recibe
-el toque.
+Structure: `.stage` (900 px perspective) › `.obj` (zoom and parallax,
+`preserve-3d`, no clicks) › a 240 px `.bigbang` (the universe) ›
+`.gravity-spot.depth.outer-perspective` › one `.gravity-spot` per channel with
+`data-depth`. The size comes from the universe: `orbit-12` touches its edge and
+one lane is radius / 12 = 10 px. Each layer has its ring on `orbit-12`; the front
+one, the face in an `at-center` satellite of `orbit-0`; the ones behind, the
+label with `range="auto"` and a transparent `o-arc interactive` with `hit-width`
+that receives the tap.
 
-La navegación usa desenfoque y menos brillo (`transitions.effects`); las capas del
-objeto nunca se desenfocan. Así no se confunde "nivel anterior" con "canal de atrás".
+Navigation uses blur and less brightness (`transitions.effects`); the object's
+layers never blur. That keeps "previous level" apart from "channel behind".
 
-## Controles directos
+## Direct controls
 
-El objeto se maneja sin entrar al detalle; el detalle queda para ver más.
+The object is operated without entering the detail; the detail is for seeing more.
 
-- **Dial** (Clima): el anillo de adelante es un `o-progress interactive` con
-  `role="slider"`. Se arrastra (con una perilla que marca el valor), responde a
-  flechas, Re Pág/Av Pág, Inicio/Fin y a la rueda. Fija el objetivo de 16° a 30°
-  en pasos de 0,5°. Cerca del centro el arrastre no cambia el valor, y no salta
-  por el cero: del final al principio se queda en el tope.
-- **Interruptores** (Luces): cada segmento es un `o-arc interactive` con
-  `role="switch"`; un toque, Enter o Espacio lo prende o lo apaga. El centro dice
-  cuántas y cuáles. Apagar la luz que causaba el aviso lo resuelve.
-- **Disco**: un toque sigue abriendo el detalle, que usa los mismos controles
-  (slider en grados, una casilla por luz).
+- **Dial** (Climate): the front ring is an `o-progress interactive` with
+  `role="slider"`. It is dragged (with a knob that marks the value), answers to
+  the arrows, Page Up/Down, Home/End and the wheel. It sets the target from 16°
+  to 30° in 0.5° steps. Near the center the drag does not change the value, and
+  it does not jump across zero: from the end to the start it stays at the limit.
+- **Switches** (Lights): each segment is an `o-arc interactive` with
+  `role="switch"`; a tap, Enter or Space switches it on or off. The center says
+  how many and which. Switching off the light that caused the alert resolves it.
+- **Disc**: a tap still opens the detail, which uses the same controls (a slider
+  in degrees, a checkbox per light).
 
-Cómo convive con Zumly:
-- Zumly ignora las flechas cuando el foco está en un `role="slider"`.
-- Mientras se arrastra, y 400 ms después, `mouseup`, `touchend` y `click` no le
-  llegan al canvas: soltar sobre el disco no abre el detalle, y en tacto
-  deslizar a la izquierda no vuelve.
-- Un gesto que empieza en el dial no es de Zumly (ignora los que nacen en un
-  `role="slider"`), y la rueda sobre el dial mueve el valor en lugar de volver.
-- El dial se actualiza en el lugar: repintar la capa recrearía el
-  `o-progress` y cortaría el arrastre.
+How it lives with Zumly:
+- Zumly ignores the arrows when the focus is on a `role="slider"`.
+- While dragging, and 400 ms after, `mouseup`, `touchend` and `click` do not
+  reach the canvas: releasing over the disc does not open the detail, and on
+  touch, swiping left does not go back.
+- A gesture that starts on the dial is not Zumly's (it ignores those born on a
+  `role="slider"`), and the wheel over the dial moves the value instead of going back.
+- The dial updates in place: repainting the layer would recreate the
+  `o-progress` and cut the drag.
 
-## Celular
+## Phone
 
-Debajo de 600 px de ancho (se decide al cargar) se mira un sistema a la vez:
+Under 600 px wide (decided on load) you look at one system at a time:
 
-- **Arranque adentro de un sistema**: el que tiene el aviso más grave, o Casa.
-  El tablero queda atrás como vista general: botón de volver o pellizco.
-- **Deslizar a los costados** pasa al sistema vecino: es el deslizamiento
-  lateral de Zumly (`lateralNav.swipe`) entre las vistas hermanas `sys-casa`,
-  `sys-auto`…; los puntos usan `goTo(…, { mode: 'lateral' })`. La barra de
-  Zumly va apagada (`arrows` y `dots` en `false`, `mode: 'auto'`): los puntos de
-  mini anillos son de la vista. Un arrastre que empieza en el dial mueve el
-  dial. Pellizcar vuelve al tablero (`inputs.pinch`).
-- **Puntos de mini anillos** abajo: uno por sistema, con su anillo de adelante.
-  El de un sistema con aviso late en el color del aviso (más rápido si es
-  grave). Un toque lleva a ese sistema.
-- **Dos capas visibles** y `--o-depth-grow: .24` (en lugar de .42), zoom en
-  calma de 1,1×: el anillo de atrás entra en 375 px. El resto se cuenta ("+2 al
-  fondo").
-- **Sin paralaje** (no hay puntero). La acción del aviso sigue en la franja, al
-  alcance del pulgar.
-- El tablero es una fila de mini anillos: la navegación lateral sigue la misma
-  dirección que los puntos.
+- **Start inside a system**: the one with the most serious alert, or Home. The
+  board stays behind as the overview: back button or pinch.
+- **Swiping sideways** moves to the neighbouring system: it is Zumly's lateral
+  swipe (`lateralNav.swipe`) between the sibling views `sys-home`, `sys-car`…;
+  the dots use `goTo(…, { mode: 'lateral' })`. Zumly's bar is off (`arrows` and
+  `dots` set to `false`, `mode: 'auto'`): the mini-ring dots belong to the view.
+  A drag that starts on the dial moves the dial. Pinching goes back to the board
+  (`inputs.pinch`).
+- **Mini-ring dots** at the bottom: one per system, with its front ring. The one
+  of a system with an alert beats in the alert's color (faster if critical). A
+  tap goes to that system.
+- **Two visible layers** and `--o-depth-grow: .24` (instead of .42), calm zoom
+  of 1.1×: the ring behind fits in 375 px. The rest is counted ("+2 behind").
+- **No parallax** (there is no pointer). The alert's action stays in the strip,
+  within thumb reach.
+- The board is a row of mini rings: lateral navigation follows the same
+  direction as the dots.
 
-Zumly 1.0 trajo `lateralNav.swipe` y `inputs.pinch`: se fueron el deslizamiento
-y el pellizco hechos a mano en la vista. Con hermanos paramétricos (1.0) las
-vistas `sys-*` podrían ser una sola `sistema` con `data-system`; queda para
-cuando se rehaga el prototipo.
+Zumly 1.0 brought `lateralNav.swipe` and `inputs.pinch`: the hand-made swipe and
+pinch left the view. With parametric siblings (1.0) the `sys-*` views could be a
+single `system` view with `data-system`; that waits for the prototype's rewrite.
 
-## Qué se probó
+## What was tested
 
-- **3D anidado.** Las capas se mueven en z con perspectiva de 900 px dentro de una
-  vista de Zumly (`contain: strict`, canvas con `perspective: 1000px`). Orbit da
-  las mismas matrices que el cálculo a mano (1,594× a −110, 2,290× a −220), el
-  tamaño aparente es igual en plano y en 3D (radios 144/204/265 px), y el paralaje anda. Cuando la vista queda
-  atrás con `filter`, el contenedor conserva `preserve-3d`, y la vista vuelve intacta.
-- **Clics en capas.** Tocar el anillo de una capa de atrás la trae al frente y
-  no dispara zoom-out: Zumly ignora los clics dentro de la vista actual que no
-  son `.zoom-me`. Se recorrió el radio en tres direcciones, en plano y en 3D: el
-  disco recibe hasta 128 px, Luces de 190 a 218 y Seguridad de 250 a 278.
-- **Disco → detalle.** El disco de adelante es el trigger; el detalle sale del
-  disco aunque esté dentro de una capa con transformación 3D.
-- **Aviso grave desde afuera.** `app.zoomIn(tarjeta)` abre el sistema desde
-  su tarjeta, no desde el centro (`zoomTo` perdería el origen).
-- **Estado al volver.** Zumly no re-renderiza la vista de atrás; el estado vive
-  fuera de las vistas y se repinta en `afterZoomOut`. Un valor cambiado en el
-  detalle se ve en el anillo al volver.
-- **Teclado.** Enter en una tarjeta y en el disco hace zoom; Enter en un anillo
-  de atrás lo trae al frente. La flecha izquierda sobre el slider del detalle
-  mueve el slider, no hace zoom-out.
-- **Celular (375 px).** Navega bien, sin scroll horizontal.
+- **Nested 3D.** The layers move in z with a 900 px perspective inside a Zumly
+  view (`contain: strict`, canvas with `perspective: 1000px`). Orbit gives the
+  same matrices as the hand calculation (1.594× at −110, 2.290× at −220), the
+  apparent size is the same flat and in 3D (radii 144/204/265 px), and the
+  parallax works. When the view goes behind with `filter`, the container keeps
+  `preserve-3d`, and the view comes back intact.
+- **Clicks on layers.** Tapping the ring of a layer behind brings it to the
+  front and does not trigger a zoom-out: Zumly ignores clicks inside the current
+  view that are not `.zoom-me`. The radius was walked in three directions, flat
+  and in 3D: the disc receives up to 128 px, Lights from 190 to 218 and Security
+  from 250 to 278.
+- **Disc → detail.** The front disc is the trigger; the detail comes out of the
+  disc even inside a layer with a 3D transform.
+- **Critical alert from outside.** `app.zoomIn(tile)` opens the system from its
+  tile, not from the center (`zoomTo` would lose the origin).
+- **State on the way back.** Zumly does not re-render the view behind; the state
+  lives outside the views and is repainted on `afterZoomOut`. A value changed in
+  the detail shows on the ring on the way back.
+- **Keyboard.** Enter on a tile and on the disc zooms; Enter on a ring behind
+  brings it to the front. The left arrow over the detail's slider moves the
+  slider, it does not zoom out.
+- **Phone (375 px).** Navigates well, no horizontal scroll.
 
-## Hallazgos
+## Findings
 
-1. **"Tocar fuera para volver" no existe con vistas a pantalla completa.**
-   Como la vista actual cubre todo el canvas, todo toque cae adentro. Quedan el
-   botón atrás, la rueda, la flecha izquierda y deslizar. Para tener "tocar fuera"
-   habría que achicar las vistas.
-2. **Deslizar hacia la izquierda hacía zoom-out en cualquier parte.** Con tacto
-   emulado (CDP) se confirmó en el celular: el navegador cancelaba el gesto como
-   scroll (`pointercancel`), la vista no veía el deslizamiento y Zumly hacía
-   zoom-out en vez de pasar al sistema vecino. Resuelto: en el celular la vista
-   lleva `data-no-swipe` (Zumly ignora deslizamientos que empiezan ahí) y
-   `touch-action: pan-y`. Si se hace el gesto de §14 (arrastrar el disco afuera
-   para posponer), alcanza con `data-no-swipe` en el disco.
-3. **En 375 px el anillo de más afuera se corta** ya en calma (1,2×). Conviene
-   que el diámetro base dependa del ancho.
-4. **Bloqueo de 0,8 s:** el objeto lo pone en sus capas, y Zumly bloquea su
-   propia navegación mientras anima. Son independientes y no se pisaron.
+1. **"Tap outside to go back" does not exist with full-screen views.** Since the
+   current view covers the whole canvas, every tap lands inside. What remains:
+   the back button, the wheel, the left arrow and swiping. To have "tap outside"
+   the views would have to shrink.
+2. **Swiping left zoomed out anywhere.** With emulated touch (CDP) it was
+   confirmed on the phone: the browser cancelled the gesture as a scroll
+   (`pointercancel`), the view did not see the swipe and Zumly zoomed out instead
+   of moving to the neighbouring system. Solved: on the phone the view takes
+   `touch-action: pan-y`, and Zumly ignores swipes that start on a
+   `role="slider"` or inside `[data-no-swipe]`. If the gesture of §14 is built
+   (dragging the disc outward to snooze), `data-no-swipe` on the disc is enough.
+3. **At 375 px the outermost ring is cut** already in calm (1.2×). The base
+   diameter should depend on the width.
+4. **0.8 s lock:** the object sets it on its layers, and Zumly blocks its own
+   navigation while it animates. They are independent and did not step on each other.
 
-## Orbit: de 1.6.0 a `feat/fluid-universe`
+## Orbit: from 1.6.0 to `feat/fluid-universe`
 
-Con 1.6.0 hicieron falta rodeos que la rama ya no necesita:
+With 1.6.0 workarounds were needed that the branch no longer needs:
 
-| En 1.6.0 | En la rama |
+| In 1.6.0 | In the branch |
 |---|---|
-| `o-arc interactive` recibía clics en todo su medio disco (camino del texto) | Solo la banda; un arco por capa y `hit-width` para margen de toque |
-| Fondo de 360° en banda sin dibujar: había que usar `variant="stroke"` | Bandas de 360° estables: todo es banda |
-| `--o-gap` en la órbita no llegaba a los arcos | Se hereda de la órbita |
-| `o-arc:hover` del tema pintaba de gris | Tema con especificidad cero y sin colores al pasar el mouse |
-| Borde en cada `.satellite` | Sin borde por defecto |
-| Largo de la etiqueta en arco calculado a ojo | `range="auto"` |
-| Perspectiva de `.depth` anulada a mano para el paralaje | `.depth.outer-perspective` |
-| `--o-force` en cada capa | La capa anidada hereda el alcance del universo |
-| Arcos sin dibujar en pestaña oculta | `Orbit.ready()`; en pestaña oculta dibuja igual |
+| `o-arc interactive` received clicks on its whole half disc (the text path) | Only the band; one arc per layer and `hit-width` as touch margin |
+| 360° background in an undrawn band: `variant="stroke"` was needed | Stable 360° bands: everything is a band |
+| `--o-gap` on the orbit did not reach the arcs | Inherited from the orbit |
+| The theme's `o-arc:hover` painted gray | Theme with zero specificity and no hover colors |
+| Border on every `.satellite` | No border by default |
+| Length of the arc label estimated by eye | `range="auto"` |
+| Perspective of `.depth` cancelled by hand for the parallax | `.depth.outer-perspective` |
+| `--o-force` on every layer | The nested layer inherits the universe's reach |
+| Arcs not drawn in a hidden tab | `Orbit.ready()`; in a hidden tab it draws anyway |
 
-Con la rama, el recorrido de clics da lo mismo que antes: el disco recibe
-hasta 128 px del centro, Luces de 188 a 220 y Seguridad de 248 a 280, en plano
-y en 3D, con las mismas matrices (1,594× a −110, 2,290× a −220).
+With the branch, the click walk gives the same as before: the disc receives up
+to 128 px from the center, Lights from 188 to 220 and Security from 248 to 280,
+flat and in 3D, with the same matrices (1.594× at −110, 2.290× at −220).
 
-Los tipos de `@zumer/orbit/style` ya vienen en Orbit 2 (`695d6f5`): se sacó el
-`orbit-style.d.ts` que los declaraba acá.
+The types of `@zumer/orbit/style` come with Orbit 2 (`695d6f5`): the
+`orbit-style.d.ts` that declared them here was removed.
 
 ## Orbit 2.1.0
 
-Cinco mejoras que salieron del detalle de Pulse. Las que usan los prototipos:
+Five improvements that came out of Pulse's detail. The ones the prototypes use:
 
-| Rodeo | Ahora |
+| Workaround | Now |
 |---|---|
-| Manija del dial: una órbita aparte (`--o-range: 0deg; --o-from: valor`) actualizada a mano | `.satellite.at-value` en el mismo anillo que el `o-progress`: Orbit lo sienta donde termina el valor |
-| Onda del aviso: `::after` del disco | `o-arc.ripple` en el segmento en falla del anillo de adelante; el disco ondea solo si el canal es un dial |
-| Etiqueta de la órbita (`ha-radial`): `--o-dir-y` y `clamp()` a mano | `.outward-y` |
+| Dial knob: a separate orbit (`--o-range: 0deg; --o-from: value`) updated by hand | `.satellite.at-value` on the same ring as the `o-progress`: Orbit seats it where the value ends |
+| Alert wave: the disc's `::after` | `o-arc.ripple` on the failing segment of the front ring; the disc ripples only if the channel is a dial |
+| Orbit label (`ha-radial`): `--o-dir-y` and `clamp()` by hand | `.outward-y` |
 
-`start` y `--o-max` (texto y tramos sobre un anillo con arcos, escala en horas)
-se usan en el lienzo del detalle, todavía no acá.
+`start` and `--o-max` (text and spans over a ring with arcs, a scale in hours)
+are used in the detail canvas, not here yet.
 
-## No cubierto
+## Not covered
 
-- Tacto real en un teléfono. Con tacto emulado (CDP, 375 px) se probó: deslizar
-  sobre el dial mueve el valor y no hace zoom-out; deslizar fuera del dial pasa al
-  sistema vecino.
-  Lo mismo el pellizco para volver al tablero (ahora lo hace Zumly, `inputs.pinch`)
-  y el deslizamiento lateral de Zumly: necesitan dedos de verdad.
-- Rendimiento en tablets lentas (desenfoque de las vistas de atrás). Desde Zumly
-  `main`, `transitions.animateEffects: false` aplica el desenfoque de una vez.
+- Real touch on a phone. With emulated touch (CDP, 375 px) it was tested:
+  swiping over the dial moves the value and does not zoom out; swiping outside
+  the dial moves to the neighbouring system. Same for the pinch back to the board
+  (now Zumly does it, `inputs.pinch`) and Zumly's lateral swipe: they need real fingers.
+- Performance on slow tablets (blur of the views behind). Since Zumly `main`,
+  `transitions.animateEffects: false` applies the blur at once.

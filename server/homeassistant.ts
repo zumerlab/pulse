@@ -3,17 +3,17 @@ import { localRequest } from './local-http.ts';
 
 export interface HomeAssistantEnv {
   HA_URL?: string;
-  HA_TOKEN?: string;      // token de larga duración; si está, no hace falta usuario
+  HA_TOKEN?: string;      // long-lived access token; with it, no username is needed
   HA_USERNAME?: string;
   HA_PASSWORD?: string;
 }
 
 type Token = { access: string; refresh?: string; until: number };
 
-// El navegador nunca ve usuario ni contraseña: el servidor local hace el login
-// de Home Assistant, guarda el refresh token en memoria y entrega solo un
-// access token de corta duración. El WebSocket pasa por el proxy de Vite
-// (/api/ha/websocket), así el navegador habla con su mismo origen.
+// The browser never sees the username or the password: the local server logs
+// into Home Assistant, keeps the refresh token in memory and hands out only a
+// short-lived access token. The WebSocket goes through Vite's proxy
+// (/api/ha/websocket), so the browser talks to its own origin.
 export function createHomeAssistantMiddleware(env: HomeAssistantEnv) {
   const base = (env.HA_URL ?? 'http://localhost:8123').replace(/\/$/, '');
   const clientId = 'http://127.0.0.1/';
@@ -27,7 +27,7 @@ export function createHomeAssistantMiddleware(env: HomeAssistantEnv) {
       body: form ? new URLSearchParams(body as Record<string, string>).toString() : JSON.stringify(body),
       signal: AbortSignal.timeout(8000),
     });
-    if (!response.ok) throw new Error(`Home Assistant respondió ${response.status} en ${path}.`);
+    if (!response.ok) throw new Error(`Home Assistant answered ${response.status} at ${path}.`);
     return await response.json() as Record<string, unknown>;
   };
 
@@ -43,16 +43,16 @@ export function createHomeAssistantMiddleware(env: HomeAssistantEnv) {
       try {
         return issue(await post('/auth/token',
           { grant_type: 'refresh_token', refresh_token: token.refresh, client_id: clientId }, true), token.refresh);
-      } catch { /* el refresh venció o lo revocaron: login completo */ }
+      } catch { /* the refresh token expired or was revoked: full login */ }
     }
     if (!env.HA_USERNAME || !env.HA_PASSWORD) {
-      throw new Error('Falta HA_TOKEN, o HA_USERNAME y HA_PASSWORD, en .env.local.');
+      throw new Error('HA_TOKEN, or HA_USERNAME and HA_PASSWORD, are missing in .env.local.');
     }
     const flow = await post('/auth/login_flow',
       { client_id: clientId, handler: ['homeassistant', null], redirect_uri: clientId });
     const done = await post(`/auth/login_flow/${String(flow.flow_id)}`,
       { client_id: clientId, username: env.HA_USERNAME, password: env.HA_PASSWORD });
-    if (done.type !== 'create_entry') throw new Error('Home Assistant rechazó el usuario o la contraseña.');
+    if (done.type !== 'create_entry') throw new Error('Home Assistant rejected the username or the password.');
     return issue(await post('/auth/token',
       { grant_type: 'authorization_code', code: String(done.result), client_id: clientId }, true));
   };
@@ -72,14 +72,14 @@ export function createHomeAssistantMiddleware(env: HomeAssistantEnv) {
       response.statusCode = status;
       response.end(JSON.stringify(data));
     };
-    if (!localRequest(request)) return reply(403, { error: 'Abre Pulse en esta máquina.' });
-    if (request.method !== 'GET') return reply(405, { error: 'Método no permitido.' });
+    if (!localRequest(request)) return reply(403, { error: 'Open Pulse on this machine.' });
+    if (request.method !== 'GET') return reply(405, { error: 'Method not allowed.' });
     try {
       const t = await session();
       reply(200, { accessToken: t.access, expiresIn: Math.round((t.until - Date.now()) / 1000) || null });
     } catch (error) {
       token = null;
-      reply(502, { error: error instanceof Error ? error.message : 'No se pudo entrar a Home Assistant.' });
+      reply(502, { error: error instanceof Error ? error.message : 'Could not log into Home Assistant.' });
     }
   };
 }
