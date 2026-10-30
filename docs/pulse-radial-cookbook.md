@@ -8,6 +8,10 @@ Prototipo: lienzo **Orbit Status Rings** (claude.ai), sección *Sistema
 consolidado*. El componente es `Pulse.dc.html`; está hecho con Orbit 1.5.0
 (`@zumer/orbit`).
 
+> Los prototipos de `prototypes/` corren con Orbit 2 (rama `dev`) y Zumly 1.2.2.
+> §13 quedó como historia: todo lo de "Qué le falta a Orbit" salió en 1.6.0 y
+> 2.x (ver el README de `prototypes/zumly-radial`).
+
 ---
 
 ## 1. La idea en una frase
@@ -263,7 +267,7 @@ las tarjetas a la vez.
 
 ---
 
-## 13. Notas de implementación con Orbit 1.5.0
+## 13. Notas de implementación con Orbit 1.5.0 (histórico)
 
 - **Cada capa es un `.bigbang` completo** dentro de un contenedor que se mueve en
   z: `.orbit-N` y `.satellite` ya usan `transform`, así que `translateZ` no se
@@ -287,6 +291,11 @@ las tarjetas a la vez.
   atrás.
 
 ### Qué le falta a Orbit
+
+Resuelto: 1.6.0 trajo `.depth`, `data-depth`, `.layer-front`, `--o-z` y el
+fondo de 360°; Orbit 2 trae además `interactive` con `hit-width`,
+`range="auto"`, `--o-gap` heredado, `.satellite.at-value`, `.outward` y
+`o-arc.ripple`. La lista original:
 
 - `--o-z` por órbita, sumado a su transform.
 - Una clase o atributo de capa activa (`.layer-front`, `data-depth`).

@@ -23,7 +23,7 @@ Abrir la dirección local indicada en la terminal y elegir un prototipo.
 
 ```text
 prototypes/ha-radial/     el objeto radial sobre Home Assistant en vivo (WebSocket)
-prototypes/zumly-radial/  el mismo objeto con datos simulados; trae el paquete de Orbit
+prototypes/zumly-radial/  el mismo objeto con datos simulados
 server/homeassistant.ts   login con Home Assistant; el navegador solo recibe un token corto
 docs/                     recetario del sistema radial
 ```

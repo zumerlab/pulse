@@ -34,7 +34,7 @@
 .dots { flex-wrap: wrap; gap: 6px; max-width: 100%; }
 .system { grid-template-rows: auto 1fr auto auto auto; }
 .sys-title { padding-top: 8px; }
-.face-wait { font-size: 11px; letter-spacing: 1px; color: var(--muted); animation: live 1s ease-in-out infinite; }
+.face-wait { font-size: 12px; color: var(--muted); animation: live 1s ease-in-out infinite; }
 /* Lo enviado y no confirmado late: el anillo muestra lo que Home Assistant dice, no lo pedido. */
 .is-pending, o-arc.is-pending { animation: live .9s ease-in-out infinite; }
 .layer.is-seen .disc::after { display: none; }
@@ -85,15 +85,23 @@
 .board-body { position: relative; min-height: 0; display: grid; place-items: center; }
 
 /* ─── Órbita: el pulso en el centro, los sistemas alrededor ─ */
-.orbit-board { position: absolute; inset: 0; }
+/* Visible: el texto de los sistemas de abajo puede pasar apenas el borde del universo. */
+.orbit-stage { position: absolute; inset: 0; overflow: visible; }
+/* Sin zoom; las capas de atrás conservan tamaño y color (solo se alejan). */
+.orbit-stage .obj { --zoom: 1; }
+.orbit-stage .obj .depth { --o-depth-grow: 0; --o-back-opacity: 1; --o-depth-step: var(--t-orbit-step, -110); }
+/* El universo es el cuadrado más grande que entra (--S). El anillo de cada
+   sistema ocupa su satélite: 3,5 carriles (0,15 del universo). Se corren 20 px
+   hacia adentro para que entre el texto que cuelga afuera. */
+.orbit-stage .obj > .bigbang { width: var(--S); }
+.orbit-stage .orbit-tiles { --o-size-ratio: var(--t-tile, 3.5); --o-alignment: var(--t-align, 20px); }
+/* El pulso: el satélite del centro, de 11 carriles (0,46 del universo). */
+.orbit-stage .hub-orbit { --o-size-ratio: var(--t-hub, 11); }
 /* En la órbita, lo que llama ya está en el centro: el titular sobra. */
 .board.mode-orbita .board-head h1, .board.mode-orbita .ticker { display: none; }
 /* El centro escala con su propio tamaño (unidades cqw), no con la pantalla:
    así nunca desborda, aunque la órbita lo achique. */
-.hub {
-  position: absolute; left: 50%; top: 50%; width: var(--hub, calc(var(--S) * .58)); aspect-ratio: 1; translate: -50% -50%;
-  container-type: inline-size;
-}
+.hub { position: relative; width: 100%; aspect-ratio: 1; container-type: inline-size; }
 .hub-ring-slot, .hub-ring { position: absolute; inset: 0; width: 100%; }
 .hub.beat .hub-ring { animation: hub-beat .7s ease-out; }
 @keyframes hub-beat { 30% { transform: scale(1.04); filter: brightness(1.6); } }
@@ -103,7 +111,7 @@
 }
 .slide { display: grid; justify-items: center; gap: 2cqw; text-align: center; min-width: 0; animation: slide-in .45s ease-out; }
 @keyframes slide-in { from { opacity: 0; transform: translateY(6px); } }
-.slide .eyebrow { font-size: clamp(8px, 3.4cqw, 12px); letter-spacing: .14em; }
+.slide .eyebrow { font-size: clamp(10px, 4.4cqw, 15px); }
 .slide.level-1 .eyebrow, .slide.level-1 .slide-big { color: var(--leve); }
 .slide.level-2 .eyebrow, .slide.level-2 .slide-big { color: var(--grave); }
 .slide-big { font-size: clamp(14px, 10.5cqw, 46px); font-weight: 600; letter-spacing: -.5px; line-height: 1.05; hyphens: auto; }
@@ -131,23 +139,11 @@
 .hub-dot.level-2::before { background: var(--grave); }
 .hub-dot.pulse::before { background: var(--muted); }
 .hub-dot[aria-current="true"]::before { transform: scale(1.6); box-shadow: 0 0 0 2px var(--bg), 0 0 0 3px currentColor; }
-.otile {
-  position: absolute; left: 50%; top: 50%; width: max(calc(var(--S) * .13), 110px); padding: 0; border: 0; background: none;
-  display: grid; justify-items: center; gap: 4px; cursor: pointer;
-  /* Centrado en el anillo: el texto cuelga debajo. */
-  transform: translate(-50%, calc(var(--S) * -.065))
-    translate(calc(sin(var(--a)) * var(--rx)), calc(cos(var(--a)) * var(--ry) * -1));
-}
-/* Texto encima: el anillo queda abajo del botón y su centro, en el punto de la órbita. */
-.otile.label-above {
-  grid-auto-flow: row; grid-template-areas: "title" "big" "ring";
-  transform: translate(-50%, calc(-100% + var(--S) * .065))
-    translate(calc(sin(var(--a)) * var(--rx)), calc(cos(var(--a)) * var(--ry) * -1));
-}
-.otile.label-above .otile-ring { grid-area: ring; }
-.otile.label-above .tile-title { grid-area: title; }
-.otile.label-above .tile-big { grid-area: big; }
-.otile-ring { position: relative; width: calc(var(--S) * .13); aspect-ratio: 1; display: grid; place-items: center; }
+/* El botón es el satélite entero: el anillo lo llena y el texto cuelga afuera
+   con `.outward-y` de Orbit: encima en la mitad de arriba, debajo en el resto. */
+.otile { position: relative; width: 100%; aspect-ratio: 1; padding: 0; border: 0; background: none; cursor: pointer; }
+.otile-label { width: max(100%, 110px); display: grid; justify-items: center; gap: 4px; }
+.otile-ring { position: relative; width: 100%; aspect-ratio: 1; display: grid; place-items: center; }
 .otile-ring .bigbang { position: absolute; inset: 0; width: 100%; }
 .otile-glyph .glyph { width: calc(var(--S) * .045); height: calc(var(--S) * .045); }
 .otile .tile-title { font-size: clamp(10px, calc(var(--S) * .02), 13px); }
@@ -159,9 +155,25 @@
 
 /* ─── Capas: un solo objeto, un sistema por capa ───────── */
 .board-stage { position: absolute; inset: 0; }
-.board-stage .obj, .board-stage[data-zoom="alert"] .obj { --zoom: 1.1; }
-.board-stage .obj .depth { --o-back-opacity: .6; }
+.board-stage .obj, .board-stage[data-zoom="alert"] .obj { --zoom: var(--t-layer-zoom, 1.1); }
+.board-stage .obj .depth { --o-back-opacity: var(--t-layer-opacity, .6); --o-depth-step: var(--t-layer-step, -70); }
 .board-stage .face-label { max-width: 150px; }
 
 @media (prefers-reduced-motion: reduce) { .hub.beat .hub-ring, .otile.has-alert .otile-ring, .slide { animation: none; } }
 .board.mode-capas .ticker { justify-self: center; }
+
+/* ─── Ajustes (solo en desarrollo) ─────────────────────── */
+.tune {
+  position: fixed; right: 12px; bottom: 12px; z-index: 50; width: min(300px, calc(100vw - 24px));
+  max-height: calc(100vh - 24px); overflow: auto; padding: 10px 12px;
+  background: rgba(20, 22, 26, .94); border: 1px solid var(--line); border-radius: 12px; font-size: 12px; color: var(--muted);
+}
+.tune summary { cursor: pointer; color: var(--ink); }
+.tune fieldset { border: 0; margin: 10px 0 0; padding: 0; display: grid; gap: 8px; }
+.tune legend { color: var(--ink); padding: 0; margin-bottom: 4px; }
+.tune label { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; }
+.tune input { grid-column: 1 / -1; width: 100%; accent-color: var(--leve); }
+.tune output { font-variant-numeric: tabular-nums; }
+.tune output.changed { color: var(--leve); }
+.tune-actions { display: flex; gap: 8px; margin-top: 12px; }
+.tune-actions button { min-height: 0; padding: 4px 10px; font-size: 12px; }

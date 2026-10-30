@@ -1,15 +1,13 @@
 # Prototipo · Zumly + objeto radial
 
-Tablero Mini → sistema → detalle de un canal. Zumly 0.97.0 maneja la
+Tablero Mini → sistema → detalle de un canal. Zumly maneja la
 navegación entre niveles; Orbit dibuja los anillos y mueve las capas en
 profundidad (`.depth`, `data-depth`, `.layer-front`).
 
-Orbit viene de la rama `feat/fluid-universe` (commit `85db50d`, sin publicar),
-empaquetada en `vendor/orbit-fluid-universe-85db50d.tgz`. Para actualizarla:
-compilar la rama, `npm pack`, reemplazar el `.tgz` e instalarlo con
-`npm install -D file:prototypes/zumly-radial/vendor/<archivo>.tgz`. Después
-reiniciar Vite con `npm run dev -- --force`: si no, sirve la versión anterior
-desde su caché de dependencias.
+Orbit y Zumly vienen de npm (`@zumer/orbit` 2.1.0 y `zumly` 1.2.2). Después de
+cambiar una versión, reiniciar Vite con `npm run dev -- --force`: si no, sirve
+la anterior desde su caché de dependencias. Para probar una rama sin publicar,
+un `.tgz` en `vendor/` (ver `../coordinacion/README.md`).
 
 ```sh
 npm run dev
@@ -21,7 +19,7 @@ Abrir `/prototypes/zumly-radial/`.
 
 | Movimiento | Quién |
 |---|---|
-| Tablero → sistema → detalle (y volver) | Zumly (`.zoom-me`, `zoomIn`, botón atrás, rueda, flecha izquierda) |
+| Tablero → sistema → detalle (y volver) | Zumly (`.zoom-me`, `zoomIn`; para volver: el botón con el nombre del nivel de arriba (`depthNav.style: 'title'`), rueda, flecha izquierda, pellizco; el gesto se ve mientras dura con `gestures.follow`) |
 | Reordenar capas en z | Orbit (`data-depth` en cada `.gravity-spot` de capa, transición de 0,8 s) |
 | Zoom 1,2× / 1,7×, paralaje, onda | El objeto (`.obj` con `transform`) |
 
@@ -57,8 +55,8 @@ Cómo convive con Zumly:
 - Mientras se arrastra, y 400 ms después, `mouseup`, `touchend` y `click` no le
   llegan al canvas: soltar sobre el disco no abre el detalle, y en tacto
   deslizar a la izquierda no vuelve.
-- Un toque que empieza en el dial no cuenta como gesto de Zumly (`touchstart`),
-  y la rueda sobre el dial mueve el valor en lugar de volver.
+- Un gesto que empieza en el dial no es de Zumly (ignora los que nacen en un
+  `role="slider"`), y la rueda sobre el dial mueve el valor en lugar de volver.
 - El dial se actualiza en el lugar: repintar la capa recrearía el
   `o-progress` y cortaría el arrastre.
 
@@ -68,12 +66,12 @@ Debajo de 600 px de ancho (se decide al cargar) se mira un sistema a la vez:
 
 - **Arranque adentro de un sistema**: el que tiene el aviso más grave, o Casa.
   El tablero queda atrás como vista general: botón de volver o pellizco.
-- **Deslizar a los costados** pasa al sistema vecino con la navegación lateral
-  de Zumly (`goTo('sys-auto', { mode: 'lateral' })`). Hay una vista por sistema
-  (`sys-casa`, `sys-auto`…) porque Zumly solo navega de lado entre vistas de
-  nombre distinto. Zumly no tiene deslizamiento lateral y a la izquierda haría
-  zoom-out: el gesto se resuelve en la vista y no le llega. Un arrastre que
-  empieza en el dial mueve el dial.
+- **Deslizar a los costados** pasa al sistema vecino: es el deslizamiento
+  lateral de Zumly (`lateralNav.swipe`) entre las vistas hermanas `sys-casa`,
+  `sys-auto`…; los puntos usan `goTo(…, { mode: 'lateral' })`. La barra de
+  Zumly va apagada (`arrows` y `dots` en `false`, `mode: 'auto'`): los puntos de
+  mini anillos son de la vista. Un arrastre que empieza en el dial mueve el
+  dial. Pellizcar vuelve al tablero (`inputs.pinch`).
 - **Puntos de mini anillos** abajo: uno por sistema, con su anillo de adelante.
   El de un sistema con aviso late en el color del aviso (más rápido si es
   grave). Un toque lleva a ese sistema.
@@ -85,8 +83,10 @@ Debajo de 600 px de ancho (se decide al cargar) se mira un sistema a la vez:
 - El tablero es una fila de mini anillos: la navegación lateral sigue la misma
   dirección que los puntos.
 
-Pendiente para Zumly: deslizamiento lateral como opción propia
-(`lateralNav: { swipe: true }`), para no resolverlo en cada vista.
+Zumly 1.0 trajo `lateralNav.swipe` y `inputs.pinch`: se fueron el deslizamiento
+y el pellizco hechos a mano en la vista. Con hermanos paramétricos (1.0) las
+vistas `sys-*` podrían ser una sola `sistema` con `data-system`; queda para
+cuando se rehaga el prototipo.
 
 ## Qué se probó
 
@@ -117,10 +117,13 @@ Pendiente para Zumly: deslizamiento lateral como opción propia
    Como la vista actual cubre todo el canvas, todo toque cae adentro. Quedan el
    botón atrás, la rueda, la flecha izquierda y deslizar. Para tener "tocar fuera"
    habría que achicar las vistas.
-2. **Deslizar hacia la izquierda hace zoom-out en cualquier parte** (leído en
-   `handleGesture`, no probado con tacto real). Choca con la idea de §14 de
-   arrastrar el disco hacia afuera para posponer. Si se hace ese gesto, el disco
-   tiene que frenar la propagación de `touchend`, o se apaga `inputs.touch`.
+2. **Deslizar hacia la izquierda hacía zoom-out en cualquier parte.** Con tacto
+   emulado (CDP) se confirmó en el celular: el navegador cancelaba el gesto como
+   scroll (`pointercancel`), la vista no veía el deslizamiento y Zumly hacía
+   zoom-out en vez de pasar al sistema vecino. Resuelto: en el celular la vista
+   lleva `data-no-swipe` (Zumly ignora deslizamientos que empiezan ahí) y
+   `touch-action: pan-y`. Si se hace el gesto de §14 (arrastrar el disco afuera
+   para posponer), alcanza con `data-no-swipe` en el disco.
 3. **En 375 px el anillo de más afuera se corta** ya en calma (1,2×). Conviene
    que el diámetro base dependa del ancho.
 4. **Bloqueo de 0,8 s:** el objeto lo pone en sus capas, y Zumly bloquea su
@@ -146,12 +149,28 @@ Con la rama, el recorrido de clics da lo mismo que antes: el disco recibe
 hasta 128 px del centro, Luces de 188 a 220 y Seguridad de 248 a 280, en plano
 y en 3D, con las mismas matrices (1,594× a −110, 2,290× a −220).
 
-Pendiente en la rama: el paquete no declara tipos para `@zumer/orbit/style`, y
-TypeScript 6 rechaza ese import (`orbit-style.d.ts` lo declara acá).
+Los tipos de `@zumer/orbit/style` ya vienen en Orbit 2 (`695d6f5`): se sacó el
+`orbit-style.d.ts` que los declaraba acá.
+
+## Orbit 2.1.0
+
+Cinco mejoras que salieron del detalle de Pulse. Las que usan los prototipos:
+
+| Rodeo | Ahora |
+|---|---|
+| Manija del dial: una órbita aparte (`--o-range: 0deg; --o-from: valor`) actualizada a mano | `.satellite.at-value` en el mismo anillo que el `o-progress`: Orbit lo sienta donde termina el valor |
+| Onda del aviso: `::after` del disco | `o-arc.ripple` en el segmento en falla del anillo de adelante; el disco ondea solo si el canal es un dial |
+| Etiqueta de la órbita (`ha-radial`): `--o-dir-y` y `clamp()` a mano | `.outward-y` |
+
+`start` y `--o-max` (texto y tramos sobre un anillo con arcos, escala en horas)
+se usan en el lienzo del detalle, todavía no acá.
 
 ## No cubierto
 
-- Tacto real (el emulador manda eventos de mouse): el arrastre del dial y que
-  deslizar sobre él no haga zoom-out están razonados, no probados en un teléfono.
-  Lo mismo el pellizco para volver al tablero: necesita dos dedos de verdad.
-- Rendimiento en tablets lentas (desenfoque de las vistas de atrás).
+- Tacto real en un teléfono. Con tacto emulado (CDP, 375 px) se probó: deslizar
+  sobre el dial mueve el valor y no hace zoom-out; deslizar fuera del dial pasa al
+  sistema vecino.
+  Lo mismo el pellizco para volver al tablero (ahora lo hace Zumly, `inputs.pinch`)
+  y el deslizamiento lateral de Zumly: necesitan dedos de verdad.
+- Rendimiento en tablets lentas (desenfoque de las vistas de atrás). Desde Zumly
+  `main`, `transitions.animateEffects: false` aplica el desenfoque de una vez.

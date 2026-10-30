@@ -59,16 +59,34 @@ entera. Las tres usan los mismos datos y abren el mismo sistema al tocarlas.
   tres entidades que cambiaron último, con su valor vivo). Pasa solo cada 6 s;
   se frena con el puntero o el foco encima; los puntos de abajo (color = gravedad)
   eligen uno. Los sistemas no cambian de lugar: lo que se mueve es el color.
-  - Los sistemas giran en un círculo (no elipse), lo más grande que entre.
-  - Los sistemas van corridos medio paso (ninguno justo arriba) y en la mitad de
-    arriba el texto va sobre el anillo: nada cuelga hacia el centro.
-  - El centro crece hasta el sistema más cercano (`--hub`, calculado al cambiar
-    el tamaño) y su texto escala con él (unidades `cqw`): no desborda en
-    ventanas bajas.
+  - Toda la vista es un sistema de Orbit: el universo (`.bigbang`) es el cuadrado
+    más grande que entra; los sistemas son satélites de `orbit-10` (anillo de 3,5
+    carriles, corridos 20 px hacia adentro para el texto) y el pulso es el
+    satélite `at-center` de `orbit-0` (11 carriles). Nada se posiciona a mano.
+  - Los sistemas van corridos medio paso (`--o-from`: ninguno justo arriba), cada
+    uno frente a su segmento del anillo del centro. En la mitad de arriba el texto
+    va sobre el anillo: nada cuelga hacia el centro. Lo resuelve `.outward-y`
+    de Orbit (antes, un `clamp()` sobre `--o-dir-y` en el CSS).
+  - En 3D, como el objeto de cada sistema: `.depth` de Orbit con el pulso adelante
+    (`layer-front`) y los sistemas un paso atrás (`data-depth="1"`), sin achicarse
+    ni apagarse. El puntero inclina el conjunto ±7° (no en el celular).
+  - El texto del centro escala con él (unidades `cqw`): no desborda en ventanas
+    bajas.
 - **Capas.** Siete capas que crecen 16% cada una (en lugar de 42%), todas a la
   vista: rompe la regla de "máximo 3 capas" a propósito, para probar el objeto
   integrado. Adelante va el sistema que más llama; tocar una banda trae ese
   sistema al frente hasta que llegue un aviso nuevo; tocar el centro entra.
+  En 3D, como la órbita: cada capa 70 px más atrás y el puntero inclina el objeto ±7°.
+
+## Ajustes en vivo (solo en desarrollo)
+
+Con `npm run dev` aparece abajo a la derecha un panel "Ajustes" para probar
+tamaños y distancias de la órbita y las capas sin tocar el código: órbita y
+anillo de los sistemas, pulso del centro, distancia en 3D, crecimiento,
+distancia, zoom y opacidad de las capas, e inclinación. Los valores quedan
+guardados en el navegador; el número en color es el que se movió del valor del
+código. "Copiar" deja la lista en el portapapeles para pasarla al código; "Volver
+a los del código" los descarta. En el build no aparece (`tune.ts`).
 
 ## Avisos: reglas sobre el estado
 
@@ -97,7 +115,9 @@ aparecer "movimiento" y "sin llave" sin que ningún dispositivo cambie.
   en la franja y el valor vuelve.
 - **Avisos en curso.** Mientras las ventanas se cierran, el aviso sigue con
   "en curso…" y sin botón; se va cuando Home Assistant confirma `closed`.
-- **Varios segmentos en falla** se pintan todos (dos sirenas, dos puertas).
+- **Varios segmentos en falla** se pintan todos (dos sirenas, dos puertas). Si el
+  aviso llama (adelante y sin silenciar), la onda sale de esos segmentos
+  (`o-arc.ripple` de Orbit); el disco ondea solo cuando el canal es un dial.
 - **Regla 1 (estable)** con tiempo de llegada real; **regla 3 (satélites)**: los
   avisos que esperan orbitan el anillo de adelante con su ícono y se traen con
   un toque. **Silenciar** saca la onda y manda el aviso detrás; si el aviso cambia

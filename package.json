@@ -16,11 +16,11 @@
   "devDependencies": {
     "@eslint/js": "10.0.1",
     "@types/node": "22.20.4",
-    "@zumer/orbit": "file:prototypes/zumly-radial/vendor/orbit-fluid-universe-85db50d.tgz",
+    "@zumer/orbit": "^2.1.0",
     "eslint": "10.11.0",
     "typescript": "6.0.3",
     "typescript-eslint": "8.70.1",
     "vite": "8.3.0",
-    "zumly": "0.97.0"
+    "zumly": "^1.2.2"
   }
 }

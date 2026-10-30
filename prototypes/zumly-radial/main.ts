@@ -78,6 +78,8 @@ function reading(id: string, key: string, ch: Channel) {
 // El grosor va en carriles (un carril = radio / 12): `lanes` = px / carril.
 // Con `controls`, el anillo de adelante se maneja directo: el dial se
 // arrastra (role="slider") y cada segmento de un toggle es un interruptor.
+// La manija del dial es un satélite `.at-value` en el mismo anillo: Orbit lo
+// sienta donde termina el progreso y lo sigue cuando cambia el valor.
 function ring(id: string, key: string, ch: Channel, lanes: number, controls = false) {
   const r = reading(id, key, ch);
   const color = r.alert ? (ch.level === 2 ? 'var(--grave)' : 'var(--leve)') : 'var(--ink)';
@@ -93,15 +95,17 @@ function ring(id: string, key: string, ch: Channel, lanes: number, controls = fa
     return `<div class="orbit-12" style="${size}"><o-progress value="${pct}" class="dial" data-dial="${key}"
         interactive hit-width="12" role="slider" tabindex="0" aria-label="${dial.label} de ${ch.name}"
         aria-valuemin="${dial.min}" aria-valuemax="${dial.max}" aria-valuenow="${t}"
-        aria-valuetext="${num(t)}${dial.unit}" style="--o-fill:${color}; --o-back-fill:var(--line)"></o-progress></div>
-      <div class="orbit-12 knob-orbit" style="--o-range:0deg; --o-from:${(v * 360).toFixed(1)}deg">
-        <div class="satellite knob" style="--o-size-ratio:1.4"></div></div>`;
+        aria-valuetext="${num(t)}${dial.unit}" style="--o-fill:${color}; --o-back-fill:var(--line)"></o-progress>
+      <div class="satellite knob at-value" style="--o-size-ratio:1.4"></div></div>`;
   }
   const segs = Array.from({ length: ch.segs ?? 4 }, (_, i) => {
     const on = r.lit ? r.lit[i] : i < (r.on ?? 0);
-    const fill = r.seg === i && on ? color : on ? 'var(--ink)' : 'var(--dim)';
-    if (!(controls && ch.toggles)) return `<o-arc style="--o-fill:${fill}"></o-arc>`;
-    return `<o-arc style="--o-fill:${fill}" class="toggle" data-seg="${i}" interactive hit-width="10"
+    const fail = r.seg === i && on;
+    const fill = fail ? color : on ? 'var(--ink)' : 'var(--dim)';
+    // Regla 2: en el anillo de adelante la onda sale del segmento en falla (o-arc.ripple).
+    const call = controls && fail ? ' ripple' : '';
+    if (!(controls && ch.toggles)) return `<o-arc class="${call.trim()}" style="--o-fill:${fill}"></o-arc>`;
+    return `<o-arc style="--o-fill:${fill}" class="toggle${call}" data-seg="${i}" interactive hit-width="10"
       role="switch" tabindex="0" aria-checked="${on}" aria-label="${ch.toggles[i]}"></o-arc>`;
   }).join('');
   return `<div class="orbit-12" style="${size}; --o-gap:24">${segs}</div>`;
@@ -126,9 +130,10 @@ function mini(id: string) {
 
 function tablero(ctx: ViewContext) {
   const el = ctx.target;
+  el.dataset.title = 'Tablero';   // lo muestra el botón de volver de Zumly
   const paint = () => {
     el.innerHTML = `<div class="board">
-      <header class="board-head"><p class="eyebrow">PULSE · TABLERO</p><h1>Todo en calma, salvo lo que llame.</h1></header>
+      <header class="board-head"><h1>Todo en calma, salvo lo que llame.</h1></header>
       <div class="tiles">${Object.keys(systems).map(mini).join('')}</div>
       <div class="board-actions">
         <button class="plain" data-act="grave">Simular aviso grave en Auto</button>
@@ -156,6 +161,7 @@ function tablero(ctx: ViewContext) {
 function sistema(ctx: ViewContext, id: string) {
   const sys: PulseSystem = systems[id];
   const el = ctx.target;
+  el.dataset.title = sys.title;
   let flat = true, locked = false;
 
   // Capas de Orbit: cada canal es un .gravity-spot anidado con data-depth;
@@ -221,7 +227,7 @@ function sistema(ctx: ViewContext, id: string) {
         // La etiqueta toma el largo de su texto (range="auto"). El toque es la
         // banda del anillo con "interactive", transparente, y hit-width de margen.
         : `<div class="orbit-11" style="--o-from:${i === 1 ? 300 : 30}deg">
-             <o-arc range="auto" class="arc-label" style="font-size:${(11 / grow).toFixed(2)}px">${ch.name.toUpperCase()} · ${r.big}</o-arc></div>
+             <o-arc range="auto" class="arc-label" style="font-size:${(11 / grow).toFixed(2)}px">${ch.name} · ${r.big}</o-arc></div>
            <div class="orbit-12" style="--o-size-ratio:${(STROKE[d] / grow / 10).toFixed(3)}">
              <o-arc interactive hit-width="${(12 / grow).toFixed(1)}" data-pick="${key}" class="ring-hit"
                role="button" tabindex="0" aria-label="Traer ${ch.name} al frente"></o-arc></div>`);
@@ -260,7 +266,6 @@ function sistema(ctx: ViewContext, id: string) {
     ring?.setAttribute('value', (v * 100).toFixed(1));
     ring?.setAttribute('aria-valuenow', String(t));
     ring?.setAttribute('aria-valuetext', `${num(t)}${dial.unit}`);
-    layer.querySelector<HTMLElement>('.knob-orbit')?.style.setProperty('--o-from', `${(v * 360).toFixed(1)}deg`);
     const label = layer.querySelector('.face-label');
     if (label) label.textContent = r.label;
   };
@@ -326,10 +331,6 @@ function sistema(ctx: ViewContext, id: string) {
   ctx.onCleanup(() => {
     for (const type of ['mouseup', 'touchend', 'click']) window.removeEventListener(type, swallow, true);
   });
-  // Un toque que empieza en el dial no cuenta como gesto de Zumly.
-  el.addEventListener('touchstart', (e) => {
-    if ((e.target as HTMLElement).closest('[data-dial]')) e.stopPropagation();
-  }, { passive: true });
 
   // La rueda sobre el dial mueve el valor (Zumly la usaría para volver).
   el.addEventListener('wheel', (e) => {
@@ -394,39 +395,12 @@ function sistema(ctx: ViewContext, id: string) {
   const goSystem = (other: string) => {
     if (other !== id) void app.goTo(`sys-${other}`, { mode: 'lateral' });
   };
-  // Deslizar a los costados pasa al sistema vecino. Zumly no tiene
-  // deslizamiento lateral y a la izquierda haría zoom-out: el gesto se
-  // resuelve acá y no le llega. Empezar en el dial es arrastrarlo, no deslizar.
-  let swipe: { x: number; y: number } | null = null;
-  if (PHONE) {
-    el.addEventListener('pointerdown', (e) => {
-      const t = e.target as HTMLElement;
-      swipe = t.closest('[data-dial], .dots') ? null : { x: e.clientX, y: e.clientY };
-    });
-    el.addEventListener('pointerup', (e) => {
-      if (!swipe) return;
-      const dx = e.clientX - swipe.x, dy = e.clientY - swipe.y;
-      swipe = null;
-      if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
-      swallowUntil = performance.now() + 400;
-      const at = IDS.indexOf(id), next = IDS[at + (dx < 0 ? 1 : -1)];
-      if (next) goSystem(next);
-    });
-    el.addEventListener('pointercancel', () => { swipe = null; });
-
-    // Pellizcar (dos dedos que se juntan) vuelve al tablero.
-    let pinch = 0;
-    const span = (t: TouchList) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
-    el.addEventListener('touchstart', (e) => { if (e.touches.length === 2) pinch = span(e.touches); }, { passive: true });
-    el.addEventListener('touchmove', (e) => {
-      if (pinch && e.touches.length === 2 && span(e.touches) < pinch * 0.7) {
-        pinch = 0;
-        swallowUntil = performance.now() + 400;
-        void app.zoomOut();
-      }
-    }, { passive: true });
-    el.addEventListener('touchend', () => { pinch = 0; }, { passive: true });
-  }
+  // Deslizar a los costados pasa al sistema vecino: lo hace Zumly
+  // (lateralNav.swipe) entre las vistas hermanas sys-*. Empezar en el dial es
+  // arrastrarlo, no deslizar (Zumly ignora los gestos que nacen en un slider), y
+  // pellizcar vuelve al tablero (inputs.pinch). El navegador deja el gesto
+  // horizontal a la página (si no, lo cancela como scroll).
+  if (PHONE) el.style.touchAction = 'pan-y';
 
   // Paralaje ±7° solo en 3D, y no en el celular (no hay puntero).
   stage.addEventListener('pointermove', (e) => {
@@ -452,6 +426,7 @@ function detalle(ctx: ViewContext) {
   const id = String(ctx.props.system), key = String(ctx.props.channel);
   const ch = systems[id].ch[key];
   const el = ctx.target;
+  el.dataset.title = ch.name;
   // Los mismos controles que el objeto, con más espacio.
   const paint = () => {
     const r = reading(id, key, ch);
@@ -468,13 +443,12 @@ function detalle(ctx: ViewContext) {
         `<li class="${r.seg === i ? 'fail' : i < (r.on ?? 0) ? 'on' : ''}">${ch.name} ${i + 1}</li>`).join('')}</ol>`;
     }
     el.innerHTML = `<div class="detail">
-      <p class="eyebrow">${systems[id].title.toUpperCase()} · DETALLE</p>
+      <p class="eyebrow">${systems[id].title}</p>
       <h1>${icon(ch.glyph, 30)} ${ch.name}</h1>
       <p class="detail-big">${r.big}</p>
       <p class="detail-label">${r.label}</p>
       ${r.alert ? `<p class="detail-why">${ch.al.why}</p>` : ''}
       ${control}
-      <p class="hint">Para volver: botón de abajo a la izquierda, rueda hacia abajo o flecha izquierda.</p>
     </div>`;
   };
   paint();
@@ -508,9 +482,18 @@ const app = new Zumly({
     // La navegación se aleja con desenfoque; las capas del objeto, nunca.
     // Así no se confunde "nivel anterior" con "canal de atrás".
     effects: ['blur(3px) brightness(.45)', 'blur(8px) brightness(.25)'],
+    // El desenfoque se aplica de una vez en lugar de animarse: el zoom va más fluido.
+    animateEffects: false,
     hideTrigger: 'fade',
   },
-  lateralNav: false,
+  // Volver: el botón dice a dónde (depthNav 'title'); la rueda, el deslizamiento
+  // y el pellizco mueven la vista mientras dura el gesto (gestures.follow).
+  depthNav: { style: 'title' },
+  inputs: { pinch: true },
+  gestures: { follow: true },
+  // En el celular, deslizar a los costados pasa entre los sistemas (vistas
+  // hermanas). Sin barra de Zumly: los puntos de mini anillos son de la vista.
+  lateralNav: PHONE ? { swipe: true, mode: 'auto', arrows: false, dots: false } : false,
 });
 
 // Las vistas de atrás siguen en el DOM y no se re-renderizan: al volver, se

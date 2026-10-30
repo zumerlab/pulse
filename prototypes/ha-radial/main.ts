@@ -6,6 +6,7 @@ import '../zumly-radial/style.css';
 import './style.css';
 import { HomeAssistant, type Call, type HassState } from './ha.ts';
 import { nameOf, systems, type Alert, type Channel, type Reading } from './model.ts';
+import { mountTunePanel, tune } from './tune.ts';
 
 // Mismo objeto que el prototipo zumly-radial, pero con Home Assistant vivo:
 // las lecturas, los avisos y su resolución vienen del WebSocket. Lo que se ve
@@ -37,9 +38,9 @@ const SIZE = Array.from({ length: PHONE ? 2 : 3 }, (_, d) => 1 + GROW * d);
 const STROKE = [6, 3, 2.5];
 const LOCK_MS = 800;
 const PENDING_MS = 8000;
-// Vista en capas del tablero: siete sistemas, cada capa un 16% más grande, y
-// las etiquetas de las capas de atrás repartidas para que no se pisen.
-const LAYER_GROW = 0.16;
+// Vista en capas del tablero: siete sistemas, cada capa un poco más grande
+// (tune.layerGrow, 16% por defecto), y las etiquetas de las capas de atrás
+// repartidas para que no se pisen.
 const LABEL_AT = [300, 30, 330, 60, 280, 80];
 
 const num = (n: number) => n.toLocaleString('es-AR', { maximumFractionDigits: 1 });
@@ -128,7 +129,8 @@ function color(r: Reading) {
   return r.alert ? (r.alert.level === 2 ? 'var(--grave)' : 'var(--leve)') : 'var(--ink)';
 }
 
-function ring(key: string, r: Reading, lanes: number, controls = false, muted = false) {
+// `call`: el aviso de este anillo llama (adelante y sin silenciar): su segmento en falla ondea.
+function ring(key: string, r: Reading, lanes: number, controls = false, muted = false, call = false) {
   const fill = muted ? 'var(--muted)' : color(r);
   const size = `--o-size-ratio:${lanes.toFixed(3)}`;
   const busy = isPending(r) ? ' is-pending' : '';
@@ -142,14 +144,15 @@ function ring(key: string, r: Reading, lanes: number, controls = false, muted = 
     return `<div class="orbit-12${busy}" style="${size}"><o-progress value="${pct}" class="dial" data-dial="${key}"
         interactive hit-width="12" role="slider" tabindex="0" aria-label="${dial.label}"
         aria-valuemin="${dial.min}" aria-valuemax="${dial.max}" aria-valuenow="${dial.value}"
-        aria-valuetext="${num(dial.value)}${dial.unit}" style="--o-fill:${fill}; --o-back-fill:var(--line)"></o-progress></div>
-      <div class="orbit-12 knob-orbit" style="--o-range:0deg; --o-from:${(Number(pct) * 3.6).toFixed(1)}deg">
-        <div class="satellite knob" style="--o-size-ratio:1.4"></div></div>`;
+        aria-valuetext="${num(dial.value)}${dial.unit}" style="--o-fill:${fill}; --o-back-fill:var(--line)"></o-progress>
+      <div class="satellite knob at-value" style="--o-size-ratio:1.4"></div></div>`;
   }
   const segs = (r.segs ?? []).map((s, i) => {
-    const f = r.alert?.fail?.includes(i) && !muted ? fill : s.on ? 'var(--ink)' : 'var(--dim)';
-    const wait = pending.has(s.entity) ? ' is-pending' : '';
-    if (!(controls && s.act)) return `<o-arc class="${wait}" style="--o-fill:${f}"></o-arc>`;
+    const fail = !!r.alert?.fail?.includes(i) && !muted;
+    const f = fail ? fill : s.on ? 'var(--ink)' : 'var(--dim)';
+    // Regla 2: la onda sale del segmento en falla (o-arc.ripple).
+    const wait = (pending.has(s.entity) ? ' is-pending' : '') + (call && fail ? ' ripple' : '');
+    if (!(controls && s.act)) return `<o-arc class="${wait.trim()}" style="--o-fill:${f}"></o-arc>`;
     return `<o-arc style="--o-fill:${f}" class="toggle${wait}" data-seg="${i}" interactive hit-width="10"
       role="switch" tabindex="0" aria-checked="${s.on}" aria-label="${esc(s.label)}"></o-arc>`;
   }).join('');
@@ -223,17 +226,19 @@ function front(id: string) {
   return { key, ch, r, a, big: a ? a.big : r.big, label: a ? a.label : r.label };
 }
 
-function orbitTile(id: string, i: number, n: number) {
+// Un sistema de la órbita: un satélite de Orbit. Orbit lo ubica; el anillo
+// ocupa el satélite y el texto cuelga hacia afuera con `.outward-y` de Orbit
+// (encima en la mitad de arriba, debajo en el resto).
+function orbitTile(id: string) {
   const f = front(id), level = worst(id);
-  // En la mitad de arriba el texto va sobre el anillo: cuelga hacia afuera, no hacia el centro.
-  const deg = (360 / n) * (i + 0.5), above = Math.cos(deg * Math.PI / 180) > 0.2;
-  return `<button class="otile zoom-me${above ? ' label-above' : ''}${level ? ` has-alert level-${level}` : ''}" data-to="sys-${id}" data-system="${id}"
-      aria-label="Abrir ${SYS[id].title}" style="--a:${deg}deg">
-    <span class="otile-ring"><span class="bigbang"><span class="gravity-spot">${ring(f.key, f.r, 6 / 3.5, false, !f.r.alert)}</span></span>
-      <span class="otile-glyph">${icon(f.ch.glyph, 24)}</span></span>
-    <span class="tile-title">${SYS[id].title}</span>
-    <span class="tile-big">${esc(f.big)}</span>
-  </button>`;
+  return `<div class="satellite"><div class="capsule">
+    <button class="otile zoom-me${level ? ` has-alert level-${level}` : ''}" data-to="sys-${id}" data-system="${id}"
+      aria-label="Abrir ${SYS[id].title}">
+      <span class="otile-ring"><span class="bigbang"><span class="gravity-spot">${ring(f.key, f.r, 6 / 3.5, false, !f.r.alert)}</span></span>
+        <span class="otile-glyph">${icon(f.ch.glyph, 24)}</span></span>
+      <span class="otile-label outward-y"><span class="tile-title">${SYS[id].title}</span>
+      <span class="tile-big">${esc(f.big)}</span></span>
+    </button></div></div>`;
 }
 
 // Centro de la órbita: un segmento por sistema, frente a su tarjeta y pintado
@@ -258,7 +263,7 @@ function hubSlides(): Slide[] {
   const list: Slide[] = alerts.map(({ id, k, ch, r }) => {
     const a = r.alert!;
     return { key: `${id}:${k}`, level: a.level, html: `<div class="slide level-${a.level}">
-      <p class="eyebrow">${esc(`${SYS[id].title} · ${ch.name}`.toUpperCase())}</p>
+      <p class="eyebrow">${esc(`${SYS[id].title} · ${ch.name}`)}</p>
       <p class="slide-big">${esc(a.big)}</p>
       <p class="slide-why">${esc(a.why)}</p>
       <button class="plain slide-go" data-open="${id}">Abrir</button></div>` };
@@ -268,7 +273,7 @@ function hubSlides(): Slide[] {
     .sort((a, b) => b.last_changed.localeCompare(a.last_changed)).slice(0, 3)
     .map((s) => `<li><span>${esc(nameOf(ha.states, s.entity_id))}</span><strong>${esc(stateText(s))}</strong></li>`);
   list.push({ key: 'pulso', level: 0, html: `<div class="slide">
-    <p class="eyebrow">PULSO</p>
+    <p class="eyebrow">Pulso</p>
     <p class="slide-big${alerts.length ? ' is-calling' : ''}">${alerts.length ? `${alerts.length} aviso${alerts.length > 1 ? 's' : ''}` : 'En calma'}</p>
     <ul class="hub-rows">${rows.join('') || '<li><span>Esperando cambios…</span></li>'}</ul></div>` });
   return list;
@@ -287,8 +292,9 @@ function setHTML(el: HTMLElement, html: string) {
 
 function tablero(ctx: ViewContext) {
   const el = ctx.target;
+  el.dataset.title = 'Tablero';   // lo muestra el botón de volver de Zumly
   el.innerHTML = `<div class="board">
-    <header class="board-head"><p class="eyebrow">PULSE · HOME ASSISTANT</p><h1></h1><span class="conn-slot"></span>
+    <header class="board-head"><h1></h1><span class="conn-slot"></span>
       <nav class="modes" aria-label="Vista">${MODES.map(([m, label]) =>
         `<button class="mode" data-mode="${m}">${label}</button>`).join('')}</nav></header>
     <p class="error" hidden></p>
@@ -301,36 +307,32 @@ function tablero(ctx: ViewContext) {
   let layers = new Map<string, HTMLElement>();
   let beat = log[0];
 
-  // Órbita y capas se dimensionan con el espacio que queda (--S, en px).
+  // Órbita y capas se dimensionan con el espacio que queda (--S, en px). En la
+  // órbita, Orbit ubica todo desde su universo; --S solo escala texto e íconos.
   const fit = new ResizeObserver(([entry]) => {
     const { width, height } = entry.contentRect;
     const S = Math.max(240, Math.min(width, height));
     body.style.setProperty('--S', `${S}px`);
-    // Órbita: los satélites en un círculo, lo más grande que entre con su anillo
-    // (0,13 S) y su texto (~40 px). --rx y --ry quedan iguales: círculo, no elipse.
-    const ringPx = S * 0.13, tileW = Math.max(ringPx, 110), text = 40;
-    const ry = Math.max(Math.min(height / 2 - ringPx / 2 - text, width / 2 - tileW / 2 - 8), S * 0.3);
-    const rx = ry;
-    body.style.setProperty('--ry', `${ry}px`);
-    body.style.setProperty('--rx', `${rx}px`);
-    // El centro crece hasta el sistema más cercano (su anillo y el texto que le
-    // cuelga), con aire de 0,08 S (mínimo 20 px), y nunca más de 0,62 S.
-    const n = IDS.length;
-    let room = S * 0.31;
-    for (let i = 0; i < n; i++) {
-      const a = (360 / n) * (i + 0.5) * Math.PI / 180, x = rx * Math.sin(a), y = -ry * Math.cos(a);
-      room = Math.min(room, Math.hypot(x, y) - ringPx / 2);
-      // El texto: debajo del anillo, o encima en la mitad de arriba (como en orbitTile).
-      const top = Math.cos(a) > 0.2 ? y - ringPx / 2 - text : y + ringPx / 2, bottom = top + text;
-      const nx = Math.max(Math.abs(x) - tileW / 2, 0), ny = top > 0 ? top : bottom < 0 ? bottom : 0;
-      room = Math.min(room, Math.hypot(nx, ny));
-    }
-    body.style.setProperty('--hub', `${Math.max(140, 2 * (room - Math.max(20, S * 0.08)))}px`);
     // Capas: 7 sistemas crecen hasta 1,96× el disco de 240 px, con zoom 1,1×.
     body.style.setProperty('--fit', String(Math.min(1, Math.min(width, height) / (240 * 1.96 * 1.1))));
   });
   fit.observe(body);
   ctx.onCleanup(() => fit.disconnect());
+
+  // Paralaje en la órbita y en capas (±7° por defecto, tune.tilt), como en el
+  // objeto de cada sistema (no en el celular).
+  const tilt = (rx: number, ry: number) => {
+    const obj = body.querySelector<HTMLElement>('.stage .obj');
+    if (!obj) return;
+    obj.style.setProperty('--rx', `${rx.toFixed(2)}deg`);
+    obj.style.setProperty('--ry', `${ry.toFixed(2)}deg`);
+  };
+  body.addEventListener('pointermove', (e) => {
+    if (boardMode === 'grilla' || PHONE || e.pointerType === 'touch') return;
+    const b = body.getBoundingClientRect();
+    tilt(-((e.clientY - b.top) / b.height - 0.5) * 2 * tune.tilt, ((e.clientX - b.left) / b.width - 0.5) * 2 * tune.tilt);
+  });
+  body.addEventListener('pointerleave', () => tilt(0, 0));
 
   const build = () => {
     built = boardMode;
@@ -338,12 +340,21 @@ function tablero(ctx: ViewContext) {
     board.className = `board mode-${boardMode}`;
     drawn.delete(body);
     if (boardMode === 'orbita') {
-      body.innerHTML = `<div class="orbit-board"><div class="hub"><div class="hub-ring-slot"></div>
-        <div class="hub-face" aria-live="polite"><div class="hub-slide"></div></div><nav class="hub-dots" aria-label="Avisos"></nav></div>
-        <div class="orbit-tiles"></div></div>`;
+      // Toda la órbita es un sistema de Orbit: el universo es el espacio que queda,
+      // el pulso es el satélite del centro y los sistemas, satélites de orbit-10
+      // (tune.orbit).
+      // En 3D, como el objeto de cada sistema: el pulso adelante y los sistemas
+      // un paso atrás (capas de Orbit); el puntero inclina el conjunto.
+      body.innerHTML = `<div class="stage orbit-stage"><div class="obj"><div class="bigbang"><div class="gravity-spot depth outer-perspective">
+        <div class="orbit-0 hub-orbit layer-front"><div class="satellite at-center"><div class="capsule">
+          <div class="hub"><div class="hub-ring-slot"></div>
+            <div class="hub-face" aria-live="polite"><div class="hub-slide"></div></div><nav class="hub-dots" aria-label="Avisos"></nav></div>
+        </div></div></div>
+        <div class="orbit-${tune.orbit} orbit-tiles" data-depth="1"></div></div></div></div></div>`;
     } else if (boardMode === 'capas') {
+      // En 3D, como la órbita: cada capa un paso más atrás y el puntero inclina el objeto.
       body.innerHTML = `<div class="stage board-stage" data-zoom="calm"><div class="obj"><div class="bigbang">
-        <div class="gravity-spot depth outer-perspective is-flat" style="--o-depth-grow:${LAYER_GROW}"></div></div></div></div>`;
+        <div class="gravity-spot depth outer-perspective" style="--o-depth-grow:${tune.layerGrow}"></div></div></div></div>`;
     } else body.innerHTML = '';
   };
 
@@ -358,7 +369,7 @@ function tablero(ctx: ViewContext) {
         depth.append(layer);
         layers.set(id, layer);
       }
-      const f = front(id), grow = 1 + LAYER_GROW * i, level = worst(id);
+      const f = front(id), grow = 1 + tune.layerGrow * i, level = worst(id);
       // Orbit redibuja los arcos ante cualquier cambio de atributo, aunque sea el
       // mismo valor: solo se escribe lo que cambió.
       if (layer.dataset.depth !== String(i)) layer.dataset.depth = String(i);
@@ -374,7 +385,7 @@ function tablero(ctx: ViewContext) {
                <span class="face-big">${esc(f.big)}</span><span class="face-label">${esc(f.a ? f.a.why : `${f.ch.name.toLowerCase()} · ${f.label}`)}</span>
              </div></div></div>`
         : `<div class="orbit-11" style="--o-from:${LABEL_AT[(i - 1) % LABEL_AT.length]}deg">
-             <o-arc range="auto" class="arc-label" style="font-size:${(11 / grow).toFixed(2)}px">${esc(`${SYS[id].title.toUpperCase()} · ${f.big}`)}</o-arc></div>
+             <o-arc range="auto" class="arc-label" style="font-size:${(11 / grow).toFixed(2)}px">${esc(`${SYS[id].title} · ${f.big}`)}</o-arc></div>
            <div class="orbit-12" style="--o-size-ratio:${(stroke / grow / 10).toFixed(3)}">
              <o-arc interactive hit-width="${(8 / grow).toFixed(1)}" data-bpick="${id}" class="ring-hit"
                role="button" tabindex="0" aria-label="Traer ${SYS[id].title} al frente"></o-arc></div>`));
@@ -402,7 +413,11 @@ function tablero(ctx: ViewContext) {
       const hubEl = body.querySelector<HTMLElement>('.hub')!;
       if (hubEl.hidden !== !ready) hubEl.hidden = !ready;
       setHTML(body.querySelector<HTMLElement>('.hub-ring-slot')!, ready ? hubRing(fixed) : '');
-      setHTML(body.querySelector<HTMLElement>('.orbit-tiles')!, fixed.map((id, i) => orbitTile(id, i, fixed.length)).join(''));
+      const tilesEl = body.querySelector<HTMLElement>('.orbit-tiles')!;
+      // Medio paso de corrimiento: ningún sistema justo arriba, y cada uno queda
+      // frente a su segmento del anillo del centro.
+      tilesEl.style.setProperty('--o-from', `${180 / Math.max(1, fixed.length)}deg`);
+      setHTML(tilesEl, fixed.map(orbitTile).join(''));
       if (ready) paintSlide();
       if (log[0] !== beat) { hubEl.classList.remove('beat'); void hubEl.offsetWidth; hubEl.classList.add('beat'); }
     } else if (ready) paintLayers(ids);
@@ -432,6 +447,11 @@ function tablero(ctx: ViewContext) {
   };
   let timer = window.setInterval(advance, SLIDE_MS);
   ctx.onCleanup(() => clearInterval(timer));
+
+  // El panel de ajustes (solo en desarrollo) cambia la órbita o las capas: se rearma.
+  const retune = () => { built = null; paint(); };
+  window.addEventListener('pulse-tune', retune);
+  ctx.onCleanup(() => window.removeEventListener('pulse-tune', retune));
   const hold = (on: boolean) => (e: Event) => { if ((e.target as HTMLElement).closest?.('.hub')) held = on; };
   el.addEventListener('pointerover', hold(true));
   el.addEventListener('pointerout', hold(false));
@@ -481,12 +501,13 @@ function tablero(ctx: ViewContext) {
 // ─── Sistema: objeto radial en capas ────────────────────────────────
 
 function sistema(ctx: ViewContext, id: string) {
+  ctx.target.dataset.title = SYS[id].title;
   const sys = SYS[id];
   const el = ctx.target;
   let flat = true, locked = false, dragging = false;
 
   el.innerHTML = `<div class="system">
-    <p class="eyebrow sys-title">${sys.title.toUpperCase()}</p>
+    <p class="eyebrow sys-title">${sys.title}</p>
     <div class="stage" data-zoom="calm">
       <div class="obj"><div class="bigbang"><div class="gravity-spot depth outer-perspective is-flat"
         style="--o-depth-grow:${GROW}"></div></div></div>
@@ -563,7 +584,7 @@ function sistema(ctx: ViewContext, id: string) {
           <div class="satellite sat level-${w.r.alert!.level}" data-pick="${k}" role="button" tabindex="0"
             aria-label="Aviso en ${w.ch.name}: ${esc(w.r.alert!.why)}" style="--o-size-ratio:3">${icon(w.ch.glyph, 14)}</div></div>`;
       }).join('') : '';
-      layer.innerHTML = ring(key, r, STROKE[d] / grow / 10, i === 0) + sats + (i === 0
+      layer.innerHTML = ring(key, r, STROKE[d] / grow / 10, i === 0, false, i === 0 && !!r.alert && !seen) + sats + (i === 0
         ? `<div class="orbit-0" style="--o-size-ratio:21.2"><div class="satellite at-center">
              <div class="capsule disc zoom-me" role="button" tabindex="0" data-to="detalle"
                data-system="${id}" data-channel="${key}" aria-label="Detalle de ${ch.name}">
@@ -571,7 +592,7 @@ function sistema(ctx: ViewContext, id: string) {
                <span class="face-big">${esc(shown.big)}</span><span class="face-label">${esc(shown.label)}</span>
                ${isPending(r) ? '<span class="face-wait">enviando…</span>' : ''}</div></div></div>`
         : `<div class="orbit-11" style="--o-from:${i === 1 ? 300 : 30}deg">
-             <o-arc range="auto" class="arc-label" style="font-size:${(11 / grow).toFixed(2)}px">${esc(`${ch.name.toUpperCase()} · ${shown.big}`)}</o-arc></div>
+             <o-arc range="auto" class="arc-label" style="font-size:${(11 / grow).toFixed(2)}px">${esc(`${ch.name} · ${shown.big}`)}</o-arc></div>
            <div class="orbit-12" style="--o-size-ratio:${(STROKE[d] / grow / 10).toFixed(3)}">
              <o-arc interactive hit-width="${(12 / grow).toFixed(1)}" data-pick="${key}" class="ring-hit"
                role="button" tabindex="0" aria-label="Traer ${ch.name} al frente"></o-arc></div>`);
@@ -630,7 +651,6 @@ function sistema(ctx: ViewContext, id: string) {
     ringEl?.setAttribute('value', (v * 100).toFixed(1));
     ringEl?.setAttribute('aria-valuenow', String(t));
     ringEl?.setAttribute('aria-valuetext', `${num(t)}${dial.unit}`);
-    layer.querySelector<HTMLElement>('.knob-orbit')?.style.setProperty('--o-from', `${(v * 360).toFixed(1)}deg`);
     const label = layer.querySelector('.face-label');
     if (label) label.textContent = `${dial.label} ${num(t)}${dial.unit}`;
     return t;
@@ -694,9 +714,6 @@ function sistema(ctx: ViewContext, id: string) {
   ctx.onCleanup(() => {
     for (const type of ['mouseup', 'touchend', 'click']) window.removeEventListener(type, swallow, true);
   });
-  el.addEventListener('touchstart', (e) => {
-    if ((e.target as HTMLElement).closest('[data-dial]')) e.stopPropagation();
-  }, { passive: true });
 
   el.addEventListener('wheel', (e) => {
     const ringEl = (e.target as HTMLElement).closest<HTMLElement>('[data-dial]');
@@ -767,34 +784,12 @@ function sistema(ctx: ViewContext, id: string) {
   const goSystem = (other: string) => {
     if (other !== id) void app.goTo(`sys-${other}`, { mode: 'lateral' });
   };
-  let swipe: { x: number; y: number } | null = null;
-  if (PHONE) {
-    el.addEventListener('pointerdown', (e) => {
-      const t = e.target as HTMLElement;
-      swipe = t.closest('[data-dial], .dots') ? null : { x: e.clientX, y: e.clientY };
-    });
-    el.addEventListener('pointerup', (e) => {
-      if (!swipe) return;
-      const dx = e.clientX - swipe.x, dy = e.clientY - swipe.y;
-      swipe = null;
-      if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
-      swallowUntil = performance.now() + 400;
-      const at = IDS.indexOf(id), next = IDS[at + (dx < 0 ? 1 : -1)];
-      if (next) goSystem(next);
-    });
-    el.addEventListener('pointercancel', () => { swipe = null; });
-    let pinch = 0;
-    const span = (t: TouchList) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
-    el.addEventListener('touchstart', (e) => { if (e.touches.length === 2) pinch = span(e.touches); }, { passive: true });
-    el.addEventListener('touchmove', (e) => {
-      if (pinch && e.touches.length === 2 && span(e.touches) < pinch * 0.7) {
-        pinch = 0;
-        swallowUntil = performance.now() + 400;
-        void app.zoomOut();
-      }
-    }, { passive: true });
-    el.addEventListener('touchend', () => { pinch = 0; }, { passive: true });
-  }
+  // Deslizar a los costados pasa al sistema vecino: lo hace Zumly
+  // (lateralNav.swipe) entre las vistas hermanas sys-*. Empezar en el dial es
+  // arrastrarlo, no deslizar (Zumly ignora los gestos que nacen en un slider), y
+  // pellizcar vuelve al tablero (inputs.pinch). El navegador deja el gesto
+  // horizontal a la página (si no, lo cancela como scroll).
+  if (PHONE) el.style.touchAction = 'pan-y';
 
   stage.addEventListener('pointermove', (e) => {
     if (flat || PHONE) return;
@@ -829,6 +824,7 @@ function stateText(e: HassState) {
 function detalle(ctx: ViewContext) {
   const id = String(ctx.props.system), key = String(ctx.props.channel);
   const el = ctx.target;
+  el.dataset.title = readings[id]?.get(key)?.ch.name ?? key;
   let last = '';
   const paint = () => {
     const item = readings[id]?.get(key);
@@ -851,7 +847,7 @@ function detalle(ctx: ViewContext) {
     }
     const cam = r.camera ? String(ha.states.get(r.camera)?.attributes.entity_picture ?? '') : '';
     el.innerHTML = `<div class="detail">
-      <p class="eyebrow">${SYS[id].title.toUpperCase()} · DETALLE</p>
+      <p class="eyebrow">${SYS[id].title}</p>
       <h1>${icon(ch.glyph, 30)} ${ch.name}</h1>
       <p class="detail-big${a ? ` level-${a.level}` : ''}">${esc(a ? a.big : r.big)}</p>
       <p class="detail-label">${esc(a ? a.label : r.label)}</p>
@@ -864,7 +860,6 @@ function detalle(ctx: ViewContext) {
         const s = ha.states.get(e);
         return s ? `<li><code>${e}</code> <span>${esc(nameOf(ha.states, e))}</span> <strong>${esc(stateText(s))}</strong></li>` : '';
       }).join('')}</ul></details>
-      <p class="hint">Para volver: botón de abajo a la izquierda, rueda hacia abajo o flecha izquierda.</p>
     </div>`;
   };
   paint();
@@ -910,9 +905,18 @@ const app = new Zumly({
     duration: '0.8s',
     ease: 'cubic-bezier(.2,.8,.2,1)',
     effects: ['blur(3px) brightness(.45)', 'blur(8px) brightness(.25)'],
+    // El desenfoque se aplica de una vez en lugar de animarse: el zoom va más fluido.
+    animateEffects: false,
     hideTrigger: 'fade',
   },
-  lateralNav: false,
+  // Volver: el botón dice a dónde (depthNav 'title'); la rueda, el deslizamiento
+  // y el pellizco mueven la vista mientras dura el gesto (gestures.follow).
+  depthNav: { style: 'title' },
+  inputs: { pinch: true },
+  gestures: { follow: true },
+  // En el celular, deslizar a los costados pasa entre los sistemas (vistas
+  // hermanas). Sin barra de Zumly: los puntos de mini anillos son de la vista.
+  lateralNav: PHONE ? { swipe: true, mode: 'auto', arrows: false, dots: false } : false,
 });
 app.on('afterZoomOut', () => repaint());
 
@@ -945,6 +949,7 @@ ha.onChange((changed) => {
 });
 
 await app.init();
+mountTunePanel();
 void ha.connect();
 
 // En el celular se arranca adentro del sistema que más llama.
