@@ -37,6 +37,13 @@ export const t = {
   errAuthCallback: 'The sign-in did not complete. Try again.',
   errNoConnection: 'No connection to Home Assistant.',
 
+  // Demo homes (the ones of demo.home-assistant.io, no Home Assistant needed)
+  demo: 'demo',
+  demoLead: 'No Home Assistant at hand? Explore one of the homes of demo.home-assistant.io, right here.',
+  demoHome: 'Demo home',
+  exploreDemo: 'Explore the demo',
+  leaveDemo: 'Leave the demo',
+
   // Tuning panel (development only)
   tuning: 'Tuning',
   copy: 'Copy',

@@ -5,6 +5,7 @@ import '@zumer/orbit';
 import '@zumer/pulse/style.css';
 import './style.css';
 import { WebSocketSource, type Call, type HassState, type PulseSource } from './source.ts';
+import { DemoSource } from './demo/source.ts';
 import { mountLogin } from './login.ts';
 import { nameOf, systems, type Alert, type Channel, type Reading } from './model.ts';
 import { mountTunePanel, tune } from './tune.ts';
@@ -19,7 +20,9 @@ import { t } from './strings.ts';
 // Assistant confirmed; until it does, the segment or the dial stays "sending".
 
 const socket = new WebSocketSource();
-const ha: PulseSource = socket;
+const demo = new DemoSource();
+// The active source: the WebSocket, or one of the demo homes while it is open.
+let ha: PulseSource = socket;
 const SYS = Object.fromEntries(systems.map((s) => [s.id, s]));
 const IDS = systems.map((s) => s.id);
 
@@ -60,7 +63,8 @@ function compute() {
         const h = hold.get(r.dial.entity);
         if (h && h.until > now) { r.dial.value = h.value; r.v = (h.value - r.dial.min) / (r.dial.max - r.dial.min); }
       }
-      map.set(ch.key, { ch, r });
+      // A channel that follows an entity takes its name (the model's `name`).
+      map.set(ch.key, { ch: r.name && r.name !== ch.name ? { ...ch, name: r.name } : ch, r });
       if (r.alert) {
         if (u.sig.get(ch.key) !== sig(r.alert)) {
           u.seen.delete(ch.key);
@@ -160,7 +164,7 @@ function headline() {
 
 function status() {
   return `<span class="conn conn-${ha.status}"><span class="conn-dot"></span>Home Assistant${ha.version ? ` ${ha.version}` : ''} · ${t.status[ha.status]}
-    <button class="plain" data-signout>${t.signOut}</button></span>`;
+    <button class="plain" data-signout>${ha === demo ? t.leaveDemo : t.signOut}</button></span>`;
 }
 
 // Three ways to look at the whole home, over the same data:
@@ -437,7 +441,7 @@ function board(ctx: ViewContext) {
       if (tile) void app.zoomIn(tile);
       return;
     }
-    if (target.closest('[data-signout]')) { void socket.signOut(); return; }
+    if (target.closest('[data-signout]')) { void leave(); return; }
     const mode = target.closest<HTMLElement>('[data-mode]')?.dataset.mode as BoardMode | undefined;
     const pick = target.closest<HTMLElement>('[data-bpick]')?.dataset.bpick;
     if (mode && mode !== boardMode) {
@@ -772,15 +776,14 @@ let loaded = false;
 // Signed out: the login covers the canvas; signed in: the object.
 const shell = document.querySelector<HTMLElement>('.shell')!;
 const loginSlot = document.querySelector<HTMLElement>('#login')!;
-mountLogin(loginSlot, socket);
-ha.onStatus(() => {
+const onStatus = () => {
   const out = ha.status === 'signed-out';
   shell.classList.toggle('signed-out', out);
   loginSlot.hidden = !out;
   if (out) { loaded = false; log.length = 0; }
   repaint();
-});
-ha.onChange((changed) => {
+};
+const onChange = (changed: HassState[]) => {
   for (const s of changed) { pending.delete(s.entity_id); const h = hold.get(s.entity_id); if (h && h.until !== Infinity) hold.delete(s.entity_id); }
   const fresh = compute();
   if (fresh.length) boardPick = null;
@@ -801,14 +804,41 @@ ha.onChange((changed) => {
     if (tile) void app.zoomIn(tile);
   }
   if (!loaded && ha.status === 'live') { loaded = true; void start(); }
-});
+};
+// Both sources stay subscribed; only the active one reaches the UI.
+for (const src of [socket, demo]) {
+  src.onStatus(() => { if (src === ha) onStatus(); });
+  src.onChange((changed) => { if (src === ha) onChange(changed); });
+}
+
+// A demo home opens from the sign-in panel or from `?demo=<home>`, a link that
+// can be shared; leaving it goes back to the sign-in (or to the saved session).
+let resumed = false;
+function startDemo(homeId: string) {
+  ha = demo;
+  const q = new URLSearchParams(location.search);
+  q.set('demo', homeId);
+  history.replaceState(null, '', `${location.pathname}?${q}`);
+  void demo.start(homeId);
+}
+async function leave() {
+  if (ha !== demo) { await socket.signOut(); return; }
+  demo.stop(false);
+  ha = socket;
+  history.replaceState(null, '', location.pathname);
+  if (resumed) onStatus();
+  else { resumed = true; await socket.resume(); }
+}
+mountLogin(loginSlot, socket, startDemo);
 
 await app.init();
 mountTunePanel();
-await socket.resume();
+const wanted = new URLSearchParams(location.search).get('demo');
+if (wanted) startDemo(wanted);
+else { resumed = true; await socket.resume(); }
 
 // On the phone, start inside the system that calls the most.
 async function start() {
   if (PHONE) await startInside(app, [...IDS].sort((a, b) => worst(b) - worst(a))[0]);
 }
-Object.assign(window, { pulseHA: { app, ha, ui, readings: () => readings } });
+Object.assign(window, { pulseHA: { app, get ha() { return ha; }, demo, ui, readings: () => readings } });

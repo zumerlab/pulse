@@ -13,7 +13,8 @@ npm run dev:ha     # from the repo root; http://127.0.0.1:5174
 ```
 
 Open it, type the address of your Home Assistant and sign in there. No
-configuration files, no server.
+configuration files, no server. No Home Assistant at hand? The same panel opens
+one of the six homes of demo.home-assistant.io (see "Demo homes" below).
 
 ## Sign in and connection
 
@@ -47,21 +48,48 @@ same app run inside a dashboard (see `docs/home-assistant-integration.md`).
 - **Mixed content.** A Pulse served over HTTPS cannot open a WebSocket to an
   HTTP Home Assistant; use the same URL you use remotely.
 
-## Systems (from the demo)
+## Demo homes
+
+`demo/` is a `PulseSource` with no Home Assistant behind it: the homes of
+[demo.home-assistant.io](https://demo.home-assistant.io). That site is the
+Home Assistant frontend with a mocked `hass` and no server; its entities are
+hand-written lists (`demo/src/configs/*/entities.ts` in the frontend repo) and
+a small class per domain answers service calls in the browser. Pulse carries
+both: the lists in `demo/homes/` (six homes, 40 to 130 entities each, plus the
+energy sensors every demo gets) and the classes in `demo/entities.ts`, so a
+light toggles, a cover travels, a lock goes through `locking`, an alarm through
+`arming`, with the same `states` in and `call` out as the WebSocket. Origin and
+license: `demo/NOTICE.md` (Apache 2.0).
+
+- From the sign-in panel: pick a home, "Explore the demo".
+- From a link: `?demo=home` (also `sections`, `arsaboo`, `teachingbirds`,
+  `kernehed`, `jimpower`). The URL keeps the home while it is open; "Leave the
+  demo" returns to the sign-in or to the saved session.
+- Each home builds its own object: a home without an alarm has no alarm
+  channel, one without updates no Maintenance. `home` and `sections` are the
+  rich ones; the other four are mostly sensors.
+- The Playwright suite runs against these homes, so the whole app is tested
+  without a Home Assistant.
+
+## Systems
+
+The channels name the entities of Home Assistant's `demo` integration (the
+local test installation) and fall back to the first entity of their kind, so
+another installation, or one of the demo homes, builds its own object.
 
 | System | Channels | Controls on the ring |
 |---|---|---|
-| Lights | 6 lights · living room brightness · plugs | segments = `light.toggle`; dial = `brightness_pct` |
-| Climate | heating · air conditioning · Ecobee · humidity | dial = `climate.set_temperature` |
-| Security | alarm · sirens · locks · sensors | alarm modes (the demo's code), sirens, locks |
-| Openings | living room window · hall window · garage door · irrigation | dial = `set_cover_position`; valves |
-| Media | players · living room volume | play/pause; dial = `volume_set` |
-| Energy | power · carbon monoxide · hot water | dial = `water_heater.set_temperature` |
+| Lights | all lights · brightness of the first dimmable one · plugs | segments = `light.toggle`; dial = `brightness_pct` |
+| Climate | two thermostats · one with a range (Ecobee) · humidity | dial = `climate.set_temperature` |
+| Security | alarm · sirens · locks · motion, water and smoke sensors | alarm modes (the demo's code), sirens, locks |
+| Openings | two covers with position · garage door · irrigation valves | dial = `set_cover_position`; valves |
+| Media | players · volume of the first one | play/pause; dial = `volume_set` |
+| Energy | power (W) · carbon monoxide · hot water | dial = `water_heater.set_temperature` |
 | Maintenance | updates · vacuums | install; start / return to base |
 
-The models are in `model.ts`: each channel is a function of the state. If an
-entity is missing, the channel does not appear; another installation builds its
-own object.
+The models are in `model.ts`: each channel is a function of the state. If no
+entity fits, the channel does not appear. A channel that follows one entity
+takes its name (the face says "Thermostat", "Kitchen shutter").
 
 ## Three views of the board
 

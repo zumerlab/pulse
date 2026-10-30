@@ -24,6 +24,7 @@ export type Reading = {
   segs?: Seg[];
   dial?: Dial;
   big: string; label: string;
+  name?: string;                    // replaces the channel's name when it follows the entity
   alert?: Alert;
   entities: string[];               // which entities it depends on (detail and "sending")
   camera?: string;
@@ -32,8 +33,12 @@ export type Channel = { key: string; name: string; glyph: string; read: (s: Stat
 export type PulseSystem = { id: string; title: string; channels: Channel[] };
 export type Units = { temp: string };
 
-// Alarm code of the Home Assistant demo (manual, "1234").
+// Alarm code of the Home Assistant demo integration (manual, "1234").
 const ALARM_CODE = '1234';
+
+// The channels name the entities of Home Assistant's demo integration (the
+// local test installation) and fall back to the first entity of the kind, so
+// another installation, or one of the demo homes, builds its own object.
 
 const g = {
   bulb: 'M9 18h6 M10 21h4 M12 3a6 6 0 0 0-4 10.5c.7.7 1 1.5 1 2.5h6c0-1 .3-1.8 1-2.5A6 6 0 0 0 12 3z',
@@ -84,6 +89,16 @@ const clamp = (v: number) => Math.min(1, Math.max(0, v));
 const attr = (e: HassState, k: string) => e.attributes[k] as number | undefined;
 const ofDomain = (s: States, domain: string, only?: string[]) =>
   (only ?? [...s.keys()].filter((id) => id.startsWith(`${domain}.`)).sort()).filter((id) => s.has(id));
+// The known entities that are there, or every entity of the domain that fits.
+const known = (s: States, domain: string, ids: string[], fits: (e: HassState) => boolean = () => true) => {
+  const there = ids.filter((id) => s.has(id));
+  return there.length ? there : ofDomain(s, domain).filter((id) => fits(s.get(id)!));
+};
+const first = (s: States, domain: string, ids: string[], fits?: (e: HassState) => boolean) => known(s, domain, ids, fits)[0];
+// A channel that fell back to another installation's entity takes its name;
+// for the demo integration's the channel's own name is better ("Heating", not "HeatPump").
+const ownName = (s: States, id: string) => id in short || /^(climate\.(heatpump|hvac|ecobee)|water_heater\.demo_water_heater)$/.test(id) ? undefined : nameOf(s, id);
+const isClass = (cls: string) => (e: HassState) => e.attributes.device_class === cls;
 const list = (names: string[]) => listOf(names.map((n) => n.toLowerCase()));
 const call = (domain: string, service: string, entity_id: string | string[], data = {}): Call =>
   ({ domain, service, data: { entity_id, ...data } });
@@ -92,11 +107,11 @@ const cap = (t: string) => t.replace(/^./, (c) => c.toUpperCase());
 
 // Temperature dial of a thermostat or water heater. It shows the measurement;
 // the ring is the target, which is what changes.
-function thermostat(id: string, domain: 'climate' | 'water_heater', label: (e: HassState) => string,
+function thermostat(pick: (s: States) => string | undefined, domain: 'climate' | 'water_heater', label: (e: HassState) => string,
   alert?: (s: States, e: HassState) => Alert | undefined) {
   return (s: States, u: Units): Reading | null => {
-    const e = s.get(id);
-    if (!e || attr(e, 'temperature') == null) return null;
+    const id = pick(s), e = id ? s.get(id) : undefined;
+    if (!id || !e || attr(e, 'temperature') == null) return null;
     const min = attr(e, 'min_temp') ?? 7, max = attr(e, 'max_temp') ?? 35, t = attr(e, 'temperature')!;
     const cur = attr(e, 'current_temperature');
     return {
@@ -104,6 +119,7 @@ function thermostat(id: string, domain: 'climate' | 'water_heater', label: (e: H
       dial: { min, max, step: attr(e, 'target_temp_step') ?? 1, unit: '°', label: 'target', value: t, entity: id,
         set: (x) => call(domain, 'set_temperature', id, { temperature: x }) },
       big: cur != null ? `${num(cur)}${u.temp}` : `${num(t)}°`, label: label(e), alert: alert?.(s, e),
+      name: ownName(s, id),
     };
   };
 }
@@ -120,7 +136,11 @@ const alarmState: Record<string, string> = {
   armed_vacation: 'Vacation', armed_custom_bypass: 'Custom', arming: 'Arming…', pending: 'About to sound',
   triggered: 'Triggered', disarming: 'Disarming…',
 };
-const armed = (s: States) => /^armed_/.test(s.get('alarm_control_panel.security')?.state ?? '');
+const alarmId = (s: States) => first(s, 'alarm_control_panel', ['alarm_control_panel.security']);
+const armed = (s: States) => { const id = alarmId(s); return !!id && /^armed_/.test(s.get(id)!.state); };
+// Thermostats with a single target, the demo's heat pump and AC first; the
+// ones with a range (the Ecobee) have their own channel.
+const thermostats = (s: States) => known(s, 'climate', ['climate.heatpump', 'climate.hvac'], (e) => attr(e, 'temperature') != null);
 const thermoLabel = (e: HassState) =>
   `target ${num(attr(e, 'temperature')!)}° · ${hvacAction[String(e.attributes.hvac_action)] ?? hvacMode[e.state] ?? e.state}`;
 
@@ -133,16 +153,20 @@ const openWindows = (s: States) => ofDomain(s, 'cover')
   .filter((id) => s.get(id)!.attributes.device_class !== 'garage' && ['open', 'opening', 'closing'].includes(s.get(id)!.state)
     && id !== 'cover.pergola_roof');
 
-function coverDial(id: string) {
+// Covers with a position that are not the garage: the demo's two windows first.
+const positional = (s: States) => known(s, 'cover', ['cover.living_room_window', 'cover.hall_window'],
+  (e) => attr(e, 'current_position') != null && e.attributes.device_class !== 'garage');
+function coverDial(pick: (s: States) => string | undefined) {
   return (s: States): Reading | null => {
-    const e = s.get(id);
-    if (!e || attr(e, 'current_position') == null) return null;
+    const id = pick(s), e = id ? s.get(id) : undefined;
+    if (!id || !e || attr(e, 'current_position') == null) return null;
     const p = attr(e, 'current_position')!;
     return {
       kind: 'p', v: p / 100, entities: [id],
       dial: { min: 0, max: 100, step: 10, unit: '%', label: 'open', value: p, entity: id,
         set: (x) => call('cover', 'set_cover_position', id, { position: x }) },
       big: p === 0 ? 'Closed' : `${p}%`, label: busy(e.state) ? coverState[e.state] : p === 0 ? 'all the way' : 'open',
+      name: ownName(s, id),
     };
   };
 }
@@ -158,10 +182,13 @@ export const systems: PulseSystem[] = [
         label: on.length ? list(on.map((x) => x.label)) : 'all off' };
     } },
     { key: 'brightness', name: 'Living room brightness', glyph: g.sun, read: (s) => {
-      const id = 'light.living_room_rgbww_lights', e = s.get(id);
-      if (!e) return null;
+      const id = first(s, 'light', ['light.living_room_rgbww_lights'],
+        (e) => ((e.attributes.supported_color_modes as string[] | undefined) ?? []).some((m) => m !== 'onoff'));
+      const e = id ? s.get(id) : undefined;
+      if (!id || !e) return null;
       const pct = e.state === 'on' ? Math.round((attr(e, 'brightness') ?? 255) / 2.55) : 0;
-      return { kind: 'p', v: pct / 100, entities: [id], big: pct ? `${pct}%` : 'Off', label: 'living room',
+      return { kind: 'p', v: pct / 100, entities: [id], big: pct ? `${pct}%` : 'Off', label: nameOf(s, id).toLowerCase(),
+        name: ownName(s, id) && `${nameOf(s, id)} brightness`,
         dial: { min: 0, max: 100, step: 5, unit: '%', label: 'brightness', value: pct, entity: id,
           set: (x) => x ? call('light', 'turn_on', id, { brightness_pct: x }) : call('light', 'turn_off', id) } };
     } },
@@ -177,7 +204,7 @@ export const systems: PulseSystem[] = [
 
   { id: 'climate', title: 'Climate', channels: [
     { key: 'heating', name: 'Heating', glyph: g.flame,
-      read: thermostat('climate.heatpump', 'climate', thermoLabel,
+      read: thermostat((s) => thermostats(s)[0], 'climate', thermoLabel,
         // Rule across entities: heating with the windows open.
         (s, e) => {
           const open = openWindows(s);
@@ -190,31 +217,33 @@ export const systems: PulseSystem[] = [
             why: `Heating with ${list(open.map((id) => nameOf(s, id)))} open`, verb: 'Close windows',
             calls: [call('cover', 'close_cover', open)] };
         }) },
-    { key: 'ac', name: 'Air conditioning', glyph: g.fan, read: thermostat('climate.hvac', 'climate', thermoLabel) },
+    { key: 'ac', name: 'Air conditioning', glyph: g.fan, read: thermostat((s) => thermostats(s)[1], 'climate', thermoLabel) },
     { key: 'ecobee', name: 'Ecobee', glyph: g.thermo, read: (s, u) => {
-      const id = 'climate.ecobee', e = s.get(id);
-      if (!e || attr(e, 'current_temperature') == null) return null;
+      const id = first(s, 'climate', ['climate.ecobee'], (e) => attr(e, 'target_temp_low') != null);
+      const e = id ? s.get(id) : undefined;
+      if (!id || !e || attr(e, 'current_temperature') == null) return null;
       const min = attr(e, 'min_temp') ?? 7, max = attr(e, 'max_temp') ?? 35, cur = attr(e, 'current_temperature')!;
       const lo = attr(e, 'target_temp_low'), hi = attr(e, 'target_temp_high');
-      return { kind: 'p', v: clamp((cur - min) / (max - min)), entities: [id], big: `${num(cur)}${u.temp}`,
+      return { kind: 'p', v: clamp((cur - min) / (max - min)), entities: [id], big: `${num(cur)}${u.temp}`, name: ownName(s, id),
         label: lo != null && hi != null ? `between ${num(lo)}° and ${num(hi)}°` : hvacMode[e.state] ?? e.state };
     } },
     { key: 'humidity', name: 'Humidity', glyph: g.drop, read: (s) => {
       // The first id is a simulated sensor of the local test installation.
-      const id = ['sensor.humedad_simulada', 'sensor.outside_humidity'].find((x) => s.has(x));
+      const id = first(s, 'sensor', ['sensor.humedad_simulada', 'sensor.outside_humidity'], isClass('humidity'));
       if (!id) return null;
-      const h = Number(s.get(id)!.state), dry = 'humidifier.dehumidifier', dryOff = s.get(dry)?.state === 'off';
+      const h = Number(s.get(id)!.state), dry = first(s, 'humidifier', ['humidifier.dehumidifier'], isClass('dehumidifier'));
+      const dryOff = dry != null && s.get(dry)!.state === 'off';
       return { kind: 'p', v: clamp(h / 100), entities: [id], big: `${num(h, 0)}%`, label: nameOf(s, id).toLowerCase(),
         alert: h >= 70 ? { level: 1, big: `${num(h, 0)}%`, label: 'high humidity', why: 'Humidity went past 70%',
-          verb: dryOff ? 'Turn on dehumidifier' : 'Got it', calls: dryOff ? [call('humidifier', 'turn_on', dry)] : [] }
+          verb: dryOff ? 'Turn on dehumidifier' : 'Got it', calls: dryOff ? [call('humidifier', 'turn_on', dry!)] : [] }
           : undefined };
     } },
   ] },
 
   { id: 'security', title: 'Security', channels: [
     { key: 'alarm', name: 'Alarm', glyph: g.shield, read: (s) => {
-      const id = 'alarm_control_panel.security', e = s.get(id);
-      if (!e) return null;
+      const id = alarmId(s), e = id ? s.get(id) : undefined;
+      if (!id || !e) return null;
       const modes: [string, string, string][] = [
         ['disarmed', 'Disarmed', 'alarm_disarm'], ['armed_home', 'Home', 'alarm_arm_home'], ['armed_away', 'Away', 'alarm_arm_away']];
       const next = String(e.attributes.next_state ?? '');
@@ -257,34 +286,39 @@ export const systems: PulseSystem[] = [
       return { kind: 's', segs, entities: ids, big: `${shut} of ${segs.length}`, label: 'locked', alert };
     } },
     { key: 'sensors', name: 'Sensors', glyph: g.eye, read: (s) => {
-      const ids = ofDomain(s, 'binary_sensor', ['binary_sensor.movement_backyard', 'binary_sensor.basement_floor_wet']);
+      // Motion, water and smoke sensors (the demo's two first); at most eight.
+      const ids = known(s, 'binary_sensor', ['binary_sensor.movement_backyard', 'binary_sensor.basement_floor_wet'],
+        (e) => ['motion', 'moisture', 'smoke'].includes(String(e.attributes.device_class))).slice(0, 8);
       if (!ids.length) return null;
       // On = the sensor works; the one that detects something is the one painted.
       const segs = ids.map((id) => ({ label: nameOf(s, id), on: s.get(id)!.state !== 'unavailable', entity: id }));
-      const wet = s.get('binary_sensor.basement_floor_wet')?.state === 'on';
-      const moving = s.get('binary_sensor.movement_backyard')?.state === 'on';
-      const camera = s.has('camera.demo_camera') ? 'camera.demo_camera' : undefined;
+      const detecting = (cls: string) => ids.filter((id) => s.get(id)!.state === 'on' && isClass(cls)(s.get(id)!));
+      const wet = detecting('moisture'), smoke = detecting('smoke'), moving = detecting('motion');
+      const where = (found: string[]) => list(found.map((id) => nameOf(s, id)));
+      const camera = first(s, 'camera', ['camera.demo_camera']);
       let alert: Alert | undefined;
-      if (wet) alert = { level: 2, big: 'Water', label: 'basement', fail: [ids.indexOf('binary_sensor.basement_floor_wet')],
-        why: 'The basement floor is wet', verb: 'Got it', calls: [] };
-      else if (moving && armed(s)) alert = { level: 2, big: 'Motion', label: 'backyard', fail: [ids.indexOf('binary_sensor.movement_backyard')],
-        why: 'Motion in the backyard with the alarm armed', verb: 'Got it', calls: [] };
+      if (wet.length) alert = { level: 2, big: 'Water', label: where(wet), fail: wet.map((id) => ids.indexOf(id)),
+        why: `Water detected: ${where(wet)}`, verb: 'Got it', calls: [] };
+      else if (smoke.length) alert = { level: 2, big: 'Smoke', label: where(smoke), fail: smoke.map((id) => ids.indexOf(id)),
+        why: `Smoke detected: ${where(smoke)}`, verb: 'Got it', calls: [] };
+      else if (moving.length && armed(s)) alert = { level: 2, big: 'Motion', label: where(moving), fail: moving.map((id) => ids.indexOf(id)),
+        why: `Motion (${where(moving)}) with the alarm armed`, verb: 'Got it', calls: [] };
       return { kind: 's', segs, entities: [...ids, ...(camera ? [camera] : [])], camera,
-        big: moving ? 'Motion' : 'Still', label: moving ? 'in the backyard' : 'backyard and basement', alert };
+        big: moving.length ? 'Motion' : 'Still', label: moving.length ? where(moving) : `${ids.length} sensors`, alert };
     } },
   ] },
 
   { id: 'openings', title: 'Openings', channels: [
-    { key: 'living', name: 'Living room window', glyph: g.window, read: coverDial('cover.living_room_window') },
-    { key: 'hall', name: 'Hall window', glyph: g.window, read: coverDial('cover.hall_window') },
+    { key: 'living', name: 'Living room window', glyph: g.window, read: coverDial((s) => positional(s)[0]) },
+    { key: 'hall', name: 'Hall window', glyph: g.window, read: coverDial((s) => positional(s)[1]) },
     { key: 'garage', name: 'Garage door', glyph: g.garage, read: (s) => {
-      const id = 'cover.garage_door', e = s.get(id);
-      if (!e) return null;
+      const id = first(s, 'cover', ['cover.garage_door'], isClass('garage')), e = id ? s.get(id) : undefined;
+      if (!id || !e) return null;
       const open = e.state !== 'closed';
       const night = s.get('sun.sun')?.state === 'below_horizon';
       return { kind: 's', entities: [id], big: coverState[e.state] ? cap(coverState[e.state]) : e.state,
         label: night ? 'it is night' : 'it is daytime',
-        segs: [{ label: 'Garage door', on: !open, entity: id, act: busy(e.state) ? undefined : call('cover', open ? 'close_cover' : 'open_cover', id) }],
+        segs: [{ label: nameOf(s, id), on: !open, entity: id, act: busy(e.state) ? undefined : call('cover', open ? 'close_cover' : 'open_cover', id) }],
         alert: open && night ? { level: 1, big: busy(e.state) ? cap(coverState[e.state]) : 'Open', label: 'at night', fail: [0],
           why: e.state === 'closing' ? 'The garage door is closing' : 'The garage door was left open at night', busy: busy(e.state),
           verb: 'Close', calls: [call('cover', 'close_cover', id)] } : undefined };
@@ -302,8 +336,8 @@ export const systems: PulseSystem[] = [
 
   { id: 'media', title: 'Media', channels: [
     { key: 'playing', name: 'Playing', glyph: g.play, read: (s) => {
-      const ids = ofDomain(s, 'media_player',
-        ['media_player.living_room', 'media_player.kitchen', 'media_player.bedroom', 'media_player.lounge_room', 'media_player.walkman']);
+      const ids = known(s, 'media_player',
+        ['media_player.living_room', 'media_player.kitchen', 'media_player.bedroom', 'media_player.lounge_room', 'media_player.walkman']).slice(0, 8);
       if (!ids.length) return null;
       const segs = switches(ids, s, (e) => e.state === 'playing',
         (e) => ['playing', 'paused'].includes(e.state) ? call('media_player', 'media_play_pause', e.entity_id) : undefined);
@@ -313,10 +347,12 @@ export const systems: PulseSystem[] = [
         label: on.length ? (title.length > 26 ? `${title.slice(0, 25)}…` : title || list(on.map((x) => x.label))) : 'all paused' };
     } },
     { key: 'volume', name: 'Living room volume', glyph: g.volume, read: (s) => {
-      const id = 'media_player.living_room', e = s.get(id);
-      if (!e || attr(e, 'volume_level') == null) return null;
-      const pct = Math.round(attr(e, 'volume_level')! * 100);
-      return { kind: 'p', v: pct / 100, entities: [id], big: `${pct}%`, label: e.state === 'playing' ? 'living room, playing' : 'living room',
+      const id = first(s, 'media_player', ['media_player.living_room'], (e) => attr(e, 'volume_level') != null);
+      const e = id ? s.get(id) : undefined;
+      if (!id || !e || attr(e, 'volume_level') == null) return null;
+      const pct = Math.round(attr(e, 'volume_level')! * 100), where = nameOf(s, id).toLowerCase();
+      return { kind: 'p', v: pct / 100, entities: [id], big: `${pct}%`, label: e.state === 'playing' ? `${where}, playing` : where,
+        name: ownName(s, id) && `${nameOf(s, id)} volume`,
         dial: { min: 0, max: 100, step: 5, unit: '%', label: 'volume', value: pct, entity: id,
           set: (x) => call('media_player', 'volume_set', id, { volume_level: x / 100 }) } };
     } },
@@ -325,7 +361,8 @@ export const systems: PulseSystem[] = [
   { id: 'energy', title: 'Energy', channels: [
     { key: 'power', name: 'Power', glyph: g.bolt, read: (s) => {
       // The first id is a simulated sensor of the local test installation.
-      const id = ['sensor.consumo_simulado', 'sensor.power_consumption'].find((x) => s.has(x));
+      const id = first(s, 'sensor', ['sensor.consumo_simulado', 'sensor.power_consumption', 'sensor.power_grid'],
+        (e) => e.attributes.unit_of_measurement === 'W');
       if (!id) return null;
       const w = Number(s.get(id)!.state), capW = 3000;
       return { kind: 'p', v: clamp(w / capW), entities: [id], big: `${num(w, 0)} W`, label: `of ${num(capW)} W`,
@@ -333,8 +370,8 @@ export const systems: PulseSystem[] = [
           verb: 'Got it', calls: [] } : undefined };
     } },
     { key: 'co', name: 'Carbon monoxide', glyph: g.air, read: (s) => {
-      const id = 'sensor.carbon_monoxide', e = s.get(id);
-      if (!e) return null;
+      const id = first(s, 'sensor', ['sensor.carbon_monoxide'], isClass('carbon_monoxide')), e = id ? s.get(id) : undefined;
+      if (!id || !e) return null;
       const ppm = Number(e.state);
       // 35 ppm: the EPA's one-hour limit; 100 ppm is already dangerous.
       const level = ppm >= 100 ? 2 : ppm >= 35 ? 1 : 0;
@@ -344,7 +381,7 @@ export const systems: PulseSystem[] = [
           : undefined };
     } },
     { key: 'water', name: 'Hot water', glyph: g.tap,
-      read: thermostat('water_heater.demo_water_heater', 'water_heater',
+      read: thermostat((s) => first(s, 'water_heater', ['water_heater.demo_water_heater']), 'water_heater',
         (e) => `target ${num(attr(e, 'temperature')!)}° · ${String(e.attributes.operation_mode ?? e.state)}`) },
   ] },
 

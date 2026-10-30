@@ -8,7 +8,8 @@ The UI: a radial object with layers by urgency. Uses Orbit (`../orbit`) and Zuml
 - Orbit (`@zumer/orbit` 2.1.0) and Zumly (1.2.2) come from npm, installed at the workspace root. To try an unpublished branch, it goes in as a `.tgz` in `vendor/` at the repo root: `../coordinacion/README.md`.
 - Test Home Assistant: local Docker at `127.0.0.1:8123`. The app signs in with Home Assistant's own OAuth flow in the browser (Martin signs in; never type his credentials). For an automated live check, `apps/home-assistant/.env.local` (gitignored, not read by the app) still has `HA_URL/HA_USERNAME/HA_PASSWORD`: a script can run HA's login flow with them and seed `localStorage['pulse-ha-auth']` with the tokens.
 - Integration options with Home Assistant (card, strategies, App, standalone) and the plan: `docs/home-assistant-integration.md`.
-- Checks, from the root: `npm run typecheck`, `npm run lint`, `npm test` (Playwright starts both apps: demo on 5173, HA on 5174; the HA app only gets a load check). `npm run dev` / `npm run dev:ha`; after changing a dependency version add `-- --force`.
+- `apps/home-assistant/demo/`: the six homes of demo.home-assistant.io as a `PulseSource` (data and entity behaviour ported from `home-assistant/frontend`, Apache 2.0, `demo/NOTICE.md`). Regenerate the data from that repo rather than editing it by hand.
+- Checks, from the root: `npm run typecheck`, `npm run lint`, `npm test` (Playwright starts both apps: demo on 5173, HA on 5174; the HA app is tested over its demo homes, `?demo=home`, no HA needed). `npm run dev` / `npm run dev:ha`; after changing a dependency version add `-- --force`.
 
 ## Coordination with Orbit and Zumly
 

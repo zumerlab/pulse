@@ -186,8 +186,11 @@
 .login-lead, .login-hint { color: var(--muted); }
 .login-hint { font-size: 12px; }
 .login label { display: grid; gap: 6px; font-size: 13px; color: var(--muted); }
-.login input { min-height: 44px; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--dim); background: rgba(255,255,255,.04); color: var(--ink); font: inherit; }
-.login input:focus { border-color: var(--muted); outline: none; }
+.login input, .login select { min-height: 44px; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--dim); background: rgba(255,255,255,.04); color: var(--ink); font: inherit; }
+.login input:focus, .login select:focus { border-color: var(--muted); outline: none; }
+.login select option { background: var(--bg); }
+.login-demo { display: grid; gap: 10px; padding-top: 14px; border-top: 1px solid var(--line); }
+.login-demo .plain, .login details .plain { justify-self: start; }
 .login .primary { margin: 0; }
 .login details { display: grid; gap: 10px; }
 .login summary { cursor: pointer; color: var(--muted); font-size: 13px; }
