@@ -62,6 +62,22 @@ test('a demo home opens from the sign-in panel and its entities answer the ring'
   await expect(current(page).locator('.layer-front .face-big')).toHaveText(was === 'true' ? '3 of 8' : '5 of 8');
 });
 
+test('the index previews every demo home with the rings it fills, and opens one', async ({ page }) => {
+  await page.goto(`${HA}/gallery.html`);
+  await expect(page.locator('.home-card-live')).toContainText('Your Home Assistant');
+  const cards = page.locator('[data-homes] .home-card');
+  await expect(cards).toHaveCount(6);
+  await expect(cards.first()).toContainText('Home page');
+  await expect(cards.first().locator('.tile')).toHaveCount(6);
+  await expect(cards.first().locator('.tile[data-system="climate"] .tile-big')).toHaveText('21.5°C');
+  await expect(cards.nth(1).locator('.tile')).toHaveCount(7);
+  await expect(cards.first()).toContainText(/\d+ entities · 6 systems/);
+  // No timers left running from the previews: the page stays quiet.
+  await cards.nth(1).click();
+  await expect(page).toHaveURL(/\?demo=sections$/);
+  await expect(page.locator('.conn')).toContainText('Home Demo · live');
+});
+
 test('a shared link opens a demo home directly and leaving it returns to the sign-in', async ({ page }) => {
   await page.goto(`${HA}?demo=home`);
   await expect(page.locator('.conn')).toContainText('Home Assistant demo · Home page · live');

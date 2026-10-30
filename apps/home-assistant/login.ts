@@ -22,6 +22,7 @@ export function mountLogin(root: HTMLElement, ha: WebSocketSource, onDemo: (home
         `<option value="${h.id}"${h.id === DEFAULT_HOME ? ' selected' : ''}>${esc(h.name)} · ${esc(h.author)}</option>`).join('')}</select></label>
       <p class="login-hint" data-home-description></p>
       <button type="button" class="plain" data-login="demo">${t.exploreDemo}</button>
+      <a class="login-link" href="./gallery.html">${t.browseHomes}</a>
     </div>
     <details>
       <summary>${t.tokenInstead}</summary>

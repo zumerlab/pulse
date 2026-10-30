@@ -191,6 +191,27 @@
 .login select option { background: var(--bg); }
 .login-demo { display: grid; gap: 10px; padding-top: 14px; border-top: 1px solid var(--line); }
 .login-demo .plain, .login details .plain { justify-self: start; }
+.login-link { font-size: 13px; color: var(--muted); text-decoration: underline; text-underline-offset: 3px; }
+.login-link:hover { color: var(--ink); }
+
+/* The index: cards for your Home Assistant, the demo app and the demo homes */
+.gallery { max-width: 1100px; margin: 0 auto; padding: 40px 16px 60px; display: grid; gap: 16px; }
+.gallery h1 { font-size: 34px; font-weight: 550; letter-spacing: -.6px; }
+.gallery h2 { margin-top: 28px; font-size: 20px; font-weight: 550; }
+.gallery-lead { color: var(--muted); max-width: 60ch; }
+.home-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
+.home-card { display: grid; align-content: start; gap: 10px; padding: 18px; border-radius: 16px; border: 1px solid var(--line);
+  background: rgba(255,255,255,.025); color: var(--ink); text-decoration: none; transition: border-color .2s, background .2s; }
+.home-card:hover, .home-card:focus-visible { border-color: var(--muted); background: rgba(255,255,255,.05); outline: none; }
+.home-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; font-size: 17px; }
+.home-open { font-size: 12px; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px; }
+.home-lead, .home-foot { font-size: 13px; color: var(--muted); }
+.home-card .tiles { justify-content: flex-start; gap: 6px 2px; margin: 6px 0 2px; }
+.home-card .tile { width: 70px; height: 104px; gap: 6px; pointer-events: none; }
+.home-card .mini-ring { width: 54px; }
+.home-card .tile-title { font-size: 11px; }
+.home-card .tile-big { font-size: 10px; max-width: 68px; }
+.home-card-live, .home-card-app { grid-template-rows: auto 1fr auto; }
 .login .primary { margin: 0; }
 .login details { display: grid; gap: 10px; }
 .login summary { cursor: pointer; color: var(--muted); font-size: 13px; }

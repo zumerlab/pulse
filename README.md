@@ -30,6 +30,7 @@ Requires Node.js 22.18+ or 24+ and npm.
 npm ci
 npm run dev        # demo, http://127.0.0.1:5173
 npm run dev:ha     # Home Assistant, http://127.0.0.1:5174; sign in with your Home Assistant account
+                   # index of the demo homes: http://127.0.0.1:5174/gallery.html
 ```
 
 ```sh

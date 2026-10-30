@@ -43,6 +43,16 @@ export const t = {
   demoHome: 'Demo home',
   exploreDemo: 'Explore the demo',
   leaveDemo: 'Leave the demo',
+  browseHomes: 'See every demo home, with a preview',
+
+  // The index (gallery.html)
+  galleryLead: 'Your home, as one object per system. Pick where to look.',
+  yourHALead: 'Sign in with your Home Assistant account; the object is built from your own entities.',
+  demoApp: 'Pulse demo',
+  demoAppLead: 'The object over simulated systems: home, car, pet, health and server, with alerts to trigger.',
+  demoHomes: 'Demo homes',
+  demoHomesLead: 'The six homes of demo.home-assistant.io, with entities that answer the ring. No Home Assistant needed.',
+  homeFoot: (entities: number, systems: number) => `${entities} entities · ${systems} ${systems === 1 ? 'system' : 'systems'}`,
 
   // Tuning panel (development only)
   tuning: 'Tuning',

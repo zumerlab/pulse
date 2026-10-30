@@ -62,6 +62,10 @@ light toggles, a cover travels, a lock goes through `locking`, an alarm through
 license: `demo/NOTICE.md` (Apache 2.0).
 
 - From the sign-in panel: pick a home, "Explore the demo".
+- From the index, `gallery.html` (linked from the sign-in panel): a card per
+  home with the mini rings its entities fill, computed with the same model as
+  the board, plus cards for your own Home Assistant and, in development, the
+  demo app. The place to start a visitor.
 - From a link: `?demo=home` (also `sections`, `arsaboo`, `teachingbirds`,
   `kernehed`, `jimpower`). The URL keeps the home while it is open; "Leave the
   demo" returns to the sign-in or to the saved session.
