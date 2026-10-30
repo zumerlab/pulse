@@ -1,6 +1,6 @@
 import Zumly, { type ViewContext } from 'zumly';
 import type { Call, HassState, PulseSource, Status } from './source.ts';
-import { nameOf, systems, type Alert, type Channel, type Reading } from './model.ts';
+import { nameOf, placeOf, systems, type Alert, type Channel, type Reading } from './model.ts';
 import { tune } from './tune.ts';
 import {
   DOT_LANES, LANE, LOCK_MS, MINI_LANES, PHONE, SIZE, STROKE, backLayer, calmStrip, dialControls, dots, esc, face,
@@ -25,6 +25,12 @@ export type PulseSettings = {
   systems?: string[];
   mode?: BoardMode;
   start?: string;
+  // Only the entities in these areas (registry ids); nothing set: everywhere.
+  areas?: string[];
+  // Channels each system does not show: { lights: ['plugs'] }.
+  channels?: Record<string, string[]>;
+  // The entity a channel follows instead of the first of its kind: { 'lights/brightness': 'light.kitchen' }.
+  entities?: Record<string, string>;
 };
 
 export type PulseOptions = {
@@ -35,6 +41,8 @@ export type PulseOptions = {
   mode?: BoardMode;
   // Start inside this system (the board stays behind, one step out).
   start?: string;
+  // Only what is in these areas (registry ids); the gear chooses among them.
+  areas?: string[];
   // Where the viewer's choices are kept: a localStorage key (default
   // 'pulse-ha-settings'); `false` hides the gear and keeps nothing.
   settings?: string | false;
@@ -77,7 +85,10 @@ const valid = (ids?: string[]) => (ids ?? []).filter((id) => ALL.includes(id));
 
 // The frame: what the host (a card's config, the page's URL) allows. The
 // viewer chooses within it with the gear; that choice is kept per browser.
-const frame = { systems: valid(options.systems).length ? valid(options.systems) : ALL, mode: options.mode, start: options.start };
+const frame = {
+  systems: valid(options.systems).length ? valid(options.systems) : ALL, mode: options.mode, start: options.start,
+  areas: options.areas?.length ? options.areas : undefined,
+};
 const STORE = options.settings === false ? null : options.settings ?? 'pulse-ha-settings';
 const loadSettings = (): PulseSettings => {
   if (!STORE) return {};
@@ -100,12 +111,25 @@ const applySettings = () => {
 };
 applySettings();
 const startId = () => { const id = local.start ?? frame.start; return id && IDS.includes(id) ? id : null; };
-const settings = (): PulseSettings => ({ systems: IDS, mode: boardMode, start: startId() ?? undefined });
+// The areas the gear offers: the registry's, within the frame; and the ones in force.
+const frameAreas = () => [...ha.registry.areas.keys()].filter((a) => !frame.areas || frame.areas.includes(a));
+const activeAreas = (): string[] | undefined => {
+  const offered = frameAreas();
+  const chosen = (local.areas ?? []).filter((a) => offered.includes(a));
+  return chosen.length ? chosen : frame.areas;
+};
+const hiddenChannels = (id: string) => {
+  const hidden = local.channels?.[id] ?? [];
+  // At least one channel: a system with all of them hidden shows all of them.
+  return SYS[id].channels.every((ch) => hidden.includes(ch.key)) ? [] : hidden;
+};
+const settings = (): PulseSettings => ({ systems: IDS, mode: boardMode, start: startId() ?? undefined,
+  areas: activeAreas(), channels: local.channels, entities: local.entities });
 const setSettings = (patch: PulseSettings) => {
   local = { ...local, ...patch };
   for (const k of Object.keys(local) as (keyof PulseSettings)[]) {
     const v = local[k];
-    if (v === undefined || (Array.isArray(v) && !v.length)) delete local[k];
+    if (v === undefined || (Array.isArray(v) && !v.length) || (typeof v === 'object' && !Array.isArray(v) && !Object.keys(v).length)) delete local[k];
   }
   if (STORE) {
     try { if (Object.keys(local).length) localStorage.setItem(STORE, JSON.stringify(local)); else localStorage.removeItem(STORE); }
@@ -123,6 +147,8 @@ type Ui = {
 };
 const ui: Record<string, Ui> = Object.fromEntries(ALL.map((id) => [id, { pick: null, since: new Map(), sig: new Map(), seen: new Set() }]));
 let readings: Record<string, Map<string, { ch: Channel; r: Reading }>> = {};
+// Every channel with something to show, hidden ones included: what the gear lists.
+let channels: Record<string, { ch: Channel; r: Reading; hidden: boolean }[]> = {};
 // Entities with an unconfirmed command, and dial values the user is moving.
 const pending = new Map<string, number>();
 const hold = new Map<string, { value: number; until: number }>();
@@ -143,17 +169,24 @@ const sig = (a: Alert) => `${a.level}|${a.big}|${a.why}`;
 function compute() {
   const now = Date.now(), fresh: { id: string; key: string; a: Alert }[] = [];
   readings = {};
+  channels = {};
+  const ctx = { temp: ha.unit, reg: ha.registry, areas: activeAreas() ?? null, picks: local.entities ?? {} };
   for (const sys of IDS.map((id) => SYS[id])) {
-    const map = new Map<string, { ch: Channel; r: Reading }>(), u = ui[sys.id];
+    const map = new Map<string, { ch: Channel; r: Reading }>(), u = ui[sys.id], hidden = hiddenChannels(sys.id);
+    channels[sys.id] = [];
     for (const ch of sys.channels) {
-      const r = ch.read(ha.states, { temp: ha.unit, reg: ha.registry });
+      const r = ch.read(ha.states, ctx);
       if (!r) continue;
+      // A channel that follows an entity takes its name (the model's `name`);
+      // the gear lists every channel that has something, hidden or not.
+      const named = r.name && r.name !== ch.name ? { ...ch, name: r.name } : ch;
+      channels[sys.id].push({ ch: named, r, hidden: hidden.includes(ch.key) });
+      if (hidden.includes(ch.key)) continue;
       if (r.dial) {
         const h = hold.get(r.dial.entity);
         if (h && h.until > now) { r.dial.value = h.value; r.v = (h.value - r.dial.min) / (r.dial.max - r.dial.min); }
       }
-      // A channel that follows an entity takes its name (the model's `name`).
-      map.set(ch.key, { ch: r.name && r.name !== ch.name ? { ...ch, name: r.name } : ch, r });
+      map.set(ch.key, { ch: named, r });
       if (r.alert) {
         if (u.sig.get(ch.key) !== sig(r.alert)) {
           u.seen.delete(ch.key);
@@ -567,12 +600,30 @@ function board(ctx: ViewContext) {
     });
     // Only the field that changed is kept: the others stay as the frame says.
     form.addEventListener('change', (e) => {
-      const field = (e.target as HTMLInputElement).name, data = new FormData(form);
+      const target = e.target as HTMLInputElement | HTMLSelectElement, field = target.name, data = new FormData(form);
       if (field === 'systems') {
         const chosen = data.getAll('systems').map(String);
         // At least one system: unchecking the last one does not stick.
         if (!chosen.length) { syncSettings(form); return; }
         setSettings({ systems: chosen.length === frame.systems.length ? undefined : chosen });
+      } else if (field === 'areas') {
+        const chosen = data.getAll('areas').map(String);
+        if (!chosen.length) { syncSettings(form); return; }
+        setSettings({ areas: chosen.length === frameAreas().length ? undefined : chosen });
+      } else if (field === 'channel') {
+        // The system of the box that changed: its hidden channels are the unticked ones.
+        const sysId = String(target.value).split('/')[0];
+        const ticked = data.getAll('channel').map(String).filter((v) => v.startsWith(`${sysId}/`)).map((v) => v.split('/')[1]);
+        if (!ticked.length) { syncSettings(form); return; }
+        const hidden = SYS[sysId].channels.map((ch) => ch.key).filter((k) => !ticked.includes(k));
+        const next = { ...local.channels };
+        if (hidden.length) next[sysId] = hidden; else delete next[sysId];
+        setSettings({ channels: Object.keys(next).length ? next : undefined });
+      } else if (field === 'entity') {
+        const key = (target as HTMLSelectElement).dataset.key!, value = target.value;
+        const next = { ...local.entities };
+        if (value && value !== (target as HTMLSelectElement).dataset.default) next[key] = value; else delete next[key];
+        setSettings({ entities: Object.keys(next).length ? next : undefined });
       } else if (field === 'mode') {
         const mode = String(data.get('mode')) as BoardMode;
         if (BOARD_MODES.includes(mode)) setSettings({ mode });
@@ -610,6 +661,12 @@ function settingsPanel() {
       <fieldset><legend>${t.systemsField}</legend>
         <div class="settings-systems">${frame.systems.map((id) =>
           `<label><input type="checkbox" name="systems" value="${id}"> ${SYS[id].title}</label>`).join('')}</div></fieldset>
+      <fieldset class="settings-areas" hidden><legend>${t.areasField}</legend>
+        <div class="settings-areas-list"></div>
+        <p class="hint">${t.areasHint}</p></fieldset>
+      <fieldset class="settings-channels-field"><legend>${t.channelsField}</legend>
+        <div class="settings-channels"></div>
+        <p class="hint">${t.channelsHint}</p></fieldset>
       <fieldset><legend>${t.boardView}</legend>
         <div class="settings-row">${MODES.map(([m, label]) => `<label><input type="radio" name="mode" value="${m}"> ${label}</label>`).join('')}</div></fieldset>
       <fieldset><legend>${t.openInside}</legend>
@@ -620,8 +677,53 @@ function settingsPanel() {
     </form>
   </div>`;
 }
+// A list of the panel redrawn only when its markup changes, and the control
+// that had the focus (a select just changed) gets it back.
+function rebuild(list: HTMLElement, html: string) {
+  if (list.dataset.html === html) return;
+  const focused = activeElement(), inside = focused && list.contains(focused) ? focused as HTMLInputElement | HTMLSelectElement : null;
+  const where = inside ? { name: inside.name, value: inside.dataset.key ?? inside.value } : null;
+  setHTML(list, html);
+  list.dataset.html = html;
+  if (where) {
+    const again = [...list.querySelectorAll<HTMLInputElement | HTMLSelectElement>(`[name="${where.name}"]`)]
+      .find((el) => (el.dataset.key ?? el.value) === where.value);
+    again?.focus();
+  }
+}
 function syncSettings(form: HTMLFormElement) {
   for (const box of form.querySelectorAll<HTMLInputElement>('input[name="systems"]')) box.checked = IDS.includes(box.value);
+  // Areas, grouped by floor, and the channels of the systems shown: built from
+  // the registry and the readings, so only redrawn when they change (the panel
+  // repaints with the house; a list rebuilt under the pointer would lose taps).
+  const areasField = form.querySelector<HTMLElement>('.settings-areas')!, areasList = areasField.querySelector<HTMLElement>('.settings-areas-list')!;
+  const offered = frameAreas();
+  areasField.hidden = offered.length < 2;
+  const floors = [...ha.registry.floors.values()].sort((a, b) => (a.level ?? 0) - (b.level ?? 0));
+  const groups = [...floors.map((f) => ({ title: f.name, areas: offered.filter((a) => ha.registry.areas.get(a)?.floor_id === f.floor_id) })),
+    { title: floors.length ? t.noFloor : '', areas: offered.filter((a) => !floors.some((f) => ha.registry.areas.get(a)?.floor_id === f.floor_id)) }]
+    .filter((g) => g.areas.length);
+  const areasHtml = groups.map((g) => `<div class="settings-group">${g.title ? `<span class="settings-group-title">${esc(g.title)}</span>` : ''}${g.areas.map((a) =>
+    `<label><input type="checkbox" name="areas" value="${esc(a)}"> ${esc(ha.registry.areas.get(a)!.name)}</label>`).join('')}</div>`).join('');
+  rebuild(areasList, areasHtml);
+  const active = activeAreas();
+  for (const box of form.querySelectorAll<HTMLInputElement>('input[name="areas"]')) box.checked = !active || active.includes(box.value);
+  const chList = form.querySelector<HTMLElement>('.settings-channels')!;
+  const chHtml = IDS.filter((id) => channels[id]?.length).map((id) => `<div class="settings-group"><span class="settings-group-title">${SYS[id].title}</span>${
+    channels[id].map(({ ch, r }) => `<div class="settings-channel"><label><input type="checkbox" name="channel" value="${id}/${ch.key}"> ${esc(ch.name)}</label>${
+      r.choices ? `<select name="entity" data-key="${id}/${ch.key}" data-default="${esc(r.choices[0])}" aria-label="${esc(t.entityFor(ch.name))}">${
+        r.choices.map((e) => `<option value="${esc(e)}">${esc(nameOf(ha.states, e))}${placeOf(e) && !nameOf(ha.states, e).toLowerCase().includes(placeOf(e)!.toLowerCase()) ? ` · ${esc(placeOf(e)!)}` : ''}</option>`).join('')}</select>` : ''}</div>`).join('')}</div>`).join('');
+  rebuild(chList, chHtml);
+  form.querySelector<HTMLElement>('.settings-channels-field')!.hidden = !chHtml;
+  for (const box of form.querySelectorAll<HTMLInputElement>('input[name="channel"]')) {
+    const [sysId, key] = box.value.split('/');
+    box.checked = !channels[sysId]?.find((c) => c.ch.key === key)?.hidden;
+  }
+  for (const select of form.querySelectorAll<HTMLSelectElement>('select[name="entity"]')) {
+    const [sysId, key] = select.dataset.key!.split('/');
+    const r = channels[sysId]?.find((c) => c.ch.key === key)?.r;
+    if (r?.choice) select.value = r.choice;
+  }
   for (const radio of form.querySelectorAll<HTMLInputElement>('input[name="mode"]')) radio.checked = radio.value === boardMode;
   const select = form.querySelector<HTMLSelectElement>('select[name="start"]')!;
   setHTML(select, `<option value="">${t.theBoard}</option>${IDS.map((id) => `<option value="${id}">${SYS[id].title}</option>`).join('')}`);

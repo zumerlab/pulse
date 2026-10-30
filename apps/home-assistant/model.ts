@@ -30,15 +30,29 @@ export type Reading = {
   alert?: Alert;
   entities: string[];               // which entities it depends on (detail and "sending")
   camera?: string;
+  choice?: string;                  // a channel that follows one entity: the one it follows…
+  choices?: string[];               // …and the others it could (the gear offers them)
 };
 export type Channel = { key: string; name: string; glyph: string; read: (s: States, ctx: Context) => Reading | null };
 export type PulseSystem = { id: string; title: string; channels: Channel[] };
-export type Context = { temp: string; reg: Registry };
+export type Context = {
+  temp: string;
+  reg: Registry;
+  areas?: string[] | null;          // only entities in these areas (by id); null or absent: everywhere
+  picks?: Record<string, string>;   // 'system/channel' → the entity the viewer chose for it
+};
 
-// The registry of the source being read. The helpers below are plain
-// functions over the states; `systems` (at the end) sets this before each
-// channel reads, so they can ask where an entity is or whether it is hidden.
+// The registry and the context of the channel being read. The helpers below
+// are plain functions over the states; `systems` (at the end) sets these
+// before each channel reads, so they can ask where an entity is, whether it is
+// hidden, whether it is in the chosen areas, and which entity the viewer picked.
 let reg: Registry = emptyRegistry();
+let areaSet: Set<string> | null = null;
+let current = { key: '', picks: {} as Record<string, string>, claimed: false, choice: undefined as string | undefined, choices: undefined as string[] | undefined };
+// The first scan a channel makes is the one that decides what it follows; the
+// later ones (a dehumidifier next to the humidity, the alarm behind the locks)
+// are lookups.
+const claim = () => { if (current.claimed) return false; current.claimed = true; return true; };
 
 // Alarm code of the Home Assistant demo integration (manual, "1234").
 const ALARM_CODE = '1234';
@@ -104,13 +118,19 @@ const visible = (id: string, diagnostic = false) => {
   const e = reg.entities.get(id);
   return !e?.hidden && (!e?.category || (diagnostic && e.category === 'diagnostic'));
 };
-const ofDomain = (s: States, domain: string, only?: string[], diagnostic = false) =>
-  (only ?? [...s.keys()].filter((id) => id.startsWith(`${domain}.`) && visible(id, diagnostic)).sort()).filter((id) => s.has(id));
 // The area an entity is in: its own, or its device's.
-export const placeOf = (id: string) => {
+export const areaOf = (id: string) => {
   const e = reg.entities.get(id);
-  const area = e?.area_id ?? (e?.device_id ? reg.devices.get(e.device_id)?.area_id : undefined);
-  return area ? reg.areas.get(area)?.name : undefined;
+  return e?.area_id ?? (e?.device_id ? reg.devices.get(e.device_id)?.area_id : undefined) ?? undefined;
+};
+export const placeOf = (id: string) => { const a = areaOf(id); return a ? reg.areas.get(a)?.name : undefined; };
+// With areas chosen, only what is in them counts; an entity with no area stays out (as in Home Assistant's area views).
+const inAreas = (id: string) => { if (!areaSet) return true; const a = areaOf(id); return !!a && areaSet.has(a); };
+const scan = (s: States, domain: string, diagnostic: boolean) =>
+  [...s.keys()].filter((id) => id.startsWith(`${domain}.`) && visible(id, diagnostic) && inAreas(id)).sort();
+const ofDomain = (s: States, domain: string, only?: string[], diagnostic = false) => {
+  claim();
+  return (only ?? scan(s, domain, diagnostic)).filter((id) => s.has(id) && inAreas(id));
 };
 // A name with its place when the place adds something ("Motion · Garden").
 const whereIs = (s: States, id: string) => {
@@ -119,10 +139,25 @@ const whereIs = (s: States, id: string) => {
 };
 // The known entities that are there, or every entity of the domain that fits.
 const known = (s: States, domain: string, ids: string[], fits: (e: HassState) => boolean = () => true, diagnostic = false) => {
-  const there = ids.filter((id) => s.has(id));
-  return there.length ? there : ofDomain(s, domain, undefined, diagnostic).filter((id) => fits(s.get(id)!));
+  claim();
+  const there = ids.filter((id) => s.has(id) && inAreas(id));
+  return there.length ? there : scan(s, domain, diagnostic).filter((id) => fits(s.get(id)!));
 };
-const first = (s: States, domain: string, ids: string[], fits?: (e: HassState) => boolean) => known(s, domain, ids, fits)[0];
+// One entity: the n-th known one, else the n-th of the domain that fits. When
+// it is the channel's own (first) scan, every fitting entity is a choice and
+// the viewer's pick, if it is one of them, wins.
+const nth = (s: States, domain: string, ids: string[], fits: (e: HassState) => boolean = () => true, n = 0) => {
+  const primary = claim();
+  const there = ids.filter((id) => s.has(id) && inAreas(id));
+  const fitting = scan(s, domain, false).filter((id) => fits(s.get(id)!));
+  const id = (there.length ? there : fitting)[n] as string | undefined;
+  if (!primary) return id;
+  current.choices = [...new Set([...there, ...fitting])];
+  const pick = current.picks[current.key];
+  current.choice = pick && current.choices.includes(pick) ? pick : id;
+  return current.choice;
+};
+const first = (s: States, domain: string, ids: string[], fits?: (e: HassState) => boolean) => nth(s, domain, ids, fits, 0);
 // A channel that fell back to another installation's entity takes its name;
 // for the demo integration's the channel's own name is better ("Heating", not "HeatPump").
 const ownName = (s: States, id: string) => id in short || /^(climate\.(heatpump|hvac|ecobee)|water_heater\.demo_water_heater)$/.test(id) ? undefined : nameOf(s, id);
@@ -168,7 +203,7 @@ const alarmId = (s: States) => first(s, 'alarm_control_panel', ['alarm_control_p
 const armed = (s: States) => { const id = alarmId(s); return !!id && /^armed_/.test(s.get(id)!.state); };
 // Thermostats with a single target, the demo's heat pump and AC first; the
 // ones with a range (the Ecobee) have their own channel.
-const thermostats = (s: States) => known(s, 'climate', ['climate.heatpump', 'climate.hvac'], (e) => attr(e, 'temperature') != null);
+const thermostat_ = (s: States, n: number) => nth(s, 'climate', ['climate.heatpump', 'climate.hvac'], (e) => attr(e, 'temperature') != null, n);
 const thermoLabel = (e: HassState) =>
   `target ${num(attr(e, 'temperature')!)}° · ${hvacAction[String(e.attributes.hvac_action)] ?? hvacMode[e.state] ?? e.state}`;
 
@@ -182,8 +217,8 @@ const openWindows = (s: States) => ofDomain(s, 'cover')
     && id !== 'cover.pergola_roof');
 
 // Covers with a position that are not the garage: the demo's two windows first.
-const positional = (s: States) => known(s, 'cover', ['cover.living_room_window', 'cover.hall_window'],
-  (e) => attr(e, 'current_position') != null && e.attributes.device_class !== 'garage');
+const positional = (s: States, n: number) => nth(s, 'cover', ['cover.living_room_window', 'cover.hall_window'],
+  (e) => attr(e, 'current_position') != null && e.attributes.device_class !== 'garage', n);
 function coverDial(pick: (s: States) => string | undefined) {
   return (s: States): Reading | null => {
     const id = pick(s), e = id ? s.get(id) : undefined;
@@ -241,7 +276,7 @@ const SYSTEMS: PulseSystem[] = [
 
   { id: 'climate', title: 'Climate', channels: [
     { key: 'heating', name: 'Heating', glyph: g.flame,
-      read: thermostat((s) => thermostats(s)[0], 'climate', thermoLabel,
+      read: thermostat((s) => thermostat_(s, 0), 'climate', thermoLabel,
         // Rule across entities: heating with the windows open.
         (s, e) => {
           const open = openWindows(s);
@@ -254,7 +289,7 @@ const SYSTEMS: PulseSystem[] = [
             why: `Heating with ${list(open.map((id) => nameOf(s, id)))} open`, verb: 'Close windows',
             calls: [call('cover', 'close_cover', open)] };
         }) },
-    { key: 'ac', name: 'Air conditioning', glyph: g.fan, read: thermostat((s) => thermostats(s)[1], 'climate', thermoLabel) },
+    { key: 'ac', name: 'Air conditioning', glyph: g.fan, read: thermostat((s) => thermostat_(s, 1), 'climate', thermoLabel) },
     { key: 'ecobee', name: 'Ecobee', glyph: g.thermo, read: (s, u) => {
       const id = first(s, 'climate', ['climate.ecobee'], (e) => attr(e, 'target_temp_low') != null);
       const e = id ? s.get(id) : undefined;
@@ -358,8 +393,8 @@ const SYSTEMS: PulseSystem[] = [
   ] },
 
   { id: 'openings', title: 'Openings', channels: [
-    { key: 'living', name: 'Living room window', glyph: g.window, read: coverDial((s) => positional(s)[0]) },
-    { key: 'hall', name: 'Hall window', glyph: g.window, read: coverDial((s) => positional(s)[1]) },
+    { key: 'living', name: 'Living room window', glyph: g.window, read: coverDial((s) => positional(s, 0)) },
+    { key: 'hall', name: 'Hall window', glyph: g.window, read: coverDial((s) => positional(s, 1)) },
     { key: 'garage', name: 'Garage door', glyph: g.garage, read: (s) => {
       const id = first(s, 'cover', ['cover.garage_door'], isClass('garage')), e = id ? s.get(id) : undefined;
       if (!id || !e) return null;
@@ -514,8 +549,17 @@ const SYSTEMS: PulseSystem[] = [
   ] },
 ];
 
-// Each channel reads with the registry of its source at hand (see `reg`).
+// Each channel reads with its source's registry, the chosen areas and the
+// viewer's picks at hand (see `reg`, `areaSet`, `current`); what it ended up
+// following, and what else it could, comes back on the reading.
 export const systems: PulseSystem[] = SYSTEMS.map((sys) => ({
   ...sys,
-  channels: sys.channels.map((ch) => ({ ...ch, read: (s: States, ctx: Context) => { reg = ctx.reg; return ch.read(s, ctx); } })),
+  channels: sys.channels.map((ch) => ({ ...ch, read: (s: States, ctx: Context) => {
+    reg = ctx.reg;
+    areaSet = ctx.areas?.length ? new Set(ctx.areas) : null;
+    current = { key: `${sys.id}/${ch.key}`, picks: ctx.picks ?? {}, claimed: false, choice: undefined, choices: undefined };
+    const r = ch.read(s, ctx);
+    if (r && current.choice) { r.choice = current.choice; if (current.choices && current.choices.length > 1) r.choices = current.choices; }
+    return r;
+  } })),
 }));

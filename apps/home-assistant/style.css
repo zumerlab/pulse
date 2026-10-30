@@ -234,6 +234,13 @@
 .settings label { display: flex; align-items: center; gap: 8px; font-size: 14px; min-height: 30px; cursor: pointer; }
 .settings input[type="checkbox"], .settings input[type="radio"] { width: 18px; height: 18px; margin: 0; accent-color: var(--ink); }
 .settings-row { display: flex; gap: 16px; flex-wrap: wrap; }
+.settings-group { display: grid; gap: 2px; }
+.settings-group + .settings-group { margin-top: 8px; }
+.settings-group-title { font-size: 12px; color: var(--muted); margin: 4px 0 2px; }
+.settings-areas-list .settings-group { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 4px 12px; }
+.settings-areas-list .settings-group-title { grid-column: 1 / -1; }
+.settings-channel { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.settings-channel select { min-width: 0; max-width: 100%; flex: 1 1 160px; padding: 5px 8px; font-size: 13px; }
 .settings select { font: inherit; font-size: 14px; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--dim); background: var(--bg); color: var(--ink); justify-self: start; min-width: 200px; }
 .settings footer { display: flex; justify-content: space-between; gap: 10px; margin-top: 4px; }
 .settings .primary { margin-left: 0; }

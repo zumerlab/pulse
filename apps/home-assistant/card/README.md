@@ -143,6 +143,7 @@ strategy alike.
 | Option | Values | Default | What it does |
 |---|---|---|---|
 | `systems` | list of `lights`, `climate`, `security`, `openings`, `media`, `energy`, `maintenance` | all seven | Which systems the board shows. A system with no matching entities does not show anyway. |
+| `areas` | list of area ids (the editor offers an area picker) | the whole home | Only the entities in those areas count, by their own area or their device's. An entity with no area stays out, as in Home Assistant's area views (whole-home sensors such as grid power usually have none). |
 | `mode` | `grid`, `orbit`, `layers` | the view the viewer picked last | The board's view when the card opens. With it set, the switch at the top still works, but the choice is not remembered. |
 | `start` | one of the system ids | the board (on a phone, the system that calls the most) | Open the card zoomed into that system. The board stays one step back ("Board" at the bottom left). Must be one of `systems` if both are given. |
 | `settings` | `true`, `false` | `true` | The gear at the top right of the board (see below). `false` hides it: the options above are final. |
@@ -154,16 +155,19 @@ A card with a wrong value refuses to render and says why ("Unknown system
 
 Whoever looks at the card can tune it for their own screen without touching
 the dashboard: the gear at the top right of the board opens a small panel
-with the systems to tick, the board view and where it opens next time.
-Changes apply as they are made and are kept in that browser only, so the
-tablet in the kitchen and the phone in a pocket can show different things
-from the same card. "Back to defaults" returns to what the card's options
-say.
+with the systems to tick, the areas (grouped by floor, when the home has two
+or more), the channels of each system and, for a channel that follows one
+entity (a brightness dial, the humidity, a window), which entity it follows,
+then the board view and where it opens next time. Changes apply as they are
+made and are kept in that browser only, so the tablet in the kitchen and the
+phone in a pocket can show different things from the same card. "Back to
+defaults" returns to what the card's options say.
 
 The options you set in the card or the strategy are the frame: the gear only
-offers the systems you allowed, and `mode` and `start` are its defaults. If
-you want the card to show exactly what you configured, everywhere, set
-`settings: false`.
+offers the systems and areas you allowed, and `mode` and `start` are its
+defaults. At least one system, one area and one channel per system stay
+ticked. If you want the card to show exactly what you configured, everywhere,
+set `settings: false`.
 
 ## What you see
 

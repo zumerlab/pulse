@@ -204,23 +204,42 @@ already keeps; the demo homes build theirs from their own data.
 ## What each screen shows: the gear
 
 The board has a gear at the top right. It opens a panel (a dialog: focus goes
-in, Tab cycles, Escape closes and returns the focus to the gear) with the
-systems to tick (at least one), the board's view and where it opens next time.
+in, Tab cycles, Escape closes and returns the focus to the gear) with:
+
+- the systems to tick (at least one);
+- the areas, from the registry, grouped by floor (shown when there are two or
+  more): only the entities in the ticked areas count, by their own area or
+  their device's; an entity with no area stays out, as in Home Assistant's
+  area views;
+- the channels of each system shown (at least one per system), and for a
+  channel that follows one entity a select with every entity it could follow
+  (the brightness dial over any dimmable light, the humidity over any humidity
+  sensor, a window over any positional cover), with its place next to the name;
+- the board's view and where it opens next time.
+
 Changes apply as they are made and are kept in the browser
-(`localStorage['pulse-ha-settings']`); "Back to defaults" forgets them. The
-same panel is in the card and in the dashboard strategy, because it is part of
-the object (`app.ts`, `settingsPanel`).
+(`localStorage['pulse-ha-settings']`: `systems`, `areas`, `channels` as the
+hidden keys per system, `entities` as `'system/channel': entity_id`, `mode`,
+`start`); "Back to defaults" forgets them. The same panel is in the card and
+in the dashboard strategy, because it is part of the object (`app.ts`,
+`settingsPanel`). The lists are rebuilt only when their markup changes (the
+house repaints every few seconds), and the control with the focus keeps it.
 
 The host sets the **frame** the viewer chooses within: `mountPulse`'s
-`systems` (the gear offers only those), `mode` and `start` (its defaults). In
-the standalone app the frame comes from the URL,
-`?systems=lights,climate&mode=orbit&start=climate`, so a kiosk or a shared
-link opens on a fixed subset; in the card, from its config. `settings: false`
-hides the gear. The mode switch at the top writes the same setting as the
-gear.
+`systems` and `areas` (the gear offers only those), `mode` and `start` (its
+defaults). In the standalone app the frame comes from the URL,
+`?systems=lights,climate&mode=orbit&start=climate&areas=kitchen,living_room`,
+so a kiosk or a shared link opens on a fixed subset; in the card, from its
+config. `settings: false` hides the gear. The mode switch at the top writes
+the same setting as the gear.
 
-Next (not yet): one level down, which channels of a system and which entity
-each channel follows, when the systems come from Home Assistant's registries.
+In the model, the choice of entity goes through `Context.picks`: the first
+scan a channel makes (`first`/`nth`) is the one that decides what it follows,
+reports every fitting entity as `Reading.choices` and takes the viewer's pick
+when it is one of them; later lookups in the same channel (the dehumidifier
+next to the humidity, the alarm behind the locks) are not choices. The area
+filter is `Context.areas`, applied to every scan and to the entities named by
+id.
 
 ## Three views of the board
 

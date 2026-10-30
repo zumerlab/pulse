@@ -27,7 +27,8 @@ export type FormSchema =
   | { name: string; type: 'grid'; schema: FormSchema[] };
 export type Selector =
   | { select: { multiple?: boolean; mode?: 'list' | 'dropdown' | 'box'; options: { value: string; label: string }[] } }
-  | { boolean: Record<string, never> };
+  | { boolean: Record<string, never> }
+  | { area: { multiple?: boolean } };
 export type ConfigForm = {
   schema: FormSchema[];
   assertConfig?(config: CardConfig): void;

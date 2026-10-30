@@ -164,6 +164,46 @@ test('the gear lets the viewer choose what this screen shows, kept in the browse
   await expect(page.locator('.tile[data-system]')).toHaveCount(7);
 });
 
+test('the gear goes one level down: areas by floor, the channels of each system, the entity a dial follows', async ({ page }) => {
+  await page.goto(`${HA}?demo=home`);
+  await expect(page.locator('.tile[data-system]')).toHaveCount(7);
+  await page.locator('.gear').click();
+  const panel = page.locator('.settings');
+  // The home's six areas, grouped by its two floors (the garden has none).
+  await expect(panel.locator('input[name="areas"]')).toHaveCount(6);
+  await expect(panel.locator('.settings-areas-list .settings-group-title')).toHaveText(['Ground floor', 'Upstairs', 'No floor']);
+  // Without the bedroom, its 15% battery is out: the other one is the lowest.
+  await panel.locator('input[name="areas"][value="bedroom"]').uncheck();
+  await expect(page.locator('.tile[data-system="maintenance"] .tile-big')).toHaveText('88% lowest');
+  await panel.locator('input[name="areas"][value="bedroom"]').check();
+  await expect(page.locator('.tile[data-system="maintenance"] .tile-big')).toHaveText('15%');
+  // The only channel with something cannot be hidden; another one can.
+  await panel.locator('input[name="channel"][value="maintenance/batteries"]').click();
+  await expect(panel.locator('input[name="channel"][value="maintenance/batteries"]')).toBeChecked();
+  await panel.locator('input[name="channel"][value="lights/plugs"]').uncheck();
+  // The brightness dial follows another light.
+  const select = panel.locator('select[name="entity"][data-key="lights/brightness"]');
+  await expect(select).toHaveValue('light.bedroom_ceiling');
+  await select.selectOption('light.bedside_lamp');
+  await expect(panel.locator('input[name="channel"][value="lights/brightness"] + *, label:has(input[value="lights/brightness"])').first()).toContainText('Bedside lamp brightness');
+  await page.keyboard.press('Escape');
+  await page.locator('.tile[data-system="lights"]').click();
+  const view = page.locator('.z-view.is-current-view');
+  await expect(view.locator('.layer[data-ch]')).toHaveCount(2);
+  await expect(view.locator('.layer[data-ch="brightness"]')).toContainText('Bedside lamp brightness');
+  expect(JSON.parse(await page.evaluate(() => localStorage.getItem('pulse-ha-settings')!))).toEqual({
+    channels: { lights: ['plugs'] }, entities: { 'lights/brightness': 'light.bedside_lamp' } });
+});
+
+test('the card takes areas: only what is in them, and the gear offers no areas when one is left', async ({ page }) => {
+  await page.goto(`${HA}/card.html?home=home&config=${encodeURIComponent(JSON.stringify({ areas: ['kitchen'] }))}`);
+  const c = card(page);
+  await expect(c.locator('.tile[data-system]')).toHaveCount(4);
+  await expect(c.locator('.tile[data-system="lights"] .tile-big')).toHaveText(/of 2/);
+  await c.locator('.gear').click();
+  await expect(c.locator('.settings-areas')).toBeHidden();
+});
+
 test('the URL fixes what the page shows and the gear chooses within it', async ({ page }) => {
   await page.goto(`${HA}?demo=sections&systems=lights,climate,security&mode=orbit`);
   await expect(page.locator('.board')).toHaveClass(/mode-orbit/);
