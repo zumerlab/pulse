@@ -1,22 +1,19 @@
-# Prototype · Zumly + radial object
+# Pulse demo · simulated data
 
-Mini board → system → detail of a channel. Zumly handles the navigation between
-levels; Orbit draws the rings and moves the layers in depth (`.depth`,
-`data-depth`, `.layer-front`). The data is simulated (`systems.ts`); the texts
-come from `../shared/i18n.ts` and the object itself (rings, layer markup, the
-dial's gestures, the Zumly setup) from `../shared/radial.ts`, shared with
-`ha-radial`.
+Mini board → system → detail of a channel, with five made-up systems
+(`systems.ts`). The object itself (rings, layer markup, the dial's gestures, the
+Zumly setup, the strings) is the core package `@zumer/pulse` (`packages/core`);
+this app adds the data, the board and the detail. It is also what the Playwright
+suite (`npm test`, from the repo root) runs against.
 
 Orbit and Zumly come from npm (`@zumer/orbit` 2.1.0 and `zumly` 1.2.2). After
-changing a version, restart Vite with `npm run dev -- --force`: otherwise it
-serves the previous one from its dependency cache. To try an unpublished branch,
-a `.tgz` in `vendor/` (see `../coordinacion/README.md`).
+changing a version, restart Vite with `-- --force`: otherwise it serves the
+previous one from its dependency cache. To try an unpublished branch, a `.tgz`
+in `vendor/` at the repo root (see `../coordinacion/README.md`).
 
 ```sh
-npm run dev
+npm run dev        # from the repo root; http://127.0.0.1:5173
 ```
-
-Open `/prototypes/zumly-radial/`.
 
 ## Who does what
 

@@ -1,0 +1,15 @@
+{
+  "name": "pulse-home-assistant",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Pulse over a live Home Assistant: readings, alerts and commands over its WebSocket.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@zumer/pulse": "*"
+  }
+}

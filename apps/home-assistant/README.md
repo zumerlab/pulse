@@ -1,18 +1,17 @@
-# Prototype · Pulse over Home Assistant
+# Pulse · Home Assistant
 
-The radial object of `zumly-radial`, now with a real Home Assistant (the default
-demo, running in Docker). Same grammar: board → layered system → detail. What is
-new is that nothing is written by hand: readings, alerts and their resolution
-come from the live state. The object itself (rings, layers, dial gestures,
-Zumly setup) is the shared `../shared/radial.ts`; `model.ts` turns Home
-Assistant's state into the readings it draws.
+The radial object over a real Home Assistant (the default demo, running in
+Docker). Same grammar as the demo app: board → layered system → detail. Nothing
+is written by hand: readings, alerts and their resolution come from the live
+state. The object itself (rings, layers, dial gestures, Zumly setup, strings) is
+the core package `@zumer/pulse` (`packages/core`); this app adds `model.ts`,
+which turns Home Assistant's state into the readings the object draws, the
+WebSocket client, the local login server and the three board views.
 
 ```sh
-cp .env.example .env.local   # HA_URL, HA_USERNAME, HA_PASSWORD (or HA_TOKEN)
-npm run dev
+cp apps/home-assistant/.env.example apps/home-assistant/.env.local   # HA_URL, HA_USERNAME, HA_PASSWORD (or HA_TOKEN)
+npm run dev:ha     # from the repo root; http://127.0.0.1:5174
 ```
-
-Open `/prototypes/ha-radial/`.
 
 ## Connection: WebSocket
 
@@ -21,7 +20,7 @@ One socket does everything: `get_states` on entry, `subscribe_events`
 polling; with the socket the changes arrive pushed (a cover closing is seen
 moving 10% at a time).
 
-- **The browser never sees the password.** `server/homeassistant.ts` does the
+- **The browser never sees the password.** `server/homeassistant.ts` (in this app) does the
   login (`/auth/login_flow` → `/auth/token`), keeps the refresh token in memory
   and hands out only a short access token at `/api/ha/session` (only from this
   machine).

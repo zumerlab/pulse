@@ -1,5 +1,5 @@
 import type { Call, HassState, States } from './ha.ts';
-import { listOf, num } from '../shared/i18n.ts';
+import { listOf, num } from '@zumer/pulse';
 
 // Every channel is read from Home Assistant's live state: there are no
 // hand-written "ok" and "alert" states. An alert comes out of a rule over the

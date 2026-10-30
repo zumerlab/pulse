@@ -2,16 +2,16 @@ import Zumly, { type ViewContext } from 'zumly';
 import 'zumly/style.css';
 import '@zumer/orbit/style';
 import '@zumer/orbit';
-import '../zumly-radial/style.css';
+import '@zumer/pulse/style.css';
 import './style.css';
 import { HomeAssistant, type Call, type HassState } from './ha.ts';
 import { nameOf, systems, type Alert, type Channel, type Reading } from './model.ts';
 import { mountTunePanel, tune } from './tune.ts';
-import { num, t, time } from '../shared/i18n.ts';
 import {
   DOT_LANES, LANE, LOCK_MS, MINI_LANES, PHONE, SIZE, STROKE, backLayer, calmStrip, dialControls, dots, esc, face,
-  icon, labelAt, levelColor, parallax, ring as drawRing, startInside, systemShell, zumlyOptions,
-} from '../shared/radial.ts';
+  icon, labelAt, levelColor, num, parallax, ring as drawRing, startInside, systemShell, time, zumlyOptions,
+} from '@zumer/pulse';
+import { t } from './strings.ts';
 
 // The same object as the zumly-radial prototype, but with a live Home
 // Assistant: readings, alerts and their resolution come over the WebSocket.

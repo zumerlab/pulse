@@ -4,7 +4,7 @@ import { expect, test, type Page } from '@playwright/test';
 // controls on the front ring and the alert wave. Zumly animates for 0.8 s, so
 // the assertions wait for the view that becomes current.
 
-const URL = '/prototypes/zumly-radial/';
+const URL = '/';
 const current = (page: Page) => page.locator('.z-view.is-current-view');
 const backTitle = (page: Page) => page.locator('.z-nav-back .z-nav-title');
 

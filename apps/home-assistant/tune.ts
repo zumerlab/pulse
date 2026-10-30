@@ -2,7 +2,7 @@
 // The values are kept in the browser; "Copy" puts on the clipboard the ones to
 // carry into the code once they convince.
 
-import { t } from '../shared/i18n.ts';
+import { t } from './strings.ts';
 
 export type Tune = {
   orbit: number; tile: number; align: number; hub: number; orbitStep: number;

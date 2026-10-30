@@ -2,13 +2,13 @@ import Zumly, { type ViewContext } from 'zumly';
 import 'zumly/style.css';
 import '@zumer/orbit/style';
 import '@zumer/orbit';
-import './style.css';
-import { systems, type Channel, type PulseSystem } from './systems.ts';
-import { listOf, num, t } from '../shared/i18n.ts';
+import '@zumer/pulse/style.css';
 import {
   DOT_LANES, LANE, LOCK_MS, MINI_LANES, PHONE, SIZE, STROKE, backLayer, calmStrip, dialControls, dots, face,
-  icon, labelAt, parallax, ring, startInside, systemShell, zumlyOptions, type RingReading,
-} from '../shared/radial.ts';
+  icon, labelAt, listOf, num, parallax, ring, startInside, systemShell, zumlyOptions, type RingReading,
+} from '@zumer/pulse';
+import { systems, type Channel, type PulseSystem } from './systems.ts';
+import { t } from './strings.ts';
 
 // Per-system state lives outside the views: Zumly drops the child view on the
 // way back, and the view behind does not re-render on its own.

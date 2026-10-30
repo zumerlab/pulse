@@ -4,7 +4,7 @@ import { expect, test } from '@playwright/test';
 // between systems with the view's own dots (Zumly's bar stays off).
 
 test('the phone starts inside Home with one dot per system and no Zumly bar', async ({ page }) => {
-  await page.goto('/prototypes/zumly-radial/');
+  await page.goto('/');
   const current = page.locator('.z-view.is-current-view');
   await expect(current.locator('.system')).toBeVisible();
   await expect(current.locator('.layer-front .face-name')).toHaveText('Climate');

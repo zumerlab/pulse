@@ -1,15 +1,19 @@
 {
-  "name": "pulse",
+  "name": "pulse-workspace",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "engines": {
     "node": "^22.18.0 || >=24.0.0"
   },
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
   "scripts": {
-    "dev": "vite --host 127.0.0.1",
-    "build": "tsc --noEmit && vite build",
-    "preview": "vite preview --host 127.0.0.1",
+    "dev": "npm run dev -w pulse-demo -- --port 5173",
+    "dev:ha": "npm run dev -w pulse-home-assistant -- --port 5174",
+    "build": "tsc --noEmit && npm run build --workspaces --if-present",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "playwright test",

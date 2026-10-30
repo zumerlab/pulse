@@ -9,9 +9,9 @@ system*. The component is `Pulse.dc.html`; it is built with Orbit 1.5.0
 (`@zumer/orbit`). That canvas component used Spanish names for its props and
 values; this document gives them in English.
 
-> The prototypes in `prototypes/` run on Orbit 2.1.0 and Zumly 1.2.2. §13
-> remains as history: everything under "What Orbit lacks" shipped in 1.6.0 and
-> 2.x (see the README of `prototypes/zumly-radial`).
+> The core (`packages/core`) and the apps (`apps/`) run on Orbit 2.1.0 and
+> Zumly 1.2.2. §13 remains as history: everything under "What Orbit lacks"
+> shipped in 1.6.0 and 2.x (see the README of `apps/demo`).
 
 ---
 
