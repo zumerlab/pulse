@@ -6,7 +6,7 @@ import './style.css';
 import { WebSocketSource, type PulseSource } from './source.ts';
 import { DemoSource } from './demo/source.ts';
 import { mountLogin } from './login.ts';
-import { mountPulse } from './app.ts';
+import { BOARD_MODES, mountPulse, type BoardMode } from './app.ts';
 import { mountTunePanel } from './tune.ts';
 import { t } from './strings.ts';
 
@@ -25,8 +25,17 @@ function status(ha: PulseSource) {
     <button class="plain" data-action="signout">${ha === demo ? t.leaveDemo : t.signOut}</button></span>`;
 }
 
+// `?systems=lights,climate&mode=orbit&start=climate` fixes what the page shows
+// (a kiosk, a shared link); the gear chooses within that.
+const query = new URLSearchParams(location.search);
+const systemsParam = query.get('systems')?.split(',').map((s) => s.trim()).filter(Boolean);
+const modeParam = query.get('mode') as BoardMode | null;
+
 const pulse = mountPulse(canvas, {
   source: socket,
+  systems: systemsParam?.length ? systemsParam : undefined,
+  mode: modeParam && BOARD_MODES.includes(modeParam) ? modeParam : undefined,
+  start: query.get('start') ?? undefined,
   status,
   onAction: (action) => { if (action === 'signout') void leave(); },
   // Signed out: the login covers the canvas; signed in: the object.

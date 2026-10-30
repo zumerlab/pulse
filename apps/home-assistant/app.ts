@@ -19,14 +19,25 @@ import { t } from './strings.ts';
 export type BoardMode = 'grid' | 'orbit' | 'layers';
 export const BOARD_MODES: BoardMode[] = ['grid', 'orbit', 'layers'];
 
+// What a screen shows: the viewer's choices (the gear on the board), kept in
+// the browser. The host's `PulseOptions` are the frame they are made within.
+export type PulseSettings = {
+  systems?: string[];
+  mode?: BoardMode;
+  start?: string;
+};
+
 export type PulseOptions = {
   source: PulseSource;
-  // Which systems the object shows (default: all of model.ts); unknown ids are ignored.
+  // Which systems the object may show (default: all of model.ts); unknown ids are ignored.
   systems?: string[];
-  // The board's view to start with. Without it, the last one chosen, remembered in the browser.
+  // The board's view when it opens, until the viewer picks another on this browser.
   mode?: BoardMode;
   // Start inside this system (the board stays behind, one step out).
   start?: string;
+  // Where the viewer's choices are kept: a localStorage key (default
+  // 'pulse-ha-settings'); `false` hides the gear and keeps nothing.
+  settings?: string | false;
   // The connection line of the board (HTML); the shell decides what it says.
   status?: (source: PulseSource) => string;
   // A button with `data-action` in that line was pressed.
@@ -38,6 +49,8 @@ export type PulseHandle = {
   app: Zumly;
   readonly source: PulseSource;
   setSource(src: PulseSource): void;
+  settings(): PulseSettings;
+  setSettings(patch: PulseSettings): void;
   repaint(): void;
   ready: Promise<unknown>;
   destroy(): void;
@@ -59,7 +72,48 @@ compact.observe(canvas);
 
 let ha: PulseSource = options.source;
 const SYS = Object.fromEntries(systems.map((s) => [s.id, s]));
-const IDS = systems.map((s) => s.id).filter((id) => !options.systems?.length || options.systems.includes(id));
+const ALL = systems.map((s) => s.id);
+const valid = (ids?: string[]) => (ids ?? []).filter((id) => ALL.includes(id));
+
+// The frame: what the host (a card's config, the page's URL) allows. The
+// viewer chooses within it with the gear; that choice is kept per browser.
+const frame = { systems: valid(options.systems).length ? valid(options.systems) : ALL, mode: options.mode, start: options.start };
+const STORE = options.settings === false ? null : options.settings ?? 'pulse-ha-settings';
+const loadSettings = (): PulseSettings => {
+  if (!STORE) return {};
+  try {
+    const raw = localStorage.getItem(STORE);
+    if (raw) return JSON.parse(raw) as PulseSettings;
+    // Before the gear, only the board's view was remembered.
+    const legacy = localStorage.getItem('pulse-ha-board');
+    if (legacy && BOARD_MODES.includes(legacy as BoardMode)) return { mode: legacy as BoardMode };
+  } catch { /* no storage: the frame as it comes */ }
+  return {};
+};
+let local: PulseSettings = loadSettings();
+let IDS: string[] = [];
+let boardMode: BoardMode = 'grid';
+const applySettings = () => {
+  const chosen = valid(local.systems).filter((id) => frame.systems.includes(id));
+  IDS = chosen.length ? chosen : frame.systems;
+  boardMode = local.mode && BOARD_MODES.includes(local.mode) ? local.mode : frame.mode ?? 'grid';
+};
+applySettings();
+const startId = () => { const id = local.start ?? frame.start; return id && IDS.includes(id) ? id : null; };
+const settings = (): PulseSettings => ({ systems: IDS, mode: boardMode, start: startId() ?? undefined });
+const setSettings = (patch: PulseSettings) => {
+  local = { ...local, ...patch };
+  for (const k of Object.keys(local) as (keyof PulseSettings)[]) {
+    const v = local[k];
+    if (v === undefined || (Array.isArray(v) && !v.length)) delete local[k];
+  }
+  if (STORE) {
+    try { if (Object.keys(local).length) localStorage.setItem(STORE, JSON.stringify(local)); else localStorage.removeItem(STORE); }
+    catch { /* only to remember */ }
+  }
+  applySettings();
+  repaint();
+};
 
 type Ui = {
   pick: string | null;                 // channel chosen by hand
@@ -67,7 +121,7 @@ type Ui = {
   sig: Map<string, string>;            // what each alert says: if it changes, it is no longer seen
   seen: Set<string>;                   // alerts marked as seen (no wave, they go behind)
 };
-const ui: Record<string, Ui> = Object.fromEntries(IDS.map((id) => [id, { pick: null, since: new Map(), sig: new Map(), seen: new Set() }]));
+const ui: Record<string, Ui> = Object.fromEntries(ALL.map((id) => [id, { pick: null, since: new Map(), sig: new Map(), seen: new Set() }]));
 let readings: Record<string, Map<string, { ch: Channel; r: Reading }>> = {};
 // Entities with an unconfirmed command, and dial values the user is moving.
 const pending = new Map<string, number>();
@@ -205,13 +259,6 @@ const status = () => options.status?.(ha) ?? '';
 // - orbit: the home's pulse in the center and the systems around it;
 // - layers: a single object, one system per layer; the one calling the most in front.
 const MODES: [BoardMode, string][] = [['grid', t.modes.grid], ['orbit', t.modes.orbit], ['layers', t.modes.layers]];
-let boardMode: BoardMode = options.mode ?? 'grid';
-if (!options.mode) {
-  try {
-    const saved = localStorage.getItem('pulse-ha-board');
-    if (MODES.some(([m]) => m === saved)) boardMode = saved as BoardMode;
-  } catch { /* no storage: starts on the grid */ }
-}
 let boardPick: string | null = null;
 
 // Systems front to back: the choice made by hand, the ones calling (most serious
@@ -305,9 +352,13 @@ function board(ctx: ViewContext) {
     <p class="error" hidden></p>
     <div class="board-body"></div>
     <ol class="ticker" aria-label="${t.latestChanges}"></ol>
-  </div>`;
+  </div>` + (STORE ? settingsPanel() : '');
   const boardEl = el.querySelector<HTMLElement>('.board')!;
   const body = el.querySelector<HTMLElement>('.board-body')!;
+  if (STORE) { if (getComputedStyle(el).position === 'static') el.style.position = 'relative'; }
+  const gear = el.querySelector<HTMLElement>('.gear');
+  const backdrop = el.querySelector<HTMLElement>('.settings-backdrop');
+  const form = el.querySelector<HTMLFormElement>('.settings');
   let built: BoardMode | null = null;
   let layers = new Map<string, HTMLElement>();
   let beat = log[0];
@@ -400,6 +451,7 @@ function board(ctx: ViewContext) {
     // recreated each time would lose taps.
     setHTML(el.querySelector<HTMLElement>('.conn-slot')!, status());
     for (const b of el.querySelectorAll<HTMLElement>('[data-mode]')) b.setAttribute('aria-pressed', String(b.dataset.mode === boardMode));
+    if (form) syncSettings(form);
     const err = el.querySelector<HTMLElement>('.error')!;
     err.hidden = ha.status !== 'error';
     err.textContent = ha.error;
@@ -480,9 +532,7 @@ function board(ctx: ViewContext) {
     const mode = target.closest<HTMLElement>('[data-mode]')?.dataset.mode as BoardMode | undefined;
     const pick = target.closest<HTMLElement>('[data-bpick]')?.dataset.bpick;
     if (mode && mode !== boardMode) {
-      boardMode = mode;
-      if (!options.mode) { try { localStorage.setItem('pulse-ha-board', mode); } catch { /* only to remember the view */ } }
-      paint();
+      setSettings({ mode });
     } else if (pick && !locked) {
       boardPick = pick;
       locked = true;
@@ -495,9 +545,87 @@ function board(ctx: ViewContext) {
     if ((e.key === 'Enter' || e.key === ' ') && target.matches('o-arc[data-bpick]')) { e.preventDefault(); target.click(); }
   });
 
+  // ─── The gear: what this screen shows ───
+  if (gear && backdrop && form) {
+    const focusables = () => [...form.querySelectorAll<HTMLElement>('input, select, button')].filter((f) => !f.hasAttribute('disabled') && f.offsetParent !== null);
+    const open = () => {
+      backdrop.hidden = false;
+      gear.setAttribute('aria-expanded', 'true');
+      form.querySelector<HTMLElement>('input')?.focus();
+    };
+    const close = () => {
+      if (backdrop.hidden) return;
+      backdrop.hidden = true;
+      gear.setAttribute('aria-expanded', 'false');
+      gear.focus();
+    };
+    gear.addEventListener('click', () => (backdrop.hidden ? open() : close()));
+    backdrop.addEventListener('click', (e) => {
+      const target = e.target as HTMLElement;
+      if (target === backdrop || target.closest('[data-settings-close]')) { close(); return; }
+      if (target.closest('[data-settings-reset]')) { local = {}; setSettings({}); }
+    });
+    // Only the field that changed is kept: the others stay as the frame says.
+    form.addEventListener('change', (e) => {
+      const field = (e.target as HTMLInputElement).name, data = new FormData(form);
+      if (field === 'systems') {
+        const chosen = data.getAll('systems').map(String);
+        // At least one system: unchecking the last one does not stick.
+        if (!chosen.length) { syncSettings(form); return; }
+        setSettings({ systems: chosen.length === frame.systems.length ? undefined : chosen });
+      } else if (field === 'mode') {
+        const mode = String(data.get('mode')) as BoardMode;
+        if (BOARD_MODES.includes(mode)) setSettings({ mode });
+      } else if (field === 'start') {
+        setSettings({ start: String(data.get('start') ?? '') || undefined });
+      }
+    });
+    // The dialog keeps the keyboard: Escape closes, Tab cycles inside.
+    form.addEventListener('keydown', (e) => {
+      e.stopPropagation();
+      if (e.key === 'Escape') { e.preventDefault(); close(); return; }
+      if (e.key !== 'Tab') return;
+      const list = focusables(), first = list[0], last = list[list.length - 1];
+      if (e.shiftKey && activeElement() === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && activeElement() === last) { e.preventDefault(); first.focus(); }
+    });
+  }
+
   paint();
   rerender.add(paint);
   ctx.onCleanup(() => { rerender.delete(paint); });
+}
+
+// The panel behind the gear: the systems of the frame to tick, the board's
+// view, and where it opens next time. Changes apply as they are made and are
+// kept in this browser; "Back to defaults" returns to the frame.
+const GEAR = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h.1a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v.1a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>`;
+function settingsPanel() {
+  return `<button type="button" class="gear" aria-label="${t.settings}" aria-haspopup="dialog" aria-expanded="false">${GEAR}</button>
+  <div class="settings-backdrop" hidden>
+    <form class="settings" role="dialog" aria-modal="true" aria-labelledby="pulse-settings-title">
+      <header><h2 id="pulse-settings-title">${t.settings}</h2>
+        <button type="button" class="plain settings-close" data-settings-close aria-label="${t.close}">×</button></header>
+      <p class="settings-lead">${t.settingsLead}</p>
+      <fieldset><legend>${t.systemsField}</legend>
+        <div class="settings-systems">${frame.systems.map((id) =>
+          `<label><input type="checkbox" name="systems" value="${id}"> ${SYS[id].title}</label>`).join('')}</div></fieldset>
+      <fieldset><legend>${t.boardView}</legend>
+        <div class="settings-row">${MODES.map(([m, label]) => `<label><input type="radio" name="mode" value="${m}"> ${label}</label>`).join('')}</div></fieldset>
+      <fieldset><legend>${t.openInside}</legend>
+        <select name="start" aria-describedby="pulse-settings-start"></select>
+        <p class="hint" id="pulse-settings-start">${t.startHint}</p></fieldset>
+      <footer><button type="button" class="plain" data-settings-reset>${t.resetSettings}</button>
+        <button type="button" class="primary" data-settings-close>${t.done}</button></footer>
+    </form>
+  </div>`;
+}
+function syncSettings(form: HTMLFormElement) {
+  for (const box of form.querySelectorAll<HTMLInputElement>('input[name="systems"]')) box.checked = IDS.includes(box.value);
+  for (const radio of form.querySelectorAll<HTMLInputElement>('input[name="mode"]')) radio.checked = radio.value === boardMode;
+  const select = form.querySelector<HTMLSelectElement>('select[name="start"]')!;
+  setHTML(select, `<option value="">${t.theBoard}</option>${IDS.map((id) => `<option value="${id}">${SYS[id].title}</option>`).join('')}`);
+  select.value = startId() ?? '';
 }
 
 // ─── System: the radial object in layers ────────────────────────────
@@ -800,7 +928,7 @@ function detail(ctx: ViewContext) {
 
 const app = new Zumly(zumlyOptions({
   board, detail,
-  ...Object.fromEntries(IDS.map((id) => [`sys-${id}`, (ctx: ViewContext) => system(ctx, id)])),
+  ...Object.fromEntries(ALL.map((id) => [`sys-${id}`, (ctx: ViewContext) => system(ctx, id)])),
 }, 'board', canvas));
 app.on('afterZoomOut', () => repaint());
 
@@ -860,8 +988,7 @@ const setSource = (src: PulseSource) => {
 
 // Inside the system asked for; on the phone, inside the one that calls the most.
 async function start() {
-  const first = options.start && IDS.includes(options.start) ? options.start
-    : PHONE ? [...IDS].sort((a, b) => worst(b) - worst(a))[0] : null;
+  const first = startId() ?? (PHONE ? [...IDS].sort((a, b) => worst(b) - worst(a))[0] : null);
   if (first) await startInside(app, first, canvas);
 }
 
@@ -869,6 +996,8 @@ async function start() {
     app,
     get source() { return ha; },
     setSource,
+    settings,
+    setSettings,
     repaint,
     // A source already live at mount time (a card's `hass`) starts as soon as
     // the board is in the DOM; otherwise the first live change starts it.

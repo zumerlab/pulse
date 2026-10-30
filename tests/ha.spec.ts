@@ -123,4 +123,46 @@ test('the card takes its options: which systems, the board view, and the system 
   await expect(card(page).locator('.z-view.is-current-view .layer-front .face-big')).toHaveText('21.7°C');
   // The board is one step back, with the one system.
   await expect(card(page).locator('.z-view.is-previous-view .tile[data-system]')).toHaveCount(1);
+  await expect(card(page).locator('.gear')).toHaveCount(1);
+
+  const locked = encodeURIComponent(JSON.stringify({ settings: false }));
+  await page.goto(`${HA}/card.html?home=sections&config=${locked}`);
+  await expect(card(page).locator('.tile[data-system]')).toHaveCount(7);
+  await expect(card(page).locator('.gear')).toHaveCount(0);
+});
+
+test('the gear lets the viewer choose what this screen shows, kept in the browser', async ({ page }) => {
+  await page.goto(`${HA}?demo=sections`);
+  await expect(page.locator('.tile[data-system]')).toHaveCount(7);
+  const gear = page.locator('.gear');
+  await expect(gear).toHaveAttribute('aria-expanded', 'false');
+  await gear.click();
+  const panel = page.locator('.settings');
+  await expect(panel).toBeVisible();
+  await expect(panel.locator('input[name="systems"]')).toHaveCount(7);
+  await expect(panel.locator('input[name="systems"]').first()).toBeFocused();
+  await panel.locator('input[name="systems"][value="media"]').uncheck();
+  await expect(page.locator('.tile[data-system]')).toHaveCount(6);
+  await panel.locator('input[name="mode"][value="layers"]').check();
+  await expect(page.locator('.board')).toHaveClass(/mode-layers/);
+  await page.keyboard.press('Escape');
+  await expect(panel).toBeHidden();
+  await expect(gear).toBeFocused();
+  // Remembered by this browser.
+  await page.reload();
+  await expect(page.locator('.board')).toHaveClass(/mode-layers/);
+  await expect(page.locator('.board .layer[data-depth]')).toHaveCount(6);
+  await gear.click();
+  await panel.locator('[data-settings-reset]').click();
+  await expect(page.locator('.board')).toHaveClass(/mode-grid/);
+  await expect(page.locator('.tile[data-system]')).toHaveCount(7);
+});
+
+test('the URL fixes what the page shows and the gear chooses within it', async ({ page }) => {
+  await page.goto(`${HA}?demo=sections&systems=lights,climate,security&mode=orbit`);
+  await expect(page.locator('.board')).toHaveClass(/mode-orbit/);
+  await expect(page.locator('.otile[data-system]')).toHaveCount(3);
+  await page.locator('.gear').click();
+  await expect(page.locator('.settings input[name="systems"]')).toHaveCount(3);
+  await expect(page.locator('.settings select[name="start"] option')).toHaveCount(4);
 });

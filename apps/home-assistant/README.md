@@ -110,8 +110,10 @@ npm run build:card        # from the repo root; apps/home-assistant/dist-card/pu
   sections it takes the full width and six rows at least (`getGridOptions`);
   under 640 px wide (or 540 px tall) the canvas gets `.compact` and the board
   tightens.
-- **Options** (`systems`, `mode`, `start`) are `mountPulse` options; the card
-  validates them (`assertConfig`) and remounts when the editor changes them.
+- **Options** (`systems`, `mode`, `start`, `settings`) are `mountPulse`
+  options; the card validates them (`assertConfig`) and remounts when the
+  editor changes them. The viewer's choices (the gear) are kept per card
+  config, under `pulse-card:<json of the options>`.
   `static getConfigForm()` gives the dashboard editor its form (a multiple
   select, two dropdowns, labels and helpers): no editor element to write.
 - **Strategies.** `strategy: { type: custom:pulse }` as a dashboard generates
@@ -163,10 +165,31 @@ The models are in `model.ts`: each channel is a function of the state. If no
 entity fits, the channel does not appear. A channel that follows one entity
 takes its name (the face says "Thermostat", "Kitchen shutter").
 
+## What each screen shows: the gear
+
+The board has a gear at the top right. It opens a panel (a dialog: focus goes
+in, Tab cycles, Escape closes and returns the focus to the gear) with the
+systems to tick (at least one), the board's view and where it opens next time.
+Changes apply as they are made and are kept in the browser
+(`localStorage['pulse-ha-settings']`); "Back to defaults" forgets them. The
+same panel is in the card and in the dashboard strategy, because it is part of
+the object (`app.ts`, `settingsPanel`).
+
+The host sets the **frame** the viewer chooses within: `mountPulse`'s
+`systems` (the gear offers only those), `mode` and `start` (its defaults). In
+the standalone app the frame comes from the URL,
+`?systems=lights,climate&mode=orbit&start=climate`, so a kiosk or a shared
+link opens on a fixed subset; in the card, from its config. `settings: false`
+hides the gear. The mode switch at the top writes the same setting as the
+gear.
+
+Next (not yet): one level down, which channels of a system and which entity
+each channel follows, when the systems come from Home Assistant's registries.
+
 ## Three views of the board
 
-A selector at the top (remembered in the browser) changes how the whole home is
-looked at. All three use the same data and open the same system when tapped.
+A selector at the top (remembered in the browser, as the gear's "Board view")
+changes how the whole home is looked at. All three use the same data and open the same system when tapped.
 
 | View | What it is | What it is for |
 |---|---|---|

@@ -22,6 +22,18 @@ export const t = {
   haError: (message: string) => `Home Assistant: ${message}`,
   signOut: 'Sign out',
 
+  // The gear: what this screen shows
+  settings: 'Settings',
+  settingsLead: 'What this screen shows. Kept in this browser only.',
+  systemsField: 'Systems',
+  boardView: 'Board view',
+  openInside: 'Open inside',
+  theBoard: 'The board',
+  startHint: 'Where it opens the next time this screen loads.',
+  resetSettings: 'Back to defaults',
+  done: 'Done',
+  close: 'Close',
+
   // Sign in
   loginLead: 'Your home, as one object per system. Sign in with your Home Assistant account to begin.',
   yourHA: 'Your Home Assistant',

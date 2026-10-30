@@ -218,9 +218,31 @@
 .login .error { text-align: left; }
 .conn .plain { min-height: 0; padding: 2px 8px; font-size: 12px; margin-left: 4px; }
 
+/* The gear and its panel: what this screen shows */
+.gear { position: absolute; top: 10px; right: 10px; z-index: 5; width: 40px; height: 40px; padding: 0; border-radius: 50%; border: 1px solid var(--line); background: var(--bg); color: var(--muted); display: grid; place-items: center; cursor: pointer; }
+.gear:hover, .gear[aria-expanded="true"] { color: var(--ink); border-color: var(--muted); }
+.settings-backdrop { position: absolute; inset: 0; z-index: 20; display: grid; place-items: center; padding: 16px; background: rgba(0, 0, 0, .55); }
+.settings-backdrop[hidden] { display: none; }
+.settings { width: min(440px, 100%); max-height: 100%; overflow: auto; background: var(--bg); border: 1px solid var(--line); border-radius: 14px; padding: 18px 20px 20px; display: grid; gap: 14px; text-align: left; }
+.settings header { display: flex; align-items: center; justify-content: space-between; }
+.settings h2 { font-size: 18px; font-weight: 550; margin: 0; }
+.settings-close { min-height: 0; width: 36px; height: 36px; padding: 0; border-radius: 50%; font-size: 20px; line-height: 1; }
+.settings-lead, .settings .hint { font-size: 12px; color: var(--muted); margin: 0; }
+.settings fieldset { border: 0; padding: 0; margin: 0; display: grid; gap: 8px; min-width: 0; }
+.settings legend { font-size: 12px; color: var(--muted); padding: 0; margin-bottom: 6px; }
+.settings-systems { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 4px 12px; }
+.settings label { display: flex; align-items: center; gap: 8px; font-size: 14px; min-height: 30px; cursor: pointer; }
+.settings input[type="checkbox"], .settings input[type="radio"] { width: 18px; height: 18px; margin: 0; accent-color: var(--ink); }
+.settings-row { display: flex; gap: 16px; flex-wrap: wrap; }
+.settings select { font: inherit; font-size: 14px; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--dim); background: var(--bg); color: var(--ink); justify-self: start; min-width: 200px; }
+.settings footer { display: flex; justify-content: space-between; gap: 10px; margin-top: 4px; }
+.settings .primary { margin-left: 0; }
+
 /* A small box (a card in a section, a narrow window): the board tightens. */
 .compact .board { gap: 14px; }
+.compact .board-head { padding: 0 40px; }
 .compact .board-head h1 { font-size: 18px; letter-spacing: -.3px; }
+.compact .gear { width: 34px; height: 34px; top: 8px; right: 8px; }
 .compact .modes { margin-top: 0; }
 .compact .ticker { min-height: 0; width: min(360px, 100%); }
 .compact .ticker li:nth-child(n+3) { display: none; }

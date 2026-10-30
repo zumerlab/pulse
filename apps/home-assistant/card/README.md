@@ -145,9 +145,25 @@ strategy alike.
 | `systems` | list of `lights`, `climate`, `security`, `openings`, `media`, `energy`, `maintenance` | all seven | Which systems the board shows. A system with no matching entities does not show anyway. |
 | `mode` | `grid`, `orbit`, `layers` | the view the viewer picked last | The board's view when the card opens. With it set, the switch at the top still works, but the choice is not remembered. |
 | `start` | one of the system ids | the board (on a phone, the system that calls the most) | Open the card zoomed into that system. The board stays one step back ("Board" at the bottom left). Must be one of `systems` if both are given. |
+| `settings` | `true`, `false` | `true` | The gear at the top right of the board (see below). `false` hides it: the options above are final. |
 
 A card with a wrong value refuses to render and says why ("Unknown system
 "climat". One of: lights, climate, …").
+
+### The gear: what each screen shows
+
+Whoever looks at the card can tune it for their own screen without touching
+the dashboard: the gear at the top right of the board opens a small panel
+with the systems to tick, the board view and where it opens next time.
+Changes apply as they are made and are kept in that browser only, so the
+tablet in the kitchen and the phone in a pocket can show different things
+from the same card. "Back to defaults" returns to what the card's options
+say.
+
+The options you set in the card or the strategy are the frame: the gear only
+offers the systems you allowed, and `mode` and `start` are its defaults. If
+you want the card to show exactly what you configured, everywhere, set
+`settings: false`.
 
 ## What you see
 
@@ -229,6 +245,9 @@ the file to change to teach Pulse a new entity or a new rule.
 - **Nothing reacts to a tap.** The board scrolls inside the card when the box
   is small; make the card taller (*Layout* tab in the card editor) or give it a
   panel view.
+- **The card shows fewer systems than configured.** Someone ticked them off in
+  the gear on that browser. Open the gear, *Back to defaults*; or set
+  `settings: false` to take the gear away.
 
 ## Development
 
