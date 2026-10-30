@@ -14,7 +14,7 @@ demonstration of it, not what Pulse is.
 ```text
 packages/core/          @zumer/pulse: the radial object (rings, layers, dial, Zumly setup, strings, theme)
 apps/demo/              the object with simulated data; what the tests run against
-apps/home-assistant/    the object over a live Home Assistant (sign-in with HA's OAuth, WebSocket, three board views), or over the homes of demo.home-assistant.io
+apps/home-assistant/    the object over a live Home Assistant (sign-in with HA's OAuth, WebSocket, three board views), over the homes of demo.home-assistant.io, and as a custom card + dashboard strategy (card/)
 tests/                  Playwright tests
 docs/                   cookbook of the radial system, the brief for the detail design, the Home Assistant integration options
 ```
@@ -37,6 +37,7 @@ npm run dev:ha     # Home Assistant, http://127.0.0.1:5174; sign in with your Ho
 npm run typecheck   # TypeScript, whole workspace
 npm run lint        # ESLint
 npm test            # Playwright: the demo app, and the Home Assistant app over its demo homes
+npm run build:card  # the Home Assistant card + strategy as one module: apps/home-assistant/dist-card/pulse-card.js
 npm run build       # typecheck and build both apps
 ```
 

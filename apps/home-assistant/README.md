@@ -16,6 +16,16 @@ Open it, type the address of your Home Assistant and sign in there. No
 configuration files, no server. No Home Assistant at hand? The same panel opens
 one of the six homes of demo.home-assistant.io (see "Demo homes" below).
 
+## Files
+
+- `app.ts`: the object (board, systems, detail) over a `PulseSource`, mounted
+  on an element: `mountPulse(canvas, { source, status, onAction, onStatus })`.
+- `main.ts`: the standalone shell: sign-in, the WebSocket source, the demo
+  homes, the tuning panel.
+- `source.ts`: `PulseSource` and `WebSocketSource`. `demo/`: `DemoSource` and
+  the demo homes. `card/`: `HassSource`, the card and the strategy.
+- `model.ts`: the systems and channels, a function of the state.
+
 ## Sign in and connection
 
 `source.ts` defines `PulseSource`, the little the UI needs from Home Assistant
@@ -74,6 +84,49 @@ license: `demo/NOTICE.md` (Apache 2.0).
   rich ones; the other four are mostly sensors.
 - The Playwright suite runs against these homes, so the whole app is tested
   without a Home Assistant.
+
+## Card and dashboard strategy
+
+`card/pulse-card.ts` is the same object inside a Home Assistant dashboard, as
+the integration document planned (`docs/home-assistant-integration.md`, step
+2): one JavaScript module with the `pulse-card` custom card and the `pulse`
+dashboard strategy, Orbit and Zumly bundled.
+
+```sh
+npm run build:card        # from the repo root; apps/home-assistant/dist-card/pulse-card.js
+```
+
+- **Card.** `custom:pulse-card`, a plain custom element. `set hass` feeds a
+  `HassSource` (`card/hass-source.ts`): the same `PulseSource` interface, over
+  the `hass` object Home Assistant pushes on every change (`hass.states` by
+  reference, `hass.callService`, `hass.hassUrl`). The object mounts in the
+  card's shadow root (`app.ts`, `mountPulse`); the four stylesheets are adopted
+  by that root, and Orbit's five `@property` are registered once at document
+  level from JS, since `@property` inside a shadow root is ignored. Best in a
+  panel view (full screen); in sections it takes the full width and six rows
+  at least (`getGridOptions`).
+- **Strategy.** `strategy: { type: custom:pulse }` generates one panel view
+  with the card. The New dashboard dialog lists "Pulse" under Community
+  dashboards.
+- **Install (any Home Assistant).** Copy `pulse-card.js` to `config/www/`, add
+  `/local/pulse-card.js` as a dashboard resource (Settings, Dashboards,
+  Resources, type module), then create a dashboard with the Pulse strategy or
+  add the card to a panel view. The Marketplace listing comes later (public
+  repo, MIT, `hacs.json`).
+- **Develop against the local Home Assistant.** With `npm run dev:ha` running,
+  the resource can point at the dev server's copy of the build,
+  `http://127.0.0.1:5174/dist-card/pulse-card.js`, so no files go into the
+  Home Assistant container. `scripts/ha-install-card.mjs <tokens.json> <url>`
+  registers that resource and creates (or updates) a `pulse-demo` dashboard
+  with the strategy, over the admin WebSocket; `scripts/ha-tokens.mjs
+  .env.local tokens.json` gets the tokens from `.env.local` (gitignored). Open
+  Home Assistant, sign in, and "Pulse" is in the sidebar.
+
+Verified on the local Home Assistant 2026.10.4 (30/10/2026): the card renders
+the seven systems inside the dashboard, rings included (the registered
+properties reach the shadow root), zooms into a system, and a light toggled
+from the ring goes through `hass.callService` and comes back confirmed. No
+console errors.
 
 ## Systems
 

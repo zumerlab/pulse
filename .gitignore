@@ -8,3 +8,4 @@ dist/
 !.env.example
 test-results/
 playwright-report/
+dist-card/

@@ -1,0 +1,35 @@
+// One-off: register pulse-card.js as a dashboard resource in the local Home
+// Assistant and create a "Pulse" dashboard with the pulse strategy, over the
+// admin WebSocket, with the tokens of ha-tokens.mjs.
+// node ha-setup-card.mjs <tokens.json> [resource-url]
+import { readFileSync } from 'node:fs';
+const tok = JSON.parse(readFileSync(process.argv[2], 'utf8'));
+const resourceUrl = process.argv[3] ?? `/local/pulse-card.js?v=${Date.now()}`;
+const ws = new WebSocket(`${tok.hassUrl.replace(/^http/, 'ws')}/api/websocket`);
+let id = 1;
+const pending = new Map();
+const send = (msg) => new Promise((resolve, reject) => { const n = id++; pending.set(n, { resolve, reject }); ws.send(JSON.stringify({ id: n, ...msg })); });
+ws.onmessage = async (ev) => {
+  const m = JSON.parse(ev.data);
+  if (m.type === 'auth_required') ws.send(JSON.stringify({ type: 'auth', access_token: tok.access_token }));
+  else if (m.type === 'auth_ok') {
+    try {
+      const resources = await send({ type: 'lovelace/resources' });
+      for (const r of resources.filter((r) => /pulse-card\.js/.test(r.url))) await send({ type: 'lovelace/resources/delete', resource_id: r.id });
+      const res = await send({ type: 'lovelace/resources/create', res_type: 'module', url: resourceUrl });
+      console.log('resource', res.url);
+      const dashboards = await send({ type: 'lovelace/dashboards/list' });
+      if (!dashboards.some((d) => d.url_path === 'pulse-demo')) {
+        await send({ type: 'lovelace/dashboards/create', url_path: 'pulse-demo', title: 'Pulse', icon: 'mdi:radar', show_in_sidebar: true, require_admin: false, mode: 'storage' });
+        console.log('dashboard created');
+      }
+      await send({ type: 'lovelace/config/save', url_path: 'pulse-demo', config: { strategy: { type: 'custom:pulse' } } });
+      console.log('dashboard config saved: strategy custom:pulse');
+    } catch (e) { console.error('failed', e); process.exitCode = 1; }
+    ws.close();
+  } else if (m.id && pending.has(m.id)) {
+    const p = pending.get(m.id); pending.delete(m.id);
+    m.success ? p.resolve(m.result) : p.reject(m.error);
+  }
+};
+ws.onerror = (e) => { console.error('ws error', e.message); process.exitCode = 1; };

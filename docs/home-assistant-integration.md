@@ -324,6 +324,12 @@ Updates `../coordinacion/pulse-venta-ha.md` (25/10) with what changed:
 | Orbit uses `@property` | `@zumer/orbit` 2.1.0 `dist/orbit.css` | 5 rules |
 | Zumly can mount in a shadow root | `zumly` 1.2.2 `dist/zumly.mjs` | `mount` accepts an element |
 
+### Done since (30/10/2026, evening)
+
+- Step 1 and the login of step 4: `PulseSource` with `WebSocketSource` (OAuth via `getAuth`, `subscribe_entities`), the object mounted on an element (`app.ts`, `mountPulse`).
+- A third source, `DemoSource`: the six homes of demo.home-assistant.io inside the standalone app (`?demo=home`, index at `gallery.html`).
+- Step 2, first cut: `pulse-card` + `pulse` dashboard strategy in one module (`card/`, `npm run build:card`). Verified in the local 2026.10.4: CSS adopted in the shadow root works; the five Orbit `@property` registered from JS at document level work (rings render); Zumly mounts and zooms inside the shadow root; `hass.callService` round trip confirmed. Not yet: visual editor (`getConfigForm`), section strategy, systems from registries, public repo and Marketplace listing.
+
 ## Sources
 
 Official:

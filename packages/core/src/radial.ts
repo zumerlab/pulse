@@ -311,8 +311,8 @@ export function zumlyOptions(views: ZumlyOptions['views'], initialView: string, 
 
 // On the phone, start inside a system: the board stays behind as the overview,
 // a pinch or the back button away.
-export async function startInside(app: Zumly, systemId: string) {
-  const tile = document.querySelector<HTMLElement>(`.zoom-me[data-system="${systemId}"]`);
+export async function startInside(app: Zumly, systemId: string, root: ParentNode = document) {
+  const tile = root.querySelector<HTMLElement>(`.zoom-me[data-system="${systemId}"]`);
   if (!tile) return;
   tile.dataset.withDuration = '1ms';
   await app.zoomIn(tile);

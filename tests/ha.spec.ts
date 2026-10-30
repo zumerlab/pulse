@@ -43,7 +43,7 @@ test('a demo home opens from the sign-in panel and its entities answer the ring'
   await expect(page).toHaveURL(/\?demo=sections$/);
   await expect(page.locator('.login')).toBeHidden();
   await expect(page.locator('.conn')).toContainText('Home Assistant demo · Home Demo · live');
-  await expect(page.locator('.conn [data-signout]')).toHaveText('Leave the demo');
+  await expect(page.locator('.conn [data-action="signout"]')).toHaveText('Leave the demo');
   // That home fills every system: its motion sensors make Security, its updates Maintenance.
   await expect(page.locator('.tile[data-system]')).toHaveCount(7);
   await expect(page.locator('.tile[data-system="maintenance"] .tile-big')).toHaveText('Up to date');
@@ -84,7 +84,7 @@ test('a shared link opens a demo home directly and leaving it returns to the sig
   // No updates or vacuums in that home: no Maintenance.
   await expect(page.locator('.tile[data-system]')).toHaveCount(6);
   await expect(page.locator('.tile[data-system="maintenance"]')).toHaveCount(0);
-  await page.locator('.conn [data-signout]').click();
+  await page.locator('.conn [data-action="signout"]').click();
   await expect(page.locator('.login h1')).toHaveText('Pulse');
   await expect(page).toHaveURL(/5174\/$/);
 });

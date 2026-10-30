@@ -1,5 +1,5 @@
-/* The Graphite style from the cookbook. */
-:root {
+/* The Graphite style from the cookbook. On the page (:root) and inside a card's shadow root (:host). */
+:root, :host {
   color-scheme: dark;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --bg: #0e1013;
