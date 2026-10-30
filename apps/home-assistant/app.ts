@@ -16,8 +16,17 @@ import { t } from './strings.ts';
 // WebSocket or a demo home; the card (`card/`) in its shadow root with the
 // `hass` object.
 
+export type BoardMode = 'grid' | 'orbit' | 'layers';
+export const BOARD_MODES: BoardMode[] = ['grid', 'orbit', 'layers'];
+
 export type PulseOptions = {
   source: PulseSource;
+  // Which systems the object shows (default: all of model.ts); unknown ids are ignored.
+  systems?: string[];
+  // The board's view to start with. Without it, the last one chosen, remembered in the browser.
+  mode?: BoardMode;
+  // Start inside this system (the board stays behind, one step out).
+  start?: string;
   // The connection line of the board (HTML); the shell decides what it says.
   status?: (source: PulseSource) => string;
   // A button with `data-action` in that line was pressed.
@@ -40,9 +49,17 @@ export function mountPulse(canvas: HTMLElement, options: PulseOptions): PulseHan
 // Focus lives in the document or in the card's shadow root.
 const activeElement = () => (canvas.getRootNode() as Document | ShadowRoot).activeElement as HTMLElement | null;
 
+// In a small box (a card in a section of a dashboard, a narrow window) the
+// board tightens: smaller headline, fewer lines of ticker, the object bigger.
+const compact = new ResizeObserver(([entry]) => {
+  const { width, height } = entry.contentRect;
+  canvas.classList.toggle('compact', width < 640 || height < 540);
+});
+compact.observe(canvas);
+
 let ha: PulseSource = options.source;
 const SYS = Object.fromEntries(systems.map((s) => [s.id, s]));
-const IDS = systems.map((s) => s.id);
+const IDS = systems.map((s) => s.id).filter((id) => !options.systems?.length || options.systems.includes(id));
 
 type Ui = {
   pick: string | null;                 // channel chosen by hand
@@ -72,7 +89,7 @@ const sig = (a: Alert) => `${a.level}|${a.big}|${a.why}`;
 function compute() {
   const now = Date.now(), fresh: { id: string; key: string; a: Alert }[] = [];
   readings = {};
-  for (const sys of systems) {
+  for (const sys of IDS.map((id) => SYS[id])) {
     const map = new Map<string, { ch: Channel; r: Reading }>(), u = ui[sys.id];
     for (const ch of sys.channels) {
       const r = ch.read(ha.states, { temp: ha.unit });
@@ -187,13 +204,14 @@ const status = () => options.status?.(ha) ?? '';
 // - grid: a mini ring per system (the usual one);
 // - orbit: the home's pulse in the center and the systems around it;
 // - layers: a single object, one system per layer; the one calling the most in front.
-type BoardMode = 'grid' | 'orbit' | 'layers';
 const MODES: [BoardMode, string][] = [['grid', t.modes.grid], ['orbit', t.modes.orbit], ['layers', t.modes.layers]];
-let boardMode: BoardMode = 'grid';
-try {
-  const saved = localStorage.getItem('pulse-ha-board');
-  if (MODES.some(([m]) => m === saved)) boardMode = saved as BoardMode;
-} catch { /* no storage: starts on the grid */ }
+let boardMode: BoardMode = options.mode ?? 'grid';
+if (!options.mode) {
+  try {
+    const saved = localStorage.getItem('pulse-ha-board');
+    if (MODES.some(([m]) => m === saved)) boardMode = saved as BoardMode;
+  } catch { /* no storage: starts on the grid */ }
+}
 let boardPick: string | null = null;
 
 // Systems front to back: the choice made by hand, the ones calling (most serious
@@ -463,7 +481,7 @@ function board(ctx: ViewContext) {
     const pick = target.closest<HTMLElement>('[data-bpick]')?.dataset.bpick;
     if (mode && mode !== boardMode) {
       boardMode = mode;
-      try { localStorage.setItem('pulse-ha-board', mode); } catch { /* only to remember the view */ }
+      if (!options.mode) { try { localStorage.setItem('pulse-ha-board', mode); } catch { /* only to remember the view */ } }
       paint();
     } else if (pick && !locked) {
       boardPick = pick;
@@ -840,9 +858,11 @@ const setSource = (src: PulseSource) => {
   if (src.states.size) onChange([...src.states.values()]);
 };
 
-// On the phone, start inside the system that calls the most.
+// Inside the system asked for; on the phone, inside the one that calls the most.
 async function start() {
-  if (PHONE) await startInside(app, [...IDS].sort((a, b) => worst(b) - worst(a))[0], canvas);
+  const first = options.start && IDS.includes(options.start) ? options.start
+    : PHONE ? [...IDS].sort((a, b) => worst(b) - worst(a))[0] : null;
+  if (first) await startInside(app, first, canvas);
 }
 
   return {
@@ -850,8 +870,10 @@ async function start() {
     get source() { return ha; },
     setSource,
     repaint,
-    ready: app.init(),
-    destroy: () => { unsubscribe.forEach((fn) => fn()); app.destroy(); },
+    // A source already live at mount time (a card's `hass`) starts as soon as
+    // the board is in the DOM; otherwise the first live change starts it.
+    ready: app.init().then(() => { if (!loaded && ha.status === 'live') { loaded = true; return start(); } }),
+    destroy: () => { unsubscribe.forEach((fn) => fn()); compact.disconnect(); app.destroy(); },
     ui,
     readings: () => readings,
   };

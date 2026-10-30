@@ -13,6 +13,21 @@ export type HomeAssistant = {
 
 export type CardConfig = { type: string };
 
+// A form the dashboard editor renders for the card: the subset of HA's
+// `LovelaceConfigForm` / `HaFormSchema` the card uses.
+export type FormSchema =
+  | { name: string; required?: boolean; default?: unknown; selector: Selector }
+  | { name: string; type: 'grid'; schema: FormSchema[] };
+export type Selector =
+  | { select: { multiple?: boolean; mode?: 'list' | 'dropdown' | 'box'; options: { value: string; label: string }[] } }
+  | { boolean: Record<string, never> };
+export type ConfigForm = {
+  schema: FormSchema[];
+  assertConfig?(config: CardConfig): void;
+  computeLabel?(schema: FormSchema): string | undefined;
+  computeHelper?(schema: FormSchema): string | undefined;
+};
+
 export type LovelaceCard = HTMLElement & {
   hass?: HomeAssistant;
   setConfig(config: CardConfig): void;

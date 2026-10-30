@@ -5,4 +5,6 @@ export default [
   { ignores: ['**/dist/**', '**/dist-card/**', 'test-results/**', 'playwright-report/**'] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
+  // Node scripts (the Home Assistant development helpers).
+  { files: ['**/scripts/**/*.mjs'], languageOptions: { globals: { process: 'readonly', console: 'readonly', fetch: 'readonly', URL: 'readonly', URLSearchParams: 'readonly', WebSocket: 'readonly', setTimeout: 'readonly', clearTimeout: 'readonly' } } },
 ];

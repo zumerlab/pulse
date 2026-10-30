@@ -88,3 +88,39 @@ test('a shared link opens a demo home directly and leaving it returns to the sig
   await expect(page.locator('.login h1')).toHaveText('Pulse');
   await expect(page).toHaveURL(/5174\/$/);
 });
+
+// The card (card/pulse-card.ts) on its bench, card.html: a `hass` object built
+// from a demo home, the object inside the card's shadow root.
+const card = (page: Page) => page.locator('pulse-card');
+
+test('the card renders a demo home inside its shadow root and toggles a light through hass.callService', async ({ page }) => {
+  await page.goto(`${HA}/card.html?home=sections`);
+  const c = card(page);
+  await expect(c.locator('.tile[data-system]')).toHaveCount(7);
+  await expect(c.locator('.board h1')).toHaveText('All calm.');
+  // Orbit's rings draw inside the shadow root: the registered properties reach it.
+  await expect(c.locator('.tile[data-system="lights"] o-arc').first()).toBeVisible();
+  await c.locator('.tile[data-system="lights"]').click();
+  const front = c.locator('.z-view.is-current-view .layer-front');
+  await expect(front.locator('.face-big')).toHaveText('4 of 8');
+  const seg = front.locator('o-arc[data-seg="0"]');
+  const was = await seg.getAttribute('aria-checked');
+  await seg.dispatchEvent('click');
+  await expect(c.locator('.z-view.is-current-view .layer-front .face-big')).toHaveText(was === 'true' ? '3 of 8' : '5 of 8');
+});
+
+test('the card takes its options: which systems, the board view, and the system to open inside', async ({ page }) => {
+  const config = encodeURIComponent(JSON.stringify({ systems: ['lights', 'climate', 'security'], mode: 'layers' }));
+  await page.goto(`${HA}/card.html?home=home&config=${config}`);
+  const c = card(page);
+  await expect(c.locator('.board')).toHaveClass(/mode-layers/);
+  await expect(c.locator('.board .modes [aria-pressed="true"]')).toHaveText('Layers');
+  await expect(c.locator('.board .layer[data-depth]')).toHaveCount(3);
+
+  const start = encodeURIComponent(JSON.stringify({ systems: ['climate'], start: 'climate' }));
+  await page.goto(`${HA}/card.html?home=sections&size=section&config=${start}`);
+  await expect(card(page).locator('.z-view.is-current-view .system')).toBeVisible();
+  await expect(card(page).locator('.z-view.is-current-view .layer-front .face-big')).toHaveText('21.7°C');
+  // The board is one step back, with the one system.
+  await expect(card(page).locator('.z-view.is-previous-view .tile[data-system]')).toHaveCount(1);
+});

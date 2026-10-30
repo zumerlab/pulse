@@ -328,7 +328,8 @@ Updates `../coordinacion/pulse-venta-ha.md` (25/10) with what changed:
 
 - Step 1 and the login of step 4: `PulseSource` with `WebSocketSource` (OAuth via `getAuth`, `subscribe_entities`), the object mounted on an element (`app.ts`, `mountPulse`).
 - A third source, `DemoSource`: the six homes of demo.home-assistant.io inside the standalone app (`?demo=home`, index at `gallery.html`).
-- Step 2, first cut: `pulse-card` + `pulse` dashboard strategy in one module (`card/`, `npm run build:card`). Verified in the local 2026.10.4: CSS adopted in the shadow root works; the five Orbit `@property` registered from JS at document level work (rings render); Zumly mounts and zooms inside the shadow root; `hass.callService` round trip confirmed. Not yet: visual editor (`getConfigForm`), section strategy, systems from registries, public repo and Marketplace listing.
+- Step 2, first cut: `pulse-card` + `pulse` dashboard strategy in one module (`card/`, `npm run build:card`). Verified in the local 2026.10.4: CSS adopted in the shadow root works; the five Orbit `@property` registered from JS at document level work (rings render); Zumly mounts and zooms inside the shadow root; `hass.callService` round trip confirmed. Not yet: systems from registries, public repo and Marketplace listing.
+- Step 2, second cut (30/10/2026, night): options `systems`, `mode`, `start` on the card and both strategies; visual editor via `static getConfigForm()` (verified in 2026.10.4: checklist, two dropdowns, live preview); section strategy `ll-strategy-section-pulse` (works in 2026.10 from YAML; the editor lists it from 2026.11); compact board under 640 px; a bench page without HA (`card.html`) and tests; the user guide `apps/home-assistant/card/README.md` (install as a resource, the three ways in, options, entities, troubleshooting).
 
 ## Sources
 

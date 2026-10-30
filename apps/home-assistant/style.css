@@ -217,3 +217,17 @@
 .login summary { cursor: pointer; color: var(--muted); font-size: 13px; }
 .login .error { text-align: left; }
 .conn .plain { min-height: 0; padding: 2px 8px; font-size: 12px; margin-left: 4px; }
+
+/* A small box (a card in a section, a narrow window): the board tightens. */
+.compact .board { gap: 14px; }
+.compact .board-head h1 { font-size: 18px; letter-spacing: -.3px; }
+.compact .modes { margin-top: 0; }
+.compact .ticker { min-height: 0; width: min(360px, 100%); }
+.compact .ticker li:nth-child(n+3) { display: none; }
+.compact .tile { height: 132px; }
+.compact .board.mode-layers .board-body { min-height: 240px; }
+
+/* The card's test bench (card.html) */
+.bench { padding: 24px; display: grid; gap: 12px; justify-items: start; }
+.bench-lead { font-size: 12px; color: var(--muted); font-family: ui-monospace, monospace; }
+.bench-box { max-width: 100%; border-radius: 12px; outline: 1px dashed var(--line); resize: both; overflow: hidden; }
