@@ -1,4 +1,4 @@
-import type { Call, HassState, States } from './ha.ts';
+import type { Call, HassState, States } from './source.ts';
 import { listOf, num } from '@zumer/pulse';
 
 // Every channel is read from Home Assistant's live state: there are no

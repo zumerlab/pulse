@@ -284,9 +284,9 @@ export function parallax(stage: HTMLElement, obj: HTMLElement, active: () => boo
 
 // Navigation recedes with blur; the object's layers never do. That keeps
 // "previous level" apart from "channel behind".
-export function zumlyOptions(views: ZumlyOptions['views'], initialView: string): ZumlyOptions {
+export function zumlyOptions(views: ZumlyOptions['views'], initialView: string, mount: ZumlyOptions['mount'] = '#canvas'): ZumlyOptions {
   return {
-    mount: '#canvas',
+    mount,
     initialView,
     views,
     transitions: {

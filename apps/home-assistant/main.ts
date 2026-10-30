@@ -4,7 +4,8 @@ import '@zumer/orbit/style';
 import '@zumer/orbit';
 import '@zumer/pulse/style.css';
 import './style.css';
-import { HomeAssistant, type Call, type HassState } from './ha.ts';
+import { WebSocketSource, type Call, type HassState, type PulseSource } from './source.ts';
+import { mountLogin } from './login.ts';
 import { nameOf, systems, type Alert, type Channel, type Reading } from './model.ts';
 import { mountTunePanel, tune } from './tune.ts';
 import {
@@ -13,12 +14,12 @@ import {
 } from '@zumer/pulse';
 import { t } from './strings.ts';
 
-// The same object as the zumly-radial prototype, but with a live Home
-// Assistant: readings, alerts and their resolution come over the WebSocket.
-// What is shown is what Home Assistant confirmed; until it does, the segment or
-// the dial stays "sending".
+// The radial object over a live Home Assistant: readings, alerts and their
+// resolution come over the WebSocket (`source.ts`). What is shown is what Home
+// Assistant confirmed; until it does, the segment or the dial stays "sending".
 
-const ha = new HomeAssistant();
+const socket = new WebSocketSource();
+const ha: PulseSource = socket;
 const SYS = Object.fromEntries(systems.map((s) => [s.id, s]));
 const IDS = systems.map((s) => s.id);
 
@@ -158,7 +159,8 @@ function headline() {
 }
 
 function status() {
-  return `<span class="conn conn-${ha.status}"><span class="conn-dot"></span>Home Assistant${ha.version ? ` ${ha.version}` : ''} · ${t.status[ha.status]}</span>`;
+  return `<span class="conn conn-${ha.status}"><span class="conn-dot"></span>Home Assistant${ha.version ? ` ${ha.version}` : ''} · ${t.status[ha.status]}
+    <button class="plain" data-signout>${t.signOut}</button></span>`;
 }
 
 // Three ways to look at the whole home, over the same data:
@@ -356,7 +358,9 @@ function board(ctx: ViewContext) {
   const paint = () => {
     if (built !== boardMode) build();
     el.querySelector('h1')!.textContent = headline();
-    el.querySelector('.conn-slot')!.innerHTML = status();
+    // Only when it changed: the house repaints every few seconds and a button
+    // recreated each time would lose taps.
+    setHTML(el.querySelector<HTMLElement>('.conn-slot')!, status());
     for (const b of el.querySelectorAll<HTMLElement>('[data-mode]')) b.setAttribute('aria-pressed', String(b.dataset.mode === boardMode));
     const err = el.querySelector<HTMLElement>('.error')!;
     err.hidden = ha.status !== 'error';
@@ -433,6 +437,7 @@ function board(ctx: ViewContext) {
       if (tile) void app.zoomIn(tile);
       return;
     }
+    if (target.closest('[data-signout]')) { void socket.signOut(); return; }
     const mode = target.closest<HTMLElement>('[data-mode]')?.dataset.mode as BoardMode | undefined;
     const pick = target.closest<HTMLElement>('[data-bpick]')?.dataset.bpick;
     if (mode && mode !== boardMode) {
@@ -704,7 +709,8 @@ function detail(ctx: ViewContext) {
         <input type="checkbox" data-seg="${i}"${s.on ? ' checked' : ''}${s.act ? '' : ' disabled'}> ${esc(s.label)}
         <span class="state">${esc(stateText(ha.states.get(s.entity)!))}</span></label></li>`).join('')}</ul>`;
     }
-    const cam = r.camera ? String(ha.states.get(r.camera)?.attributes.entity_picture ?? '') : '';
+    const picture = r.camera ? ha.states.get(r.camera)?.attributes.entity_picture : undefined;
+    const cam = picture ? ha.url(picture) : '';
     el.innerHTML = `<div class="detail">
       <p class="eyebrow">${SYS[id].title}</p>
       <h1>${icon(ch.glyph, 30)} ${ch.name}</h1>
@@ -763,7 +769,17 @@ app.on('afterZoomOut', () => repaint());
 const watched = () => new Set(IDS.flatMap((id) => [...readings[id].values()].flatMap((x) => x.r.entities)));
 let loaded = false;
 
-ha.onStatus(() => repaint());
+// Signed out: the login covers the canvas; signed in: the object.
+const shell = document.querySelector<HTMLElement>('.shell')!;
+const loginSlot = document.querySelector<HTMLElement>('#login')!;
+mountLogin(loginSlot, socket);
+ha.onStatus(() => {
+  const out = ha.status === 'signed-out';
+  shell.classList.toggle('signed-out', out);
+  loginSlot.hidden = !out;
+  if (out) { loaded = false; log.length = 0; }
+  repaint();
+});
 ha.onChange((changed) => {
   for (const s of changed) { pending.delete(s.entity_id); const h = hold.get(s.entity_id); if (h && h.until !== Infinity) hold.delete(s.entity_id); }
   const fresh = compute();
@@ -789,7 +805,7 @@ ha.onChange((changed) => {
 
 await app.init();
 mountTunePanel();
-void ha.connect();
+await socket.resume();
 
 // On the phone, start inside the system that calls the most.
 async function start() {

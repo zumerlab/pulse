@@ -10,6 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@zumer/pulse": "*"
+    "@zumer/pulse": "*",
+    "home-assistant-js-websocket": "9.8.1"
   }
 }

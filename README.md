@@ -14,9 +14,9 @@ demonstration of it, not what Pulse is.
 ```text
 packages/core/          @zumer/pulse: the radial object (rings, layers, dial, Zumly setup, strings, theme)
 apps/demo/              the object with simulated data; what the tests run against
-apps/home-assistant/    the object over a live Home Assistant (WebSocket, local login server, three board views)
+apps/home-assistant/    the object over a live Home Assistant (sign-in with HA's OAuth, WebSocket, three board views)
 tests/                  Playwright tests
-docs/                   cookbook of the radial system and the brief for the detail design
+docs/                   cookbook of the radial system, the brief for the detail design, the Home Assistant integration options
 ```
 
 The core knows nothing about Home Assistant; the apps depend on the core
@@ -29,7 +29,7 @@ Requires Node.js 22.18+ or 24+ and npm.
 ```sh
 npm ci
 npm run dev        # demo, http://127.0.0.1:5173
-npm run dev:ha     # Home Assistant, http://127.0.0.1:5174 (needs apps/home-assistant/.env.local)
+npm run dev:ha     # Home Assistant, http://127.0.0.1:5174; sign in with your Home Assistant account
 ```
 
 ```sh

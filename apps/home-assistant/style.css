@@ -177,3 +177,19 @@
 .tune output.changed { color: var(--minor); }
 .tune-actions { display: flex; gap: 8px; margin-top: 12px; }
 .tune-actions button { min-height: 0; padding: 4px 10px; font-size: 12px; }
+
+/* ─── Sign in ──────────────────────────────────────────── */
+.login-slot { position: absolute; inset: 0; display: grid; place-items: center; padding: 16px; overflow-y: auto; background: var(--bg); }
+.shell.signed-out .zumly-canvas, .shell.signed-out .z-depth-nav { visibility: hidden; }
+.login { width: min(420px, 100%); display: grid; gap: 14px; }
+.login h1 { font-size: 30px; font-weight: 550; letter-spacing: -.6px; }
+.login-lead, .login-hint { color: var(--muted); }
+.login-hint { font-size: 12px; }
+.login label { display: grid; gap: 6px; font-size: 13px; color: var(--muted); }
+.login input { min-height: 44px; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--dim); background: rgba(255,255,255,.04); color: var(--ink); font: inherit; }
+.login input:focus { border-color: var(--muted); outline: none; }
+.login .primary { margin: 0; }
+.login details { display: grid; gap: 10px; }
+.login summary { cursor: pointer; color: var(--muted); font-size: 13px; }
+.login .error { text-align: left; }
+.conn .plain { min-height: 0; padding: 2px 8px; font-size: 12px; margin-left: 4px; }

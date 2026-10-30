@@ -6,27 +6,46 @@ is written by hand: readings, alerts and their resolution come from the live
 state. The object itself (rings, layers, dial gestures, Zumly setup, strings) is
 the core package `@zumer/pulse` (`packages/core`); this app adds `model.ts`,
 which turns Home Assistant's state into the readings the object draws, the
-WebSocket client, the local login server and the three board views.
+source (`source.ts`), the sign-in and the three board views.
 
 ```sh
-cp apps/home-assistant/.env.example apps/home-assistant/.env.local   # HA_URL, HA_USERNAME, HA_PASSWORD (or HA_TOKEN)
 npm run dev:ha     # from the repo root; http://127.0.0.1:5174
 ```
 
-## Connection: WebSocket
+Open it, type the address of your Home Assistant and sign in there. No
+configuration files, no server.
 
-One socket does everything: `get_states` on entry, `subscribe_events`
-(`state_changed`) for changes and `call_service` for commands. REST would force
-polling; with the socket the changes arrive pushed (a cover closing is seen
-moving 10% at a time).
+## Sign in and connection
 
-- **The browser never sees the password.** `server/homeassistant.ts` (in this app) does the
-  login (`/auth/login_flow` → `/auth/token`), keeps the refresh token in memory
-  and hands out only a short access token at `/api/ha/session` (only from this
-  machine).
-- **Same origin.** The socket goes to `/api/ha/websocket` and Vite passes it to
-  Home Assistant; camera images go through `/api/camera_proxy`.
-- If it drops, it retries with growing waits (up to 15 s) and asks for a new token.
+`source.ts` defines `PulseSource`, the little the UI needs from Home Assistant
+(`states`, `unit`, `status`, `version`, `call`, `onChange`, `onStatus`, `url`),
+and implements it over the WebSocket with the official
+[`home-assistant-js-websocket`](https://github.com/home-assistant/home-assistant-js-websocket).
+A second implementation over the `hass` object of a custom card would let the
+same app run inside a dashboard (see `docs/home-assistant-integration.md`).
+
+- **Sign in on Home Assistant, not on Pulse.** The login is Home Assistant's own
+  OAuth flow (`getAuth`): the browser goes to `<your HA>/auth/authorize`, you
+  sign in there (with your users, MFA, everything) and come back with a code.
+  Pulse never sees a password. The `client_id` is Pulse's own URL, as Home
+  Assistant expects; no registration.
+- **Tokens stay in the browser** (`localStorage`, `pulse-ha-auth`): a 30-minute
+  access token the library refreshes on its own and a refresh token. "Sign out"
+  revokes them in Home Assistant and forgets them.
+- **Long-lived access token** as the alternative, for wall panels and kiosks:
+  pasted once in the sign-in panel (created in Home Assistant under
+  profile › Security).
+- **Direct connection.** The browser opens the WebSocket to Home Assistant's
+  URL: its WebSocket accepts any origin, so no proxy is needed. REST is not
+  used (its CORS is closed by default); camera images come from
+  `entity_picture`, which already carries a token, resolved against the Home
+  Assistant URL (`source.url()`).
+- **One subscription.** `subscribe_entities` gives the initial states and
+  compressed diffs after (what the Companion apps use); the source turns them
+  into a list of changed entities. Reconnection is the library's, with
+  `reconnect-error` shown in the connection line; an invalid token signs out.
+- **Mixed content.** A Pulse served over HTTPS cannot open a WebSocket to an
+  HTTP Home Assistant; use the same URL you use remotely.
 
 ## Systems (from the demo)
 
