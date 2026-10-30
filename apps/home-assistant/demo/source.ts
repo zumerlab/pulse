@@ -4,7 +4,7 @@
 // WebSocket: `states` in, `call` out.
 
 import type { HassEntity } from 'home-assistant-js-websocket';
-import type { Call, HassState, PulseSource, States, Status } from '../source.ts';
+import { emptyRegistry, type Call, type HassState, type PulseSource, type Registry, type States, type Status } from '../source.ts';
 import { t } from '../strings.ts';
 import { getEntity, type Area, type Floor, type MockEntity } from './entities.ts';
 import { energy } from './homes/energy.ts';
@@ -16,6 +16,7 @@ const ROUND_TRIP_MS = 120;
 
 export class DemoSource implements PulseSource {
   readonly states: States = new Map();
+  registry: Registry = emptyRegistry();
   status: Status = 'signed-out';
   error = '';
   version = '';
@@ -27,9 +28,11 @@ export class DemoSource implements PulseSource {
   private changed = new Map<string, HassState>();
   private flushing = false;
   private listeners = new Set<(changed: HassState[]) => void>();
+  private registryListeners = new Set<() => void>();
   private statusListeners = new Set<() => void>();
 
   onChange(fn: (changed: HassState[]) => void) { this.listeners.add(fn); return () => this.listeners.delete(fn); }
+  onRegistry(fn: () => void) { this.registryListeners.add(fn); return () => this.registryListeners.delete(fn); }
   onStatus(fn: () => void) { this.statusListeners.add(fn); return () => this.statusListeners.delete(fn); }
   // The demos' pictures (cameras, people) are served by demo.home-assistant.io.
   url(path: string) { return /^https?:/.test(path) ? path : `https://demo.home-assistant.io${path}`; }
@@ -50,15 +53,22 @@ export class DemoSource implements PulseSource {
     this.floors = data.floors ?? [];
     const sink = { updateState: (s: HassEntity) => this.queue(s) };
     // The home's own entities win over the shared energy sensors.
+    const registry = emptyRegistry();
     for (const input of [...energy, ...data.entities]) {
       const e = getEntity(input);
       e.sink = sink;
       this.entities.get(e.entityId)?.dispose();
       this.entities.set(e.entityId, e);
       this.states.set(e.entityId, e.toState());
+      registry.entities.set(e.entityId, { entity_id: e.entityId, area_id: input.area_id, device_id: input.device_id, platform: input.platform });
     }
+    // What the demo config says about the home: areas and floors (only `home` has them).
+    for (const a of this.areas) registry.areas.set(a.area_id, a);
+    for (const f of this.floors) registry.floors.set(f.floor_id, f);
+    this.registry = registry;
     this.version = `${t.demo} · ${home.name}`;
     this.setStatus('live');
+    this.registryListeners.forEach((fn) => fn());
     this.listeners.forEach((fn) => fn([...this.states.values()]));
   }
 
@@ -67,6 +77,7 @@ export class DemoSource implements PulseSource {
     this.entities.clear();
     this.states.clear();
     this.changed.clear();
+    this.registry = emptyRegistry();
     this.home = null;
     this.version = '';
     if (notify) this.setStatus('signed-out');

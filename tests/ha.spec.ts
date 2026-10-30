@@ -68,10 +68,10 @@ test('the index previews every demo home with the rings it fills, and opens one'
   const cards = page.locator('[data-homes] .home-card');
   await expect(cards).toHaveCount(6);
   await expect(cards.first()).toContainText('Home page');
-  await expect(cards.first().locator('.tile')).toHaveCount(6);
+  await expect(cards.first().locator('.tile')).toHaveCount(7);
   await expect(cards.first().locator('.tile[data-system="climate"] .tile-big')).toHaveText('21.5°C');
   await expect(cards.nth(1).locator('.tile')).toHaveCount(7);
-  await expect(cards.first()).toContainText(/\d+ entities · 6 systems/);
+  await expect(cards.first()).toContainText(/\d+ entities · 7 systems/);
   // No timers left running from the previews: the page stays quiet.
   await cards.nth(1).click();
   await expect(page).toHaveURL(/\?demo=sections$/);
@@ -81,9 +81,15 @@ test('the index previews every demo home with the rings it fills, and opens one'
 test('a shared link opens a demo home directly and leaving it returns to the sign-in', async ({ page }) => {
   await page.goto(`${HA}?demo=home`);
   await expect(page.locator('.conn')).toContainText('Home Assistant demo · Home page · live');
-  // No updates or vacuums in that home: no Maintenance.
-  await expect(page.locator('.tile[data-system]')).toHaveCount(6);
-  await expect(page.locator('.tile[data-system="maintenance"]')).toHaveCount(0);
+  // No updates or vacuums in that home, but two battery sensors, one at 15%:
+  // Maintenance shows the low one.
+  await expect(page.locator('.tile[data-system]')).toHaveCount(7);
+  await expect(page.locator('.tile[data-system="maintenance"] .tile-big')).toHaveText('15%');
+  // The alert says where: the sensor's area from the registry.
+  await page.locator('.tile[data-system="maintenance"]').click();
+  await expect(page.locator('.layer-front .face-label')).toContainText('bedroom');
+  await page.locator('.z-nav-back').click();
+  await expect(page.locator('.tile[data-system]')).toHaveCount(7);
   await page.locator('.conn [data-action="signout"]').click();
   await expect(page.locator('.login h1')).toHaveText('Pulse');
   await expect(page).toHaveURL(/5174\/$/);

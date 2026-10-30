@@ -30,9 +30,17 @@ const demo = new DemoSource();
 await demo.start(home);
 
 // What Home Assistant hands a card: a fresh object per change, with the
-// unchanged entities kept by reference.
+// unchanged entities kept by reference, and the registries as records (the
+// same objects until they change).
+const registry = {
+  areas: Object.fromEntries(demo.registry.areas),
+  floors: Object.fromEntries(demo.registry.floors),
+  devices: {},
+  entities: Object.fromEntries([...demo.registry.entities].map(([id, e]) => [id, { ...e, entity_category: e.category }])),
+};
 const hass = (): HomeAssistant => ({
   states: Object.fromEntries(demo.states),
+  ...registry,
   connected: true,
   connection: null as unknown as HomeAssistant['connection'],
   config: { version: `bench · ${home}`, unit_system: { temperature: demo.unit } },

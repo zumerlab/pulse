@@ -1,20 +1,26 @@
 // PulseSource over the `hass` object a custom card receives: Home Assistant
 // already holds the connection and pushes a new `hass` on every change.
-import type { Call, HassState, PulseSource, States, Status } from '../source.ts';
+import { emptyRegistry, type Call, type HassState, type Issue, type PulseSource, type Registry, type States, type Status } from '../source.ts';
 import { t } from '../strings.ts';
 import type { HomeAssistant } from './hass.ts';
 
 export class HassSource implements PulseSource {
   readonly states: States = new Map();
+  registry: Registry = emptyRegistry();
   status: Status = 'connecting';
   error = '';
   version = '';
   unit = '°';
   private hass: HomeAssistant | null = null;
+  private seen: { areas?: unknown; devices?: unknown; entities?: unknown; floors?: unknown } = {};
+  private issues: Issue[] = [];
+  private issuesFrom: unknown = null;
   private listeners = new Set<(changed: HassState[]) => void>();
+  private registryListeners = new Set<() => void>();
   private statusListeners = new Set<() => void>();
 
   onChange(fn: (changed: HassState[]) => void) { this.listeners.add(fn); return () => this.listeners.delete(fn); }
+  onRegistry(fn: () => void) { this.registryListeners.add(fn); return () => this.registryListeners.delete(fn); }
   onStatus(fn: () => void) { this.statusListeners.add(fn); return () => this.statusListeners.delete(fn); }
   url(path: string) { return /^https?:/.test(path) ? path : this.hass ? this.hass.hassUrl(path) : path; }
 
@@ -35,6 +41,38 @@ export class HassSource implements PulseSource {
       this.statusListeners.forEach((fn) => fn());
     }
     if (changed.length) this.listeners.forEach((fn) => fn(changed));
+    this.readRegistry(hass);
+  }
+
+  // The frontend replaces `hass.areas` (and the others) with a new object when
+  // a registry changes: same object, nothing to do. Repairs are not on `hass`:
+  // asked once per connection, and again when their registry event fires.
+  private readRegistry(hass: HomeAssistant) {
+    const same = hass.areas === this.seen.areas && hass.devices === this.seen.devices && hass.entities === this.seen.entities && hass.floors === this.seen.floors;
+    if (hass.connection && hass.connection !== this.issuesFrom && hass.callWS) {
+      this.issuesFrom = hass.connection;
+      const load = () => hass.callWS!<{ issues: Issue[] }>({ type: 'repairs/list_issues' })
+        .then((r) => { this.issues = r.issues; this.build(hass); }, () => { /* no repairs integration */ });
+      void load();
+      void hass.connection.subscribeEvents(() => setTimeout(load, 500), 'repairs_issue_registry_updated').catch(() => { /* first load stands */ });
+    }
+    if (same) return;
+    this.seen = { areas: hass.areas, devices: hass.devices, entities: hass.entities, floors: hass.floors };
+    this.build(hass);
+  }
+
+  private build(hass: HomeAssistant) {
+    this.registry = {
+      areas: new Map(Object.values(hass.areas ?? {}).map((a) => [a.area_id, a])),
+      devices: new Map(Object.values(hass.devices ?? {}).map((d) => [d.id, { id: d.id, name: d.name_by_user ?? d.name ?? d.id, area_id: d.area_id }])),
+      entities: new Map(Object.values(hass.entities ?? {}).map((e) => [e.entity_id, {
+        entity_id: e.entity_id, name: e.name, area_id: e.area_id, device_id: e.device_id, platform: e.platform,
+        hidden: e.hidden || undefined, category: e.entity_category,
+      }])),
+      floors: new Map(Object.values(hass.floors ?? {}).map((f) => [f.floor_id, f])),
+      issues: this.issues,
+    };
+    this.registryListeners.forEach((fn) => fn());
   }
 
   call({ domain, service, data }: Call) {

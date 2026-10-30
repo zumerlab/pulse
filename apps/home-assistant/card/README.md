@@ -206,24 +206,33 @@ builds a different object. A channel that follows one entity takes its name.
 |---|---|
 | **Lights** | all `light` entities (segments toggle them) · the first dimmable light (brightness dial) · all `switch` entities as plugs |
 | **Climate** | the first two `climate` entities (temperature dials; one may have a range) · a humidity sensor (`device_class: humidity`); past 70% its alert offers the dehumidifier |
-| **Security** | the `alarm_control_panel` (arm and disarm) · `siren` entities · `lock` entities · motion, moisture and smoke `binary_sensor`s |
+| **Security** | the `alarm_control_panel` (arm and disarm) · `siren` entities · `lock` entities · the `binary_sensor`s of Home Assistant's Security view: doors, windows, garage doors and openings; smoke, gas, carbon monoxide, moisture, glass break, safety and tamper; motion and occupancy (the ones detecting something first, eight at most) |
 | **Openings** | the first two `cover`s with a position (dials) · the garage door (`device_class: garage`) · `valve` entities |
 | **Media** | `media_player` entities (play and pause) · the volume of the first one (dial) |
 | **Energy** | a power sensor in W · a carbon monoxide sensor · the `water_heater` (dial) |
-| **Maintenance** | `update` entities (install) · `vacuum` entities (start, return to base) |
+| **Maintenance** | `update` entities (install) · `vacuum` entities (start, return to base) · battery sensors (`device_class: battery`, low under 20%) · `problem` binary sensors · the repairs of Settings › Repairs |
+
+What stays out: entities hidden in the registry, and config or diagnostic ones
+(a diagnostic switch is not a plug), as in Home Assistant's own summaries;
+batteries and tamper sensors are the exception, as there. An alert names the
+area of the entity, or of its device, when it has one ("Motion · Garden").
 
 Alerts are rules over those states; the interesting ones cross systems:
 
 | Alert | When |
 |---|---|
-| Sirens sounding, lock jammed, alarm triggered, water detected | the entity says so |
-| Motion with the alarm armed | a motion sensor is on **and** the alarm is armed |
+| Sirens sounding, lock jammed, alarm triggered | the entity says so |
+| Smoke, gas, carbon monoxide, water, glass break (tampering: minor) | a safety sensor is on |
+| Motion, or something open, with the alarm armed | a motion or opening sensor is on **and** the alarm is armed |
 | Unlocked with the alarm armed | a lock is open **and** the alarm is armed |
 | Heating with windows open | a thermostat is heating **and** a window is open |
 | Garage open at night | the garage is open **and** the sun is below the horizon |
 | Carbon monoxide | 35 ppm (minor), 100 ppm (critical) |
 | High humidity | past 70% |
 | Updates available | an `update` entity is on |
+| Low battery | a battery sensor under 20% |
+| Problem | a `problem` binary sensor is on |
+| Repairs | Home Assistant has repairs waiting (critical if it says so) |
 
 The exact rules are in `../model.ts`, one function per channel, and that is
 the file to change to teach Pulse a new entity or a new rule.
@@ -266,7 +275,9 @@ config as JSON, and the box size:
 
 Against a Home Assistant of your own, `scripts/ha-install-card.mjs` registers
 the dev server's copy of the build as a resource and creates two dashboards
-(the strategy, and a sections view) over the admin WebSocket; the tests in
+(the strategy, and a sections view) over the admin WebSocket, and
+`scripts/ha-check-card.mjs` opens both dashboards and the card editor in
+Playwright, checks for console errors and leaves screenshots; the tests in
 `tests/ha.spec.ts` cover the card on its bench. The app's own
 [README](../README.md) has the rest.
 

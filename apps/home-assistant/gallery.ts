@@ -31,7 +31,7 @@ const card = (href: string, title: string, lead: string, body: string, foot: str
 function preview(source: DemoSource) {
   const tiles: string[] = [];
   for (const sys of systems) {
-    const read = sys.channels.map((ch) => ({ ch, r: ch.read(source.states, { temp: source.unit }) }))
+    const read = sys.channels.map((ch) => ({ ch, r: ch.read(source.states, { temp: source.unit, reg: source.registry }) }))
       .filter((x): x is { ch: typeof x.ch; r: Reading } => !!x.r)
       .sort((a, b) => (b.r.alert?.level ?? 0) - (a.r.alert?.level ?? 0));
     if (!read.length) continue;

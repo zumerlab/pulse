@@ -146,7 +146,7 @@ function compute() {
   for (const sys of IDS.map((id) => SYS[id])) {
     const map = new Map<string, { ch: Channel; r: Reading }>(), u = ui[sys.id];
     for (const ch of sys.channels) {
-      const r = ch.read(ha.states, { temp: ha.unit });
+      const r = ch.read(ha.states, { temp: ha.unit, reg: ha.registry });
       if (!r) continue;
       if (r.dial) {
         const h = hold.get(r.dial.entity);
@@ -969,7 +969,7 @@ const onChange = (changed: HassState[]) => {
 let unsubscribe: (() => void)[] = [];
 const subscribe = (src: PulseSource) => {
   unsubscribe.forEach((fn) => fn());
-  unsubscribe = [src.onStatus(onStatus), src.onChange(onChange)];
+  unsubscribe = [src.onStatus(onStatus), src.onChange(onChange), src.onRegistry(() => repaint())];
 };
 subscribe(ha);
 // The source may already hold states (a card's `hass` arrives before the mount).

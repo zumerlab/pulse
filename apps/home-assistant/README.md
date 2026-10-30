@@ -23,9 +23,17 @@ one of the six homes of demo.home-assistant.io (see "Demo homes" below).
 - `main.ts`: the standalone shell: sign-in, the WebSocket source, the demo
   homes, the tuning panel.
 - `source.ts`: `PulseSource` and `WebSocketSource`. `demo/`: `DemoSource` and
-  the demo homes. `card/`: `HassSource`, the card and the strategies, and the
-  README for Home Assistant users. `card.html`: the card's bench.
-- `model.ts`: the systems and channels, a function of the state.
+  the demo homes (`demo/scripts/import-homes.py` regenerates them from the
+  frontend repo). `card/`: `HassSource`, the card and the strategies, and the
+  README for Home Assistant users. `card.html`: the card's bench (dev only, not
+  in the build).
+- `model.ts`: the systems and channels, a function of the state and the
+  registry.
+- `scripts/`: `ha-tokens.mjs` (tokens from `.env.local`), `ha-install-card.mjs`
+  (registers the card and two dashboards in the local Home Assistant),
+  `ha-check-card.mjs` (opens them in Playwright and takes screenshots).
+  `tests/ha-live.spec.ts` runs the app against the live Home Assistant when
+  `PULSE_HA_TOKENS` points at a tokens file; otherwise it is skipped.
 
 ## Sign in and connection
 
@@ -85,6 +93,10 @@ license: `demo/NOTICE.md` (Apache 2.0).
   rich ones; the other four are mostly sensors.
 - The Playwright suite runs against these homes, so the whole app is tested
   without a Home Assistant.
+- The data is generated, not edited: `demo/scripts/import-homes.py <frontend
+  checkout>` rewrites `demo/homes/*.ts` from the frontend repository (it prints
+  the commit; `--check` only compares, exit 1 on a difference). To update the
+  homes, pull the frontend and run it again.
 
 ## Card and dashboard strategy
 
@@ -155,15 +167,39 @@ another installation, or one of the demo homes, builds its own object.
 |---|---|---|
 | Lights | all lights · brightness of the first dimmable one · plugs | segments = `light.toggle`; dial = `brightness_pct` |
 | Climate | two thermostats · one with a range (Ecobee) · humidity | dial = `climate.set_temperature` |
-| Security | alarm · sirens · locks · motion, water and smoke sensors | alarm modes (the demo's code), sirens, locks |
+| Security | alarm · sirens · locks · sensors (doors and windows, safety, motion) | alarm modes (the demo's code), sirens, locks |
 | Openings | two covers with position · garage door · irrigation valves | dial = `set_cover_position`; valves |
 | Media | players · volume of the first one | play/pause; dial = `volume_set` |
 | Energy | power (W) · carbon monoxide · hot water | dial = `water_heater.set_temperature` |
-| Maintenance | updates · vacuums | install; start / return to base |
+| Maintenance | updates · vacuums · batteries · problems · repairs | install; start / return to base |
 
 The models are in `model.ts`: each channel is a function of the state. If no
 entity fits, the channel does not appear. A channel that follows one entity
 takes its name (the face says "Thermostat", "Kitchen shutter").
+
+The source also carries Home Assistant's registries (`PulseSource.registry`:
+areas, devices, entities, floors, and the repairs; `onRegistry` when they
+change). The model uses them the way Home Assistant's own summary views do:
+
+- Entities hidden in the registry, and config or diagnostic ones, stay out of
+  the scans ("all lights" does not pick up a diagnostic switch). Maintenance
+  asks for diagnostic ones too, because batteries are; tamper sensors as well.
+  An entity named by id is taken as it is.
+- An alert says where: the area of the entity, or of its device ("Motion ·
+  Garden", "15% · motion sensor battery · bedroom").
+- The Security sensors channel follows the classes of Home Assistant's
+  Security view: openings (`door`, `window`, `garage_door`, `opening`,
+  `lock`), safety (`smoke`, `gas`, `carbon_monoxide`, `moisture`,
+  `glass_break`, `safety`, `tamper`) and `motion`/`occupancy`; the ones
+  detecting something come first, eight segments at most.
+- Maintenance reads what Home Assistant's Maintenance view reads: battery
+  sensors (low under 20%), `problem` binary sensors, and the repairs of
+  Settings › Repairs (`repairs/list_issues`, one segment per integration).
+
+Over the WebSocket the registries come from `config/*_registry/list` (no admin
+needed) and are fetched again after a `*_registry_updated` event; in the card
+they are the `hass.areas/devices/entities/floors` records Home Assistant
+already keeps; the demo homes build theirs from their own data.
 
 ## What each screen shows: the gear
 
@@ -237,14 +273,17 @@ not appear in the build (`tune.ts`).
 |---|---|---|
 | Sirens sounding (critical) | some `siren` is `on` | Turn off |
 | Lock jammed (critical) | `lock` in `jammed` | Retry |
-| Motion in the backyard (critical) | sensor `on` **and** alarm armed | Got it |
-| Water in the basement (critical) | humidity sensor `on` | Got it |
+| Motion, or something open, with the alarm armed (critical) | a motion or opening sensor `on` **and** alarm armed | Got it |
+| Smoke, gas, carbon monoxide, water, glass break (critical); tampering (minor) | a safety sensor `on` | Got it |
 | Alarm triggered (critical) | `triggered` / `pending` | Disarm |
 | Heating with windows open (minor) | heating `heating` **and** windows open | Close windows |
 | Unlocked with the alarm armed (minor) | alarm armed **and** locks open | Lock |
 | Garage door open at night (minor) | garage open **and** sun below the horizon | Close |
 | Carbon monoxide (minor ≥ 35 ppm, critical ≥ 100) | `sensor.carbon_monoxide` | Got it |
 | Updates (minor) | `update` is `on` | Install |
+| Low battery (minor) | a battery sensor under 20% | Got it |
+| Problem (minor) | a `problem` (or `battery`) binary sensor `on` | Got it |
+| Repairs (minor; critical when Home Assistant says so) | issues in `repairs/list_issues`, not ignored | Got it |
 
 The cross rules are the interesting part: arming the alarm from the ring makes
 "motion" and "unlocked" appear without any device changing.

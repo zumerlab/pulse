@@ -7,7 +7,14 @@ export type HomeAssistant = {
   connected: boolean;
   connection: Connection;
   config: { version: string; unit_system: { temperature: string } };
+  // The registries the frontend already holds (display entries: name, area,
+  // device, hidden, category); a new object whenever one changes.
+  areas?: Record<string, { area_id: string; name: string; floor_id?: string | null; icon?: string | null }>;
+  devices?: Record<string, { id: string; name?: string | null; name_by_user?: string | null; area_id?: string | null }>;
+  entities?: Record<string, { entity_id: string; name?: string; area_id?: string; device_id?: string; platform?: string; hidden?: boolean; entity_category?: 'config' | 'diagnostic' }>;
+  floors?: Record<string, { floor_id: string; name: string; level?: number | null }>;
   callService(domain: string, service: string, data?: Record<string, unknown>, target?: HassServiceTarget): Promise<unknown>;
+  callWS?<T>(message: Record<string, unknown>): Promise<T>;
   hassUrl(path?: string): string;
 };
 

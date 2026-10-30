@@ -1,11 +1,13 @@
-import type { Call, HassState, States } from './source.ts';
+import { emptyRegistry, type Call, type HassState, type Registry, type States } from './source.ts';
 import { listOf, num } from '@zumer/pulse';
 
 // Every channel is read from Home Assistant's live state: there are no
 // hand-written "ok" and "alert" states. An alert comes out of a rule over the
 // data and its action is a real service call. If the entity is missing, the
 // channel does not appear (another Home Assistant installation builds its own
-// object).
+// object). Next to the states goes the registry: where each entity is, which
+// ones are hidden or diagnostic (they stay out, as in Home Assistant's own
+// summaries), and the repairs Home Assistant raised.
 
 export type Seg = { label: string; on: boolean; entity: string; act?: Call };
 export type Dial = {
@@ -29,9 +31,14 @@ export type Reading = {
   entities: string[];               // which entities it depends on (detail and "sending")
   camera?: string;
 };
-export type Channel = { key: string; name: string; glyph: string; read: (s: States, u: Units) => Reading | null };
+export type Channel = { key: string; name: string; glyph: string; read: (s: States, ctx: Context) => Reading | null };
 export type PulseSystem = { id: string; title: string; channels: Channel[] };
-export type Units = { temp: string };
+export type Context = { temp: string; reg: Registry };
+
+// The registry of the source being read. The helpers below are plain
+// functions over the states; `systems` (at the end) sets this before each
+// channel reads, so they can ask where an entity is or whether it is hidden.
+let reg: Registry = emptyRegistry();
 
 // Alarm code of the Home Assistant demo integration (manual, "1234").
 const ALARM_CODE = '1234';
@@ -62,6 +69,9 @@ const g = {
   tap: 'M4 10h10a4 4 0 0 1 4 4v2 M8 10V6h4v4 M6 6h8 M18 19v.01',
   box: 'M4 7l8-4 8 4v10l-8 4-8-4z M4 7l8 4 8-4 M12 11v10',
   robot: 'M5 12a7 7 0 0 1 14 0v4H5z M9 12h.01 M15 12h.01 M3 19h18',
+  battery: 'M3 8h15v8H3z M18 10h2v4h-2z M6 11v2',
+  warn: 'M10.3 4.5L2.6 18a2 2 0 0 0 1.7 3h15.4a2 2 0 0 0 1.7-3L13.7 4.5a2 2 0 0 0-3.4 0z M12 9v4 M12 17h.01',
+  wrench: 'M14.5 5.5a4 4 0 0 1 5 4.6L12 17.6l-3.5-3.5 7.5-7.5a4 4 0 0 1-1.5-1.1z M8.5 14.1L3 19.6 4.4 21l5.5-5.5',
 };
 
 // Short names for the demo's entities; otherwise Home Assistant's friendly name.
@@ -87,12 +97,30 @@ export const nameOf = (s: States, id: string) => {
 };
 const clamp = (v: number) => Math.min(1, Math.max(0, v));
 const attr = (e: HassState, k: string) => e.attributes[k] as number | undefined;
-const ofDomain = (s: States, domain: string, only?: string[]) =>
-  (only ?? [...s.keys()].filter((id) => id.startsWith(`${domain}.`)).sort()).filter((id) => s.has(id));
+// Hidden entities stay out of the scans, and so do config/diagnostic ones
+// unless the scan asks for them (Maintenance does: batteries are diagnostic).
+// An entity named by id is taken as it is.
+const visible = (id: string, diagnostic = false) => {
+  const e = reg.entities.get(id);
+  return !e?.hidden && (!e?.category || (diagnostic && e.category === 'diagnostic'));
+};
+const ofDomain = (s: States, domain: string, only?: string[], diagnostic = false) =>
+  (only ?? [...s.keys()].filter((id) => id.startsWith(`${domain}.`) && visible(id, diagnostic)).sort()).filter((id) => s.has(id));
+// The area an entity is in: its own, or its device's.
+export const placeOf = (id: string) => {
+  const e = reg.entities.get(id);
+  const area = e?.area_id ?? (e?.device_id ? reg.devices.get(e.device_id)?.area_id : undefined);
+  return area ? reg.areas.get(area)?.name : undefined;
+};
+// A name with its place when the place adds something ("Motion · Garden").
+const whereIs = (s: States, id: string) => {
+  const n = nameOf(s, id), p = placeOf(id);
+  return p && !n.toLowerCase().includes(p.toLowerCase()) ? `${n} · ${p}` : n;
+};
 // The known entities that are there, or every entity of the domain that fits.
-const known = (s: States, domain: string, ids: string[], fits: (e: HassState) => boolean = () => true) => {
+const known = (s: States, domain: string, ids: string[], fits: (e: HassState) => boolean = () => true, diagnostic = false) => {
   const there = ids.filter((id) => s.has(id));
-  return there.length ? there : ofDomain(s, domain).filter((id) => fits(s.get(id)!));
+  return there.length ? there : ofDomain(s, domain, undefined, diagnostic).filter((id) => fits(s.get(id)!));
 };
 const first = (s: States, domain: string, ids: string[], fits?: (e: HassState) => boolean) => known(s, domain, ids, fits)[0];
 // A channel that fell back to another installation's entity takes its name;
@@ -109,7 +137,7 @@ const cap = (t: string) => t.replace(/^./, (c) => c.toUpperCase());
 // the ring is the target, which is what changes.
 function thermostat(pick: (s: States) => string | undefined, domain: 'climate' | 'water_heater', label: (e: HassState) => string,
   alert?: (s: States, e: HassState) => Alert | undefined) {
-  return (s: States, u: Units): Reading | null => {
+  return (s: States, u: Context): Reading | null => {
     const id = pick(s), e = id ? s.get(id) : undefined;
     if (!id || !e || attr(e, 'temperature') == null) return null;
     const min = attr(e, 'min_temp') ?? 7, max = attr(e, 'max_temp') ?? 35, t = attr(e, 'temperature')!;
@@ -171,7 +199,16 @@ function coverDial(pick: (s: States) => string | undefined) {
   };
 }
 
-export const systems: PulseSystem[] = [
+// Binary sensor classes, as Home Assistant's Security and Maintenance views group them.
+const SAFETY = ['carbon_monoxide', 'gas', 'glass_break', 'moisture', 'safety', 'smoke', 'tamper'];
+const OPENINGS = ['door', 'window', 'garage_door', 'opening', 'lock'];
+const MOTION = ['motion', 'occupancy'];
+const SAFETY_WORDS: Record<string, string> = {
+  carbon_monoxide: 'Carbon monoxide', gas: 'Gas', glass_break: 'Glass broken', moisture: 'Water', safety: 'Unsafe', smoke: 'Smoke', tamper: 'Tampering',
+};
+const LOW_BATTERY = 20;
+
+const SYSTEMS: PulseSystem[] = [
   { id: 'lights', title: 'Lights', channels: [
     { key: 'lights', name: 'Lights', glyph: g.bulb, read: (s) => {
       const ids = ofDomain(s, 'light');
@@ -286,25 +323,37 @@ export const systems: PulseSystem[] = [
       return { kind: 's', segs, entities: ids, big: `${shut} of ${segs.length}`, label: 'locked', alert };
     } },
     { key: 'sensors', name: 'Sensors', glyph: g.eye, read: (s) => {
-      // Motion, water and smoke sensors (the demo's two first); at most eight.
-      const ids = known(s, 'binary_sensor', ['binary_sensor.movement_backyard', 'binary_sensor.basement_floor_wet'],
-        (e) => ['motion', 'moisture', 'smoke'].includes(String(e.attributes.device_class))).slice(0, 8);
-      if (!ids.length) return null;
+      // The binary sensors Home Assistant's own Security view watches (openings
+      // and safety) plus motion and occupancy; the demo's two first. Up to
+      // eight segments, the ones detecting something first.
+      const all = known(s, 'binary_sensor', ['binary_sensor.movement_backyard', 'binary_sensor.basement_floor_wet'],
+        (e) => [...SAFETY, ...OPENINGS, ...MOTION].includes(String(e.attributes.device_class)), true)
+        .filter((id) => visible(id) || isClass('tamper')(s.get(id)!));
+      if (!all.length) return null;
+      const on = (id: string) => s.get(id)!.state === 'on';
+      const cls = (id: string) => String(s.get(id)!.attributes.device_class);
+      const ids = [...all.filter(on), ...all.filter((id) => !on(id))].slice(0, 8);
       // On = the sensor works; the one that detects something is the one painted.
       const segs = ids.map((id) => ({ label: nameOf(s, id), on: s.get(id)!.state !== 'unavailable', entity: id }));
-      const detecting = (cls: string) => ids.filter((id) => s.get(id)!.state === 'on' && isClass(cls)(s.get(id)!));
-      const wet = detecting('moisture'), smoke = detecting('smoke'), moving = detecting('motion');
-      const where = (found: string[]) => list(found.map((id) => nameOf(s, id)));
+      const detecting = (classes: string[]) => all.filter((id) => on(id) && classes.includes(cls(id)));
+      const where = (found: string[]) => list(found.map((id) => whereIs(s, id)));
+      const fail = (found: string[]) => found.map((id) => ids.indexOf(id)).filter((i) => i >= 0);
       const camera = first(s, 'camera', ['camera.demo_camera']);
+      const danger = detecting(SAFETY), moving = detecting(MOTION), opened = detecting(OPENINGS);
       let alert: Alert | undefined;
-      if (wet.length) alert = { level: 2, big: 'Water', label: where(wet), fail: wet.map((id) => ids.indexOf(id)),
-        why: `Water detected: ${where(wet)}`, verb: 'Got it', calls: [] };
-      else if (smoke.length) alert = { level: 2, big: 'Smoke', label: where(smoke), fail: smoke.map((id) => ids.indexOf(id)),
-        why: `Smoke detected: ${where(smoke)}`, verb: 'Got it', calls: [] };
-      else if (moving.length && armed(s)) alert = { level: 2, big: 'Motion', label: where(moving), fail: moving.map((id) => ids.indexOf(id)),
-        why: `Motion (${where(moving)}) with the alarm armed`, verb: 'Got it', calls: [] };
-      return { kind: 's', segs, entities: [...ids, ...(camera ? [camera] : [])], camera,
-        big: moving.length ? 'Motion' : 'Still', label: moving.length ? where(moving) : `${ids.length} sensors`, alert };
+      if (danger.length) {
+        const big = SAFETY_WORDS[cls(danger[0])];
+        alert = { level: cls(danger[0]) === 'tamper' ? 1 : 2, big, label: where(danger), fail: fail(danger),
+          why: `${big} detected: ${where(danger)}`, verb: 'Got it', calls: [] };
+      } else if (armed(s) && (moving.length || opened.length)) {
+        const found = [...moving, ...opened];
+        alert = { level: 2, big: moving.length ? 'Motion' : 'Open', label: where(found), fail: fail(found),
+          why: `${moving.length ? 'Motion' : 'Something open'} (${where(found)}) with the alarm armed`, verb: 'Got it', calls: [] };
+      }
+      const active = [...danger, ...moving, ...opened];
+      return { kind: 's', segs, entities: [...all, ...(camera ? [camera] : [])], camera,
+        big: danger.length ? SAFETY_WORDS[cls(danger[0])] : moving.length ? 'Motion' : opened.length ? `${opened.length} open` : 'Still',
+        label: active.length ? where(active.slice(0, 3)) : `${all.length} sensors`, alert };
     } },
   ] },
 
@@ -420,5 +469,53 @@ export const systems: PulseSystem[] = [
       return { kind: 's', segs, entities: ids, big: on.length ? `${on.length} cleaning` : 'Docked',
         label: on.length ? list(on.map((x) => x.label)) : `${ids.length} vacuums` };
     } },
+    { key: 'batteries', name: 'Batteries', glyph: g.battery, read: (s) => {
+      // Battery sensors in %, as Home Assistant's Maintenance view: low under 20.
+      const all = ofDomain(s, 'sensor', undefined, true).filter((id) => isClass('battery')(s.get(id)!) && !Number.isNaN(Number(s.get(id)!.state)));
+      if (!all.length) return null;
+      const pct = (id: string) => Number(s.get(id)!.state);
+      const byLevel = [...all].sort((a, b) => pct(a) - pct(b));
+      const low = byLevel.filter((id) => pct(id) < LOW_BATTERY);
+      const ids = [...low, ...all.filter((id) => !low.includes(id))].slice(0, 8);
+      const segs = ids.map((id) => ({ label: `${nameOf(s, id)} ${num(pct(id), 0)}%`, on: pct(id) >= LOW_BATTERY, entity: id }));
+      return { kind: 's', segs, entities: all, big: low.length ? `${low.length} low` : `${num(pct(byLevel[0]), 0)}% lowest`,
+        label: low.length ? list(low.map((id) => whereIs(s, id))) : `${all.length} batteries`,
+        alert: low.length ? { level: 1, big: `${num(pct(low[0]), 0)}%`, label: whereIs(s, low[0]).toLowerCase(),
+          fail: low.map((id) => ids.indexOf(id)).filter((i) => i >= 0),
+          why: low.length > 1 ? `${low.length} batteries under ${LOW_BATTERY}%: ${list(low.map((id) => nameOf(s, id)))}`
+            : `${nameOf(s, low[0])}${/battery/i.test(nameOf(s, low[0])) ? '' : ' battery'} at ${num(pct(low[0]), 0)}%`, verb: 'Got it', calls: [] } : undefined };
+    } },
+    { key: 'problems', name: 'Problems', glyph: g.warn, read: (s) => {
+      // Devices that report a problem (binary sensors of class problem or battery).
+      const all = ofDomain(s, 'binary_sensor', undefined, true).filter((id) => ['problem', 'battery'].includes(String(s.get(id)!.attributes.device_class)));
+      if (!all.length) return null;
+      const on = all.filter((id) => s.get(id)!.state === 'on');
+      const ids = [...on, ...all.filter((id) => !on.includes(id))].slice(0, 8);
+      const segs = ids.map((id) => ({ label: nameOf(s, id), on: s.get(id)!.state !== 'on', entity: id }));
+      return { kind: 's', segs, entities: all, big: on.length ? `${on.length} ${on.length === 1 ? 'problem' : 'problems'}` : 'No problems',
+        label: on.length ? list(on.map((id) => whereIs(s, id))) : `${all.length} watched`,
+        alert: on.length ? { level: 1, big: 'Problem', label: list(on.map((id) => nameOf(s, id))),
+          fail: on.map((id) => ids.indexOf(id)).filter((i) => i >= 0),
+          why: `${list(on.map((id) => whereIs(s, id)))} ${on.length === 1 ? 'reports' : 'report'} a problem`, verb: 'Got it', calls: [] } : undefined };
+    } },
+    { key: 'repairs', name: 'Repairs', glyph: g.wrench, read: () => {
+      // What Home Assistant itself asks to look at (Settings › Repairs), by integration.
+      const issues = reg.issues.filter((i) => !i.ignored);
+      if (!issues.length) return null;
+      const rank: Record<string, 1 | 2> = { critical: 2, error: 1, warning: 1 };
+      const level = Math.max(...issues.map((i) => rank[i.severity ?? 'warning'] ?? 1)) as 1 | 2;
+      const domains = [...new Set(issues.map((i) => i.domain))];
+      const segs = domains.slice(0, 8).map((d) => ({ label: d, on: true, entity: '' }));
+      const n = issues.length, word = n === 1 ? 'repair' : 'repairs';
+      return { kind: 's', segs, entities: [], big: `${n} ${word}`, label: list(domains),
+        alert: { level, big: `${n} ${word}`, label: list(domains), fail: segs.map((_, i) => i),
+          why: `Home Assistant has ${n} ${word} waiting: ${list(domains)}`, verb: 'Got it', calls: [] } };
+    } },
   ] },
 ];
+
+// Each channel reads with the registry of its source at hand (see `reg`).
+export const systems: PulseSystem[] = SYSTEMS.map((sys) => ({
+  ...sys,
+  channels: sys.channels.map((ch) => ({ ...ch, read: (s: States, ctx: Context) => { reg = ctx.reg; return ch.read(s, ctx); } })),
+}));
