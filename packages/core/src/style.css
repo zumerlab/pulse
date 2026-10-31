@@ -71,13 +71,15 @@ o-arc.is-failed { --o-stroke: var(--critical); --o-stroke-width: 2; }
      interactive arcs bring their own. */
   pointer-events: none;
   /* --fit is set by the view from the stage's size (fitFor): the object fills what it has. */
-  transform: scale(calc(var(--zoom, 1.2) * var(--fit, 1))) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
+  transform: scale(calc(var(--zoom, 1.2) * var(--fit, 1)));
   transition: transform .8s cubic-bezier(.2,.8,.2,1);
+  /* The tilt with the pointer (parallax) animates `rotate` on the compositor. */
+  will-change: transform, rotate;
 }
 /* In 3D the rings behind soften with the distance: a translucent halo of
    their own color, wider the farther (--halo, set by the view). A blur filter
    would do it better, but a filter inside a 3D-transformed tree flickers in
-   Chrome while the parallax moves. */
+   Chrome. */
 .stage.is-3d .layer:not(.layer-front) > .orbit-12 :is(o-arc, o-progress) { --o-stroke: color-mix(in srgb, var(--o-fill, var(--muted)) 30%, transparent); --o-stroke-width: var(--halo, 0); }
 .stage[data-zoom="alert"] .obj { --zoom: 1.35; }
 .obj > .bigbang { width: 240px; }
@@ -168,6 +170,12 @@ o-arc.is-failed { --o-stroke: var(--critical); --o-stroke-width: 2; }
 }
 
 
+/* ─── Zumly: the levels behind ────────────────────────── */
+/* They recede by opacity, never by a filter (see zumlyOptions): opacity is
+   composited, a filter re-renders a screen-sized surface on every frame. */
+.zumly-canvas > .z-view.is-previous-view:not(.hide) { opacity: .4; }
+.zumly-canvas > .z-view.is-last-view:not(.hide) { opacity: .2; }
+
 /* ─── Direct controls ─────────────────────────────────── */
 .dial { touch-action: none; cursor: grab; outline: none; }
 .dial:active { cursor: grabbing; }
@@ -254,6 +262,23 @@ o-arc.is-failed { --o-stroke: var(--critical); --o-stroke-width: 2; }
 .switches input { width: 18px; height: 18px; accent-color: var(--ink); }
 
 /* ─── Phone ───────────────────────────────────────────── */
+/* The layer index beside a stacked object: a ladder of dots, front to back. */
+.layer-index { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
+.layer-item {
+  display: flex; align-items: center; gap: 8px; min-height: 28px; padding: 2px 10px 2px 6px; border: 0; border-radius: 14px;
+  background: none; color: var(--muted); font: inherit; font-size: 12px; cursor: pointer; text-align: left; max-width: 180px;
+}
+.layer-item:hover, .layer-item:focus-visible { color: var(--ink); background: rgba(255,255,255,.06); outline: none; }
+.layer-dot { flex: none; width: 10px; height: 10px; border-radius: 50%; border: 2px solid currentColor; box-sizing: border-box; opacity: .7; }
+.layer-item[aria-current] { color: var(--ink); }
+.layer-item[aria-current] .layer-dot { background: currentColor; opacity: 1; }
+.layer-item.level-1, .layer-item.level-1 .layer-dot { color: var(--minor); }
+.layer-item.level-2, .layer-item.level-2 .layer-dot { color: var(--critical); }
+.layer-item.is-off { opacity: .45; }
+.layer-item.is-off .layer-dot { border-style: dotted; }
+.layer-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.layer-big { font-variant-numeric: tabular-nums; opacity: .7; }
+
 .dots { display: flex; justify-content: center; gap: 10px; }
 .dot { width: 34px; height: 34px; padding: 6px; border: 0; border-radius: 50%; background: none; cursor: pointer; opacity: .45; }
 .dot[aria-current] { opacity: 1; background: rgba(255,255,255,.06); }

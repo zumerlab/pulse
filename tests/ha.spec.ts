@@ -264,10 +264,8 @@ test('a choice on the ring: the thermostat mode is a radio group, and tapping an
   await front.locator('o-arc[role="radio"][aria-label="Auto"]').dispatchEvent('click');
   await expect(front.locator('.face-big')).toHaveText('Auto');
   await expect(front.locator('o-arc[role="radio"][aria-checked="true"]')).toHaveAttribute('aria-label', 'Auto');
-  // In the detail the options are radios too.
-  await front.locator('.disc').click();
-  await expect(current(page).locator('.switches.choice input[type="radio"]')).toHaveCount(3);
-  await expect(current(page).locator('.switches.choice input:checked + *, .switches.choice label:has(input:checked)').first()).toContainText('Auto');
+  // One entity, chosen on the ring: there is no detail to open (it would repeat the face).
+  await expect(front.locator('.disc')).not.toHaveClass(/zoom-me/);
 });
 
 test('a thermostat with a range has two knobs, and one end never crosses the other', async ({ page }) => {
@@ -288,13 +286,8 @@ test('a thermostat with a range has two knobs, and one end never crosses the oth
   await expect(front.locator('.face-label')).toHaveText('between 25° and 25°');
   // The command went out and the demo took it.
   await expect(front.locator('.face-label')).toHaveText('between 25° and 25°');
-  // The detail draws the same band, big, with its two knobs and the range in the center.
-  await front.locator('.disc').click();
-  const ring = current(page).locator('.detail-ring');
-  await expect(ring.locator('.knob[data-handle]')).toHaveCount(2);
-  await expect(ring.locator('.knob[data-handle="lo"]')).toHaveAttribute('aria-valuetext', '25°');
-  await expect(ring.locator('.ring-big')).toHaveText('25–25°');
-  await expect(current(page).locator('.detail-big')).toHaveCount(0);
+  // The range is set on the face, of one entity: no detail (it would draw the same band again).
+  await expect(front.locator('.disc')).not.toHaveClass(/zoom-me/);
 });
 
 test("a numeric channel's detail draws its last 24 hours as a ring", async ({ page }) => {
@@ -465,9 +458,133 @@ test('the hue and the saturation rings are dragged with the pointer, like the br
   await expect(ring).toBeVisible();
 });
 
+test('a control of one entity resolved on the face has no detail; a channel with more to show opens one', async ({ page }) => {
+  await page.goto(`${HA}?demo=home`);
+  await page.locator('.tile[data-system="security"]').click();
+  // The alarm: one entity, its modes chosen on the ring. The disc is the face, nothing to open.
+  const disc = current(page).locator('.layer-front .disc');
+  await expect(disc).toContainText('Alarm');
+  await expect(disc).not.toHaveClass(/zoom-me/);
+  await expect(disc).not.toHaveAttribute('role', 'button');
+  // The sensors: several entities to name, and a day of them. The disc opens the detail.
+  await bring(page, 'sensors');
+  await expect(current(page).locator('.layer-front .disc')).toHaveClass(/zoom-me/);
+  await current(page).locator('.layer-front .disc').click();
+  await expect(current(page).locator('.detail h1')).toContainText('Sensors');
+});
+
+test('the gear chooses the ends of the rings: square by default, or rounded', async ({ page }) => {
+  await page.goto(`${HA}?demo=home&mode=orbit`);
+  await expect(page.locator('.board o-progress').first()).toBeVisible();
+  await expect(page.locator('.board o-progress[shape="rounded"]')).toHaveCount(0);
+  await page.locator('.gear').click();
+  await page.locator('input[name="ends"][value="rounded"]').check();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.board o-progress[shape="rounded"]').first()).toBeVisible();
+  // The orbit's center ring too (drawn apart), inside a system, and on the switches' segments.
+  await expect(page.locator('.board .hub-ring o-arc[shape="rounded"]').first()).toBeAttached();
+  await page.locator('.otile[data-system="lights"], .tile[data-system="lights"]').first().click();
+  await expect(current(page).locator('.layer-front o-arc[shape="rounded"]').first()).toBeAttached();
+  // Kept for this browser; back to square from the gear.
+  await page.reload();
+  await expect(page.locator('.board o-progress[shape="rounded"]').first()).toBeVisible();
+  await page.locator('.gear').click();
+  await page.locator('input[name="ends"][value="flat"]').check();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.board o-progress[shape="rounded"]')).toHaveCount(0);
+});
+
+test('the layers view lists its layers beside the object, front to back, each bringing its system to the front', async ({ page }) => {
+  await page.goto(`${HA}?demo=home&mode=layers`);
+  const items = page.locator('.board .layer-index .layer-item');
+  const layers = page.locator('.board .depth .layer');
+  const n = await layers.count();
+  expect(n).toBeGreaterThan(2);
+  await expect(items).toHaveCount(n);
+  // The same order as the layers, the front one marked.
+  const ids = await items.evaluateAll((els) => els.map((e) => e.getAttribute('data-bpick')));
+  expect(ids).toEqual(await layers.evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.system)));
+  await expect(items.first()).toHaveAttribute('aria-current', 'true');
+  await expect(page.locator('.board .layer-front')).toHaveAttribute('data-system', ids[0]!);
+  const third = ids[2]!;
+  await items.nth(2).click();
+  await expect(page.locator('.board .layer-front')).toHaveAttribute('data-system', third);
+  await expect(items.first()).toHaveAttribute('data-bpick', third);
+  // Capped from the gear: the ones past the cap stay listed, hollow.
+  await page.locator('.gear').click();
+  await page.locator('select[name="layers"]').selectOption('2');
+  await page.keyboard.press('Escape');
+  await expect(items).toHaveCount(n);
+  await expect(page.locator('.board .layer-index .layer-item.is-off')).toHaveCount(n - 2);
+  await expect(layers).toHaveCount(2);
+});
+
+test('the gear chooses how many channels a system stacks as layers', async ({ page }) => {
+  await page.goto(`${HA}?demo=home`);
+  await page.locator('.tile[data-system="climate"]').click();
+  const shown = () => current(page).locator('.layer:not([hidden])');
+  await expect(shown()).toHaveCount(3);
+  await expect(current(page).locator('.strip')).toContainText('+1 behind: Humidity');
+  await page.locator('.z-nav-back').click();
+  await page.locator('.gear').click();
+  await page.locator('select[name="stack"]').selectOption('4');
+  await page.keyboard.press('Escape');
+  await page.locator('.tile[data-system="climate"]').click();
+  await expect(shown()).toHaveCount(4);
+  await expect(current(page).locator('.strip')).not.toContainText('behind');
+  // Kept for this browser; and fewer works too.
+  await page.reload();
+  await page.locator('.gear').click();
+  await page.locator('select[name="stack"]').selectOption('2');
+  await page.keyboard.press('Escape');
+  await page.locator('.tile[data-system="climate"]').click();
+  await expect(shown()).toHaveCount(2);
+  await expect(current(page).locator('.strip')).toContainText('+2 behind');
+});
+
+test('in the orbit the pulse covers the rings of the systems that cross it', async ({ page }) => {
+  // Big tiles on a close orbit (the tuning panel's values, kept per browser): the rings cross the pulse.
+  await page.addInitScript(() => { localStorage.setItem('pulse-ha-tune', JSON.stringify({ tile: 5, hub: 13, orbit: 8 })); });
+  await page.goto(`${HA}?demo=home&mode=orbit`);
+  const hub = page.locator('.hub-face');
+  await expect(hub).toBeVisible();
+  const h = (await hub.boundingBox())!, cx = h.x + h.width / 2, cy = h.y + h.height / 2, R = h.width / 2;
+  let probed = 0;
+  for (const tile of await page.locator('.otile').all()) {
+    const b = (await tile.boundingBox())!, tx = b.x + b.width / 2, ty = b.y + b.height / 2, tr = b.width / 2;
+    const d = Math.hypot(tx - cx, ty - cy);
+    // Just inside the pulse's edge, toward the tile: where its ring would cross the face.
+    const px = cx + (tx - cx) / d * (R - 6), py = cy + (ty - cy) / d * (R - 6);
+    if (Math.hypot(px - tx, py - ty) > tr) continue;
+    probed++;
+    const inHub = await page.evaluate(([x, y]) => !!document.elementFromPoint(x, y)?.closest('.hub'), [px, py]);
+    expect(inHub, `the pulse is above the ring at ${Math.round(px)},${Math.round(py)}`).toBe(true);
+  }
+  expect(probed).toBeGreaterThan(0);
+});
+
+test('the levels behind recede by opacity, never by a filter, and the pointer tilts the object without touching its style', async ({ page }) => {
+  await page.goto(`${HA}?demo=home&mode=orbit`);
+  const obj = page.locator('.board .obj');
+  const b = (await obj.boundingBox())!;
+  for (let i = 0; i < 8; i++) await page.mouse.move(b.x + b.width * (i + 1) / 10, b.y + b.height * (i + 1) / 10);
+  await page.waitForTimeout(300);
+  // The tilt is an animation of `rotate` (the compositor), not an inline style: a
+  // style attribute on an ancestor of the rings makes Orbit measure and redraw them all.
+  expect(await obj.evaluate((o) => getComputedStyle(o).rotate)).not.toBe('none');
+  expect(await obj.evaluate((o) => o.getAttribute('style') ?? '')).not.toMatch(/--rx|rotate/);
+  await page.locator('.otile[data-system="security"]').click();
+  await page.waitForTimeout(1000);
+  const behind = page.locator('.z-view.is-previous-view');
+  expect(await behind.evaluate((v) => getComputedStyle(v).filter)).toBe('none');
+  expect(Number(await behind.evaluate((v) => getComputedStyle(v).opacity))).toBeCloseTo(0.4, 1);
+  await expect(page.locator('.z-view.has-effect')).toHaveCount(0);
+});
+
 test('the wheel over a view never moves the navigation: no zoom out, no scrub of the views behind', async ({ page }) => {
   await page.goto(`${HA}?demo=home`);
   await page.locator('.tile[data-system="security"]').click();
+  await bring(page, 'sensors');
   await current(page).locator('.layer-front .disc').click();
   const detail = current(page).locator('.detail');
   await expect(detail).toBeVisible();

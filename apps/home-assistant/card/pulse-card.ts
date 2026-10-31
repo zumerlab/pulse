@@ -10,7 +10,7 @@ import orbitCss from '@zumer/orbit/style?inline';
 import zumlyCss from 'zumly/style.css?inline';
 import pulseCss from '@zumer/pulse/style.css?inline';
 import appCss from '../style.css?inline';
-import { mountPulse, BOARD_MODES, DAYS, DIALS, type BoardMode, type PulseHandle } from '../app.ts';
+import { mountPulse, BOARD_MODES, DAYS, DIALS, ENDS, type BoardMode, type PulseHandle } from '../app.ts';
 import { systems } from '../model.ts';
 import { HassSource } from './hass-source.ts';
 import type { CardConfig, ConfigForm, FormSchema, HomeAssistant, LovelaceCard } from './hass.ts';
@@ -30,6 +30,8 @@ export type PulseCardConfig = CardConfig & {
   start?: string;
   // How many systems the Layers view stacks; by default all of them.
   layers?: number;
+  // How many channels a system stacks as layers; by default three.
+  stack?: number;
   // The gear on the board, where whoever looks at the card chooses its systems
   // and view for their browser (default true). `false` hides it: the config rules.
   settings?: boolean;
@@ -37,20 +39,24 @@ export type PulseCardConfig = CardConfig & {
   // open at the bottom, with its ends); the day ring `plain` or with `marks`.
   dial?: 'full' | 'open';
   day?: 'plain' | 'marks';
+  // The ends of a band and of each segment: `flat` (square) or `rounded`.
+  ends?: 'flat' | 'rounded';
 };
 
 const SYSTEM_IDS = systems.map((s) => s.id);
 const MODE_LABELS: Record<BoardMode, string> = { grid: 'Grid', orbit: 'Orbit', layers: 'Layers', list: 'List' };
-const LABELS: Record<string, string> = { systems: 'Systems', areas: 'Areas', mode: 'Board view', start: 'Open inside', layers: 'Layers', settings: 'Viewer settings (the gear)', dial: 'Dial', day: 'Day ring' };
+const LABELS: Record<string, string> = { systems: 'Systems', areas: 'Areas', mode: 'Board view', start: 'Open inside', layers: 'Layers', stack: 'Layers in a system', settings: 'Viewer settings (the gear)', dial: 'Dial', day: 'Day ring', ends: 'Ring ends' };
 const HELPERS: Record<string, string> = {
   systems: 'Leave empty for all of them.',
   areas: 'Only what is in these areas; leave empty for the whole home. An entity with no area stays out.',
   mode: 'The view when the card opens, until the viewer picks another in their browser.',
   start: 'The card opens zoomed into this system; the board is one step back.',
   layers: 'How many systems the Layers view stacks, the rest named under the object. Leave empty for all of them.',
+  stack: 'How many channels a system stacks as layers, the rest named under the object. Leave empty for three.',
   settings: 'Whoever looks at the card can choose its systems and view, kept in their browser. Off, the options above rule.',
   dial: 'A full ring, or open at the bottom with its ends named and a mark at the measurement.',
   day: 'The last 24 hours in a detail: bars only, or with hour marks around.',
+  ends: 'The ends of a band and of each segment of a ring: square, or rounded.',
 };
 
 const FORM: FormSchema[] = [
@@ -59,9 +65,11 @@ const FORM: FormSchema[] = [
   { name: 'mode', selector: { select: { mode: 'dropdown', options: BOARD_MODES.map((m) => ({ value: m, label: MODE_LABELS[m] })) } } },
   { name: 'start', selector: { select: { mode: 'dropdown', options: systems.map((s) => ({ value: s.id, label: s.title })) } } },
   { name: 'layers', selector: { number: { min: 1, max: systems.length, mode: 'box' } } },
+  { name: 'stack', selector: { number: { min: 1, max: 5, mode: 'box' } } },
   { name: 'settings', default: true, selector: { boolean: {} } },
   { name: 'dial', selector: { select: { mode: 'dropdown', options: [{ value: 'full', label: 'Full ring' }, { value: 'open', label: 'Open at the bottom' }] } } },
   { name: 'day', selector: { select: { mode: 'dropdown', options: [{ value: 'plain', label: 'Bars only' }, { value: 'marks', label: 'With hour marks' }] } } },
+  { name: 'ends', selector: { select: { mode: 'dropdown', options: [{ value: 'flat', label: 'Square' }, { value: 'rounded', label: 'Rounded' }] } } },
 ];
 
 function assertConfig(config: PulseCardConfig) {
@@ -72,17 +80,19 @@ function assertConfig(config: PulseCardConfig) {
   if (config.start !== undefined && !SYSTEM_IDS.includes(config.start)) throw new Error(`Unknown system "${config.start}" in start`);
   if (config.start && config.systems?.length && !config.systems.includes(config.start)) throw new Error('start must be one of the systems shown');
   if (config.layers !== undefined && !(Number.isInteger(config.layers) && config.layers >= 1)) throw new Error('layers must be a whole number from 1 up');
+  if (config.stack !== undefined && !(Number.isInteger(config.stack) && config.stack >= 1)) throw new Error('stack must be a whole number from 1 up');
   if (config.settings !== undefined && typeof config.settings !== 'boolean') throw new Error('settings must be true or false');
   if (config.dial !== undefined && !DIALS.includes(config.dial)) throw new Error(`dial must be one of ${DIALS.join(', ')}`);
   if (config.day !== undefined && !DAYS.includes(config.day)) throw new Error(`day must be one of ${DAYS.join(', ')}`);
+  if (config.ends !== undefined && !ENDS.includes(config.ends)) throw new Error(`ends must be one of ${ENDS.join(', ')}`);
 }
 
 // A strategy's `generate` receives its own `strategy:` object (`type` and the
 // options next to it); the card's options go through to the card.
 function cardConfig(strategy: Record<string, unknown> = {}): PulseCardConfig {
-  const { systems, areas, mode, start, layers, settings, dial, day } = strategy as PulseCardConfig;
+  const { systems, areas, mode, start, layers, stack, settings, dial, day, ends } = strategy as PulseCardConfig;
   return { type: 'custom:pulse-card', ...(systems ? { systems } : {}), ...(areas?.length ? { areas } : {}), ...(mode ? { mode } : {}), ...(start ? { start } : {}),
-    ...(layers ? { layers } : {}), ...(settings === false ? { settings } : {}), ...(dial ? { dial } : {}), ...(day ? { day } : {}) };
+    ...(layers ? { layers } : {}), ...(stack ? { stack } : {}), ...(settings === false ? { settings } : {}), ...(dial ? { dial } : {}), ...(day ? { day } : {}), ...(ends ? { ends } : {}) };
 }
 
 // @property declared in a shadow-root stylesheet is ignored; Orbit's five are
@@ -143,12 +153,12 @@ class PulseCard extends HTMLElement implements LovelaceCard {
     const root = this.shadowRoot ?? this.attachShadow({ mode: 'open' });
     root.adoptedStyleSheets = sheets;
     root.innerHTML = '<div class="zumly-canvas" tabindex="0"></div>';
-    const { systems, areas, mode, start, layers, settings, dial, day } = this.config;
+    const { systems, areas, mode, start, layers, stack, settings, dial, day, ends } = this.config;
     // The viewer's choices are kept per card config: a card set up differently
     // starts afresh.
     const key = `pulse-card:${JSON.stringify({ systems, areas, mode, start })}`;
-    this.pulse = mountPulse(root.querySelector<HTMLElement>('.zumly-canvas')!, { source: this.source, systems, areas, mode, start, layers, settings: settings === false ? false : key,
-      look: dial || day ? { dial, day } : undefined });
+    this.pulse = mountPulse(root.querySelector<HTMLElement>('.zumly-canvas')!, { source: this.source, systems, areas, mode, start, layers, stack, settings: settings === false ? false : key,
+      look: dial || day || ends ? { dial, day, ends } : undefined });
   }
 
   private unmount() {

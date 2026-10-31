@@ -27,12 +27,17 @@ export type RingReading = {
 
 // ─── Sizes ──────────────────────────────────────────────────────────
 
-// On a phone you look at one system at a time: two visible layers, less growth
-// between layers and no parallax. Decided on load.
+// On a phone you look at one system at a time: two visible layers and less
+// growth between layers. Decided on load.
 export const PHONE = matchMedia('(max-width: 600px)').matches;
 export const GROW = PHONE ? 0.24 : 0.42;                   // --o-depth-grow
 export const SIZE = Array.from({ length: PHONE ? 2 : 3 }, (_, d) => 1 + GROW * d);
 export const STROKE = [6, 3, 2.5];                         // apparent stroke per depth, px
+// A system may stack more layers than SIZE's (the viewer chooses, up to this):
+// each one GROW bigger than the one in front, the strokes thinner behind.
+export const STACK_MAX = PHONE ? 3 : 5;
+export const sizes = (n: number) => Array.from({ length: Math.max(1, Math.min(n, STACK_MAX)) }, (_, d) => 1 + GROW * d);
+export const strokeAt = (d: number) => STROKE[Math.min(d, STROKE.length - 1)];
 export const LOCK_MS = 800;                                // controls locked after a layer change
 export const UNIVERSE = 240;                               // px; one lane is radius / 12 = 10 px
 export const LANE = UNIVERSE / 2 / 12;
@@ -42,9 +47,9 @@ export const ZOOM = { calm: PHONE ? 1.1 : 1.2, alert: 1.35 };   // --zoom of .ob
 // visible layer touches the shorter side; in an alert, the front disc at its
 // zoom does. Never below half nor past 1.5, so a wall panel gets a big object
 // and a narrow phone a whole one.
-export function fitFor(width: number, height: number, alert: boolean) {
+export function fitFor(width: number, height: number, alert: boolean, layers = SIZE.length) {
   const side = Math.min(width, height);
-  const extent = alert ? UNIVERSE * ZOOM.alert : UNIVERSE * SIZE[SIZE.length - 1] * ZOOM.calm;
+  const extent = alert ? UNIVERSE * ZOOM.alert : UNIVERSE * (1 + GROW * (Math.max(1, layers) - 1)) * ZOOM.calm;
   return Math.min(1.5, Math.max(0.5, side / extent));
 }
 
@@ -66,7 +71,9 @@ export type RingOptions = {
   pending?: (entity?: string) => boolean;   // a command sent and not yet confirmed
   open?: boolean;                      // a band as a three-quarter dial, open at the bottom, with its ends named
   failed?: (entity?: string) => boolean;    // a command refused: a red outline until it goes through
+  ends?: 'flat' | 'rounded';           // the ends of a band and of each segment: square, or rounded (Orbit's shape)
 };
+const shapeOf = (o: RingOptions) => o.ends === 'rounded' ? ' shape="rounded"' : '';
 
 // The open dial: from 225° to 135° through the top, the gap at the bottom.
 export const OPEN = { from: 225, range: 270 };
@@ -100,10 +107,10 @@ export function ring(key: string, r: RingReading, lanes: number, o: RingOptions 
     const busy = (r.segs?.some((s) => isPending(s.entity)) || isPending(undefined) ? ' is-pending' : '') + (isFailed(undefined) ? ' is-failed' : '');
     const dial = o.controls && r.dial;
     if (!dial) {
-      return `<div class="orbit-12${busy}" style="${size}${openStyle(o)}"><o-progress value="${pct}"
+      return `<div class="orbit-12${busy}" style="${size}${openStyle(o)}"><o-progress value="${pct}"${shapeOf(o)}
         style="--o-fill:${fill}; --o-back-fill:var(--line)"></o-progress></div>${openMarks(r, o)}`;
     }
-    return `<div class="orbit-12${busy}" style="${size}${openStyle(o)}"><o-progress value="${pct}" class="dial" data-dial="${key}"
+    return `<div class="orbit-12${busy}" style="${size}${openStyle(o)}"><o-progress value="${pct}" class="dial" data-dial="${key}"${shapeOf(o)}
         interactive hit-width="12" role="slider" tabindex="0" aria-label="${esc(o.name ? t.dialOf(dial.label, o.name) : dial.label)}"
         aria-valuemin="${dial.min}" aria-valuemax="${dial.max}" aria-valuenow="${dial.value}"
         aria-valuetext="${num(dial.value)}${dial.unit}" style="--o-fill:${fill}; --o-back-fill:var(--line)"></o-progress>
@@ -117,9 +124,9 @@ export function ring(key: string, r: RingReading, lanes: number, o: RingOptions 
     // Rule 2: the wave comes out of the failing segment (o-arc.ripple).
     const cls = (isPending(s.entity) ? ' is-pending' : '') + (isFailed(s.entity) ? ' is-failed' : '') + (o.call && fail ? ' ripple' : '');
     // The option that is chosen is a radio too, just not one that does anything.
-    if (r.kind === 'c' && o.controls && s.on && !s.act) return `<o-arc class="${cls.trim()}" style="--o-fill:${f}" role="radio" aria-checked="true" aria-label="${esc(s.label)}"></o-arc>`;
-    if (!(o.controls && s.act)) return `<o-arc class="${cls.trim()}" style="--o-fill:${f}"></o-arc>`;
-    return `<o-arc style="--o-fill:${f}" class="toggle${cls}" data-seg="${i}" interactive hit-width="10"
+    if (r.kind === 'c' && o.controls && s.on && !s.act) return `<o-arc class="${cls.trim()}"${shapeOf(o)} style="--o-fill:${f}" role="radio" aria-checked="true" aria-label="${esc(s.label)}"></o-arc>`;
+    if (!(o.controls && s.act)) return `<o-arc class="${cls.trim()}"${shapeOf(o)} style="--o-fill:${f}"></o-arc>`;
+    return `<o-arc style="--o-fill:${f}"${shapeOf(o)} class="toggle${cls}" data-seg="${i}" interactive hit-width="10"
       role="${role}" tabindex="0" aria-checked="${s.on}" aria-label="${esc(s.label)}"></o-arc>`;
   }).join('');
   const n = r.segs?.length ?? 0, gap = n > 1 ? 24 : 0;
@@ -147,7 +154,7 @@ function rangeRing(key: string, r: RingReading, fill: string, size: string, pend
   const track = o.controls && dial ? `<o-arc class="dial range-track" data-dial="${key}" interactive hit-width="12" style="--o-fill:var(--line)"></o-arc>`
     : `<o-arc style="--o-fill:var(--line)"></o-arc>`;
   return `<div class="orbit-12${pending ? ' is-pending' : ''}" style="${size}">${track}</div>
-    <div class="orbit-12 range-band" style="${size}"><o-arc class="band" start="${(lo * 100).toFixed(1)}" value="${((hi - lo) * 100).toFixed(1)}" style="--o-fill:${fill}"></o-arc></div>
+    <div class="orbit-12 range-band" style="${size}"><o-arc class="band"${shapeOf(o)} start="${(lo * 100).toFixed(1)}" value="${((hi - lo) * 100).toFixed(1)}" style="--o-fill:${fill}"></o-arc></div>
     ${knob('lo', lo)}${knob('hi', hi)}`;
 }
 
@@ -155,7 +162,10 @@ function rangeRing(key: string, r: RingReading, fill: string, size: string, pend
 
 export type Face = {
   glyph: string; name: string; big: string; label: string;
-  to: string;                          // Zumly view the disc opens
+  // The Zumly view the disc opens. Without it the disc is just the face: a
+  // control of one entity that is resolved on the face has no detail to open
+  // (a detail only exists when it adds something the face does not have).
+  to?: string;
   props?: Record<string, string>;      // data-* for that view
   aria: string;
   extra?: string;                      // more markup inside the disc ("sending…")
@@ -164,12 +174,13 @@ export type Face = {
 };
 
 // The front layer's center: the face in an at-center satellite of orbit-0,
-// which is the Zumly trigger of the next level.
+// which is the Zumly trigger of the next level when there is one (`to`).
 export function face(f: Face) {
   const props = Object.entries(f.props ?? {}).map(([k, v]) => ` data-${k}="${esc(v)}"`).join('');
   const img = f.image ? `<img class="face-image" src="${esc(f.image.src)}" alt="${esc(f.image.alt)}"${f.image.key ? ` data-image="${esc(f.image.key)}"` : ''}>` : '';
+  const opens = f.to ? ` role="button" tabindex="0" data-to="${f.to}"${props} aria-label="${esc(f.aria)}"` : '';
   return `<div class="orbit-0" style="--o-size-ratio:21.2"><div class="satellite at-center">
-    <div class="capsule disc zoom-me${img ? ' has-image' : ''}" role="button" tabindex="0" data-to="${f.to}"${props} aria-label="${esc(f.aria)}">
+    <div class="capsule disc${f.to ? ' zoom-me' : ''}${img ? ' has-image' : ''}"${opens}>
       ${img}${icon(f.glyph)}<span class="face-name">${esc(f.name)}</span>
       <span class="face-big">${esc(f.big)}</span><span class="face-label">${esc(f.label)}</span>${f.extra ?? ''}</div></div></div>`;
 }
@@ -240,6 +251,17 @@ export function dots(list: Dot[], currentId: string) {
       <span class="bigbang"><span class="gravity-spot">${d.ring}</span></span></button>`).join('');
 }
 export const DOT_LANES = 2.5 / (22 / 24);
+
+// The layers of a stacked object named beside it, front to back: a dot per
+// layer (its level's color, the front one filled) and the name, each a button
+// that brings that layer to the front. Past the cap (`off`), the layer is not
+// drawn and its dot is hollow. `attr` is the data attribute the host handles.
+export type LayerItem = { id: string; title: string; big?: string; level: number; off?: boolean };
+export function layerIndex(list: LayerItem[], attr: string) {
+  return `<nav class="layer-index" aria-label="${esc(t.layerIndex)}">${list.map((l, i) => `<button class="layer-item${l.level ? ` level-${l.level}` : ''}${l.off ? ' is-off' : ''}"
+      ${attr}="${esc(l.id)}" aria-label="${esc(t.bringToFront(l.title))}"${i === 0 ? ' aria-current="true"' : ''}>
+      <span class="layer-dot"></span><span class="layer-name">${esc(l.title)}</span>${l.big ? `<span class="layer-big">${esc(l.big)}</span>` : ''}</button>`).join('')}</nav>`;
+}
 export const MINI_LANES = 6 / 3.5;
 
 // The channels that do not fit as rings (past SIZE) are named in the strip,
@@ -621,32 +643,52 @@ export function wheelControls(el: HTMLElement, c: WheelControls) {
   return () => { /* the listeners go with the element */ };
 }
 
-// ±7° parallax with the pointer, only in 3D and not on the phone (no pointer).
-// One write per frame, in half degrees: the pointer sends many more moves
-// than there are frames, and each write re-composites the 3D object.
-export function parallax(stage: HTMLElement, obj: HTMLElement, active: () => boolean) {
-  let rx = '0deg', ry = '0deg', frame = 0;
+// ±7° tilt with the pointer, only in 3D and not on the phone (no pointer).
+// It goes through the Web Animations API, never through a style attribute:
+// Orbit watches every attribute in the document, and a change on an ancestor
+// of the rings makes it measure and redraw all of them (31/10: 1,500 raster
+// tasks in 3 s of mouse). The animation moves `rotate` on the compositor, in
+// half degrees, one write per frame; the stage is measured once per entry.
+export function parallax(stage: HTMLElement, obj: () => HTMLElement | null, active: () => boolean) {
+  let rx = 0, ry = 0, frame = 0, box: DOMRect | null = null, last = '';
+  const live: Animation[] = [];
   const write = () => {
     frame = 0;
-    if (obj.style.getPropertyValue('--rx') !== rx) obj.style.setProperty('--rx', rx);
-    if (obj.style.getPropertyValue('--ry') !== ry) obj.style.setProperty('--ry', ry);
+    const o = obj();
+    if (!o) return;
+    // rotateX(rx) then rotateY(ry): for small angles, one turn of √(rx²+ry²) around the axis (rx, ry, 0).
+    const a = Math.hypot(rx, ry);
+    const value = a < 0.01 ? 'none' : `${(rx / a).toFixed(3)} ${(ry / a).toFixed(3)} 0 ${a.toFixed(1)}deg`;
+    if (value === last) return;
+    last = value;
+    // Each turn starts from where the previous one left it (the underlying value
+    // includes the earlier animations); the earlier ones go once this one ends.
+    const anim = o.animate([{ rotate: value }], { duration: 220, easing: 'ease-out', fill: 'forwards' });
+    const earlier = live.splice(0);
+    live.push(anim);
+    anim.finished.then(() => { for (const e of earlier) e.cancel(); if (value === 'none' && live[0] === anim) { live.length = 0; anim.cancel(); } }, () => {});
   };
-  const half = (d: number) => `${(Math.round(d * 2) / 2).toFixed(1)}deg`;
+  const half = (d: number) => Math.round(d * 2) / 2;
+  stage.addEventListener('pointerenter', () => { box = stage.getBoundingClientRect(); });
   stage.addEventListener('pointermove', (e) => {
-    if (!active() || PHONE) return;
-    const b = stage.getBoundingClientRect();
-    const x = (e.clientX - b.left) / b.width - 0.5, y = (e.clientY - b.top) / b.height - 0.5;
+    if (!active() || PHONE || e.pointerType === 'touch') return;
+    if (!box) box = stage.getBoundingClientRect();
+    const x = (e.clientX - box.left) / box.width - 0.5, y = (e.clientY - box.top) / box.height - 0.5;
     rx = half(-y * 14);
     ry = half(x * 14);
     if (!frame) frame = requestAnimationFrame(write);
   });
-  stage.addEventListener('pointerleave', () => { rx = '0deg'; ry = '0deg'; if (!frame) frame = requestAnimationFrame(write); });
+  stage.addEventListener('pointerleave', () => { box = null; rx = 0; ry = 0; if (!frame) frame = requestAnimationFrame(write); });
 }
 
 // ─── Zumly ──────────────────────────────────────────────────────────
 
-// Navigation recedes with blur; the object's layers never do. That keeps
-// "previous level" apart from "channel behind".
+// Navigation recedes (the levels behind fade, see .z-view.is-previous-view in
+// style.css); the object's layers never do. That keeps "previous level" apart
+// from "channel behind". No filter on the views behind: a blurred view the
+// size of the screen is filtered again on every frame it is drawn, and under
+// the zoom that starved the raster of the view in front (tiles missing, the
+// "black sectors" of 31/10).
 export function zumlyOptions(views: ZumlyOptions['views'], initialView: string, mount: ZumlyOptions['mount'] = '#canvas'): ZumlyOptions {
   return {
     mount,
@@ -655,9 +697,7 @@ export function zumlyOptions(views: ZumlyOptions['views'], initialView: string, 
     transitions: {
       duration: '0.8s',
       ease: 'cubic-bezier(.2,.8,.2,1)',
-      effects: ['blur(3px) brightness(.45)', 'blur(8px) brightness(.25)'],
-      // The blur is applied at once instead of animated: the zoom runs smoother.
-      animateEffects: false,
+      effects: ['none'],
       hideTrigger: 'fade',
     },
     // Going back: the button names where it goes (depthNav 'title'); a swipe

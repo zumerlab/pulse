@@ -8,7 +8,6 @@ export type Tune = {
   orbit: number; tile: number; align: number; hub: number; orbitStep: number;
   layerGrow: number; layerStep: number; layerZoom: number; layerOpacity: number;
   layerEase: number; layerStroke: number; layerBlur: number;
-  tilt: number;
 };
 
 // The values the code uses today.
@@ -16,7 +15,6 @@ export const DEFAULTS: Tune = {
   orbit: 10, tile: 3.5, align: 20, hub: 11, orbitStep: -110,
   layerGrow: 0.42, layerStep: -70, layerZoom: 1.1, layerOpacity: 0.6,
   layerEase: 0, layerStroke: 4, layerBlur: 0.5,
-  tilt: 7,
 };
 
 type Control = { key: keyof Tune; label: string; min: number; max: number; step: number; unit?: string };
@@ -37,15 +35,12 @@ const GROUPS: [string, Control[]][] = [
     { key: 'layerZoom', label: 'Object zoom', min: 0.7, max: 1.5, step: 0.05 },
     { key: 'layerOpacity', label: 'Opacity of the layers behind', min: 0.2, max: 1, step: 0.05 },
   ]],
-  ['3D', [
-    { key: 'tilt', label: 'Maximum tilt with the pointer', min: 0, max: 20, step: 1, unit: '°' },
-  ]],
 ];
 
 const KEY = 'pulse-ha-tune';
 export const tune: Tune = { ...DEFAULTS };
-// Only the keys that still exist: a value kept by an old build (the rest tilt
-// of 31/10, which Martin turned down) stays out, and the panel has no control for it.
+// Only the keys that still exist: a value kept by an old build (the tilts of
+// 31/10, both gone) stays out, and the panel has no control for it.
 try {
   const kept = JSON.parse(localStorage.getItem(KEY) ?? '{}') as Record<string, number>;
   for (const k of Object.keys(DEFAULTS) as (keyof Tune)[]) if (typeof kept[k] === 'number') tune[k] = kept[k];

@@ -101,8 +101,12 @@
    the text hanging outside fits. */
 .orbit-stage .obj > .bigbang { width: var(--S); }
 .orbit-stage .orbit-tiles { --o-size-ratio: var(--t-tile, 3.5); --o-alignment: var(--t-align, 20px); }
-/* The pulse: the center satellite, 11 lanes (0.46 of the universe). */
-.orbit-stage .hub-orbit { --o-size-ratio: var(--t-hub, 11); }
+/* The pulse: the center satellite, 11 lanes (0.46 of the universe), drawn over
+   the systems' rings, which cross it: its face is opaque and above them. Only
+   the round face takes the pointer: the square around it would cover the tiles. */
+.orbit-stage .hub-orbit { --o-size-ratio: var(--t-hub, 11); z-index: 2; }
+.orbit-stage .hub-orbit, .orbit-stage .hub-orbit * { pointer-events: none; }
+.orbit-stage .hub-face, .orbit-stage .hub-face *, .orbit-stage .hub-dots, .orbit-stage .hub-dots * { pointer-events: auto; }
 /* In the orbit, what calls is already in the center: the headline is redundant. */
 .board.mode-orbit .board-head h1, .board.mode-orbit .ticker { display: none; }
 /* The center scales with its own size (cqw units), not with the screen: it
@@ -112,7 +116,7 @@
 .hub.beat .hub-ring { animation: hub-beat .7s ease-out; }
 @keyframes hub-beat { 30% { transform: scale(1.04); opacity: .6; } }
 .hub-face {
-  position: absolute; inset: 9%; border-radius: 50%; overflow: hidden; background: rgba(255,255,255,.04);
+  position: absolute; inset: 9%; border-radius: 50%; overflow: hidden; background: color-mix(in srgb, var(--bg) 94%, #fff);
   display: grid; place-items: center; padding: 14% 12% 24%;
 }
 .slide { display: grid; justify-items: center; gap: 2cqw; text-align: center; min-width: 0; animation: slide-in .45s ease-out; }
@@ -167,6 +171,9 @@
 /* The rings behind soften with the distance: a halo of their color (see the core's 3D rule). */
 .board-stage .layer:not(.layer-front) > .orbit-12 :is(o-arc, o-progress) { --o-stroke: color-mix(in srgb, var(--o-fill, var(--muted)) 30%, transparent); --o-stroke-width: var(--halo, 0); }
 .board-stage .face-label { max-width: 150px; }
+/* The layer index at the left side of the stage, level with the object; on a small stage the strip names what is behind. */
+.board-stage .layer-index-slot { position: absolute; left: 0; top: 50%; translate: 0 -50%; max-width: 32%; }
+.compact .board-stage .layer-index-slot { display: none; }
 
 @media (prefers-reduced-motion: reduce) { .hub.beat .hub-ring, .otile.has-alert .otile-ring, .slide { animation: none; } }
 .board.mode-layers .ticker, .board.mode-layers .board-head h1 { display: none; }

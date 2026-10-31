@@ -135,7 +135,7 @@ function system(ctx: ViewContext, id: string) {
   // Orbit layers: each channel is a nested .gravity-spot with data-depth;
   // .depth moves it in z and compensates the scale. The universe (.bigbang)
   // measures the front layer; outer-perspective leaves the perspective to the
-  // stage so the parallax turns the whole object.
+  // stage, which has it.
   el.innerHTML = systemShell(null,
     `${viewToggle()}
      <button class="plain" data-act="alert">${t.simulateAlert}</button>`);
@@ -277,7 +277,7 @@ function system(ctx: ViewContext, id: string) {
   // The browser leaves the horizontal gesture to the page (otherwise it cancels
   // it as a scroll) so Zumly's lateral swipe sees it.
   if (PHONE) el.style.touchAction = 'pan-y';
-  parallax(stage, obj, () => !flat);
+  parallax(stage, () => obj, () => !flat);
 
   paint();
   rerender.add(paint);

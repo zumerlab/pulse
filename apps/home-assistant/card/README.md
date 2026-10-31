@@ -147,9 +147,11 @@ strategy alike.
 | `mode` | `grid`, `orbit`, `layers`, `list` | the view the viewer picked last | The board's view when the card opens. With it set, the switch at the top still works, but the choice is not remembered. |
 | `start` | one of the system ids | the board (on a phone, the system that calls the most) | Open the card zoomed into that system. The board stays one step back ("Board" at the bottom left). Must be one of `systems` if both are given. |
 | `settings` | `true`, `false` | `true` | The gear at the top right of the board (see below). `false` hides it: the options above are final. |
-| `layers` | a whole number | all of them | How many systems the Layers view stacks, front to back; the rest are named under the object, each a button that brings it to the front. |
+| `layers` | a whole number | all of them | How many systems the Layers view stacks, front to back; the list beside the object names them all in that order (the ones past the cap hollow), and each is a button that brings it to the front. |
+| `stack` | a whole number, 1 to 5 | 3 | How many channels a system stacks as layers when you open it, front to back; the rest are named under the object. |
 | `dial` | `full`, `open` | `full` | How a band (a thermostat, brightness, volume) is drawn: a full ring, or three quarters open at the bottom, its ends named (min and max) and a mark where the measurement is when the band is a target. |
 | `day` | `plain`, `marks` | `plain` | The ring of the last 24 hours in a detail (humidity, power, carbon monoxide): bars only, or with a tick per hour and "6 h ago", "12 h ago", "18 h ago" around it. |
+| `ends` | `flat`, `rounded` | `flat` | The ends of a band and of each segment of a ring: square, or rounded. |
 
 A card with a wrong value refuses to render and says why ("Unknown system
 "climat". One of: lights, climate, …").
@@ -162,14 +164,15 @@ with the systems to tick, the areas (grouped by floor, when the home has two
 or more), the channels of each system and, for a channel that follows one
 entity (a brightness dial, the humidity, a window), which entity it follows,
 then the board view, where it opens next time and the look (the dial full or
-open at the bottom, the day ring bare or with hour marks). Changes apply as they are
+open at the bottom, the day ring bare or with hour marks, the ring ends square or
+rounded). Changes apply as they are
 made and are kept in that browser only, so the tablet in the kitchen and the
 phone in a pocket can show different things from the same card. "Back to
 defaults" returns to what the card's options say.
 
 The options you set in the card or the strategy are the frame: the gear only
-offers the systems and areas you allowed, and `mode`, `start`, `layers`, `dial` and
-`day` are its defaults. At least one system, one area and one channel per system stay
+offers the systems and areas you allowed, and `mode`, `start`, `layers`, `stack`, `dial`,
+`day` and `ends` are its defaults. At least one system, one area and one channel per system stay
 ticked. If you want the card to show exactly what you configured, everywhere,
 set `settings: false`.
 

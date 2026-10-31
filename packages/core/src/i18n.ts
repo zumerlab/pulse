@@ -18,6 +18,7 @@ export const t = {
   open: (name: string) => `Open ${name}`,
   details: (name: string) => `${name} details`,
   bringToFront: (name: string) => `Bring ${name} to the front`,
+  layerIndex: 'Layers, front to back',
   systems: 'Systems',
   view3d: 'View in 3D',
   viewFlat: 'View flat',

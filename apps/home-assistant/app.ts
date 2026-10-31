@@ -3,8 +3,8 @@ import type { Call, Change, HassState, PulseSource, Status } from './source.ts';
 import { nameOf, placeOf, spansOf, systems, type Alert, type Channel, type Dial, type Reading } from './model.ts';
 import { tune } from './tune.ts';
 import {
-  DOT_LANES, LANE, LOCK_MS, MAX_TRACKS, MINI_LANES, PHONE, SIZE, STROKE, backLayer, calmStrip, clockRim, colorArcs, dialControls, dots, esc, face,
-  fitFor, hsCss, icon, labelAt, levelColor, listCenter, listControls, monthRing, musicVisual, num, parallax, radialList, ring as drawRing, ringCenter, satColor,
+  DOT_LANES, LANE, LOCK_MS, MAX_TRACKS, MINI_LANES, PHONE, STACK_MAX, backLayer, calmStrip, clockRim, colorArcs, dialControls, dots, esc, face,
+  fitFor, hsCss, icon, labelAt, layerIndex, levelColor, listCenter, listControls, monthRing, musicVisual, num, parallax, radialList, ring as drawRing, ringCenter, satColor, sizes, strokeAt,
   SCROLL_VISIBLE, scrollControls, scrollList, setViewToggle, startInside, systemShell, time, timeRing, timeline, turnList, viewToggle, zumlyOptions,
   type ListItem, type RingReading, type ScrollState,
 } from '@zumer/pulse';
@@ -37,9 +37,12 @@ export type PulseSettings = {
   look?: Look;
   // How many systems the Layers view stacks (the rest are named under the object); nothing set: all of them.
   layers?: number;
+  // How many channels a system stacks as layers (the rest are named under the object); nothing set: three (two on a phone).
+  stack?: number;
 };
-export type Look = { dial?: 'full' | 'open'; day?: 'plain' | 'marks' };
-export const DIALS = ['full', 'open'] as const, DAYS = ['plain', 'marks'] as const;
+export type Look = { dial?: 'full' | 'open'; day?: 'plain' | 'marks'; ends?: 'flat' | 'rounded' };
+export const DIALS = ['full', 'open'] as const, DAYS = ['plain', 'marks'] as const, ENDS = ['flat', 'rounded'] as const;
+const LOOK_DEFAULT: Required<Look> = { dial: 'full', day: 'plain', ends: 'flat' };
 
 export type PulseOptions = {
   source: PulseSource;
@@ -55,6 +58,8 @@ export type PulseOptions = {
   look?: Look;
   // How many systems the Layers view stacks by default; nothing set: all of them.
   layers?: number;
+  // How many channels a system stacks as layers by default; nothing set: three (two on a phone).
+  stack?: number;
   // Where the viewer's choices are kept: a localStorage key (default
   // 'pulse-ha-settings'); `false` hides the gear and keeps nothing.
   settings?: string | false;
@@ -102,6 +107,7 @@ const frame = {
   areas: options.areas?.length ? options.areas : undefined,
   look: options.look,
   layers: options.layers && options.layers >= 1 ? Math.floor(options.layers) : undefined,
+  stack: options.stack && options.stack >= 1 ? Math.floor(options.stack) : undefined,
 };
 const STORE = options.settings === false ? null : options.settings ?? 'pulse-ha-settings';
 const loadSettings = (): PulseSettings => {
@@ -138,11 +144,14 @@ const hiddenChannels = (id: string) => {
   return SYS[id].channels.every((ch) => hidden.includes(ch.key)) ? [] : hidden;
 };
 // The look in force: the viewer's choice over the host's.
-const look = (): Required<Look> => ({ dial: 'full', day: 'plain', ...frame.look, ...local.look });
+const look = (): Required<Look> => ({ ...LOOK_DEFAULT, ...frame.look, ...local.look });
 // How many layers the Layers view stacks: the viewer's choice, the host's, or every system.
 const layersShown = () => { const n = local.layers ?? frame.layers; return n && n >= 1 ? Math.min(n, IDS.length) : IDS.length; };
+// How many channels a system stacks as layers: the viewer's choice, the host's, or three (two on a phone), never past STACK_MAX.
+const STACK_DEFAULT = PHONE ? 2 : 3;
+const stackShown = () => { const n = local.stack ?? frame.stack; return Math.min(STACK_MAX, n && n >= 1 ? n : STACK_DEFAULT); };
 const settings = (): PulseSettings => ({ systems: IDS, mode: boardMode, start: startId() ?? undefined,
-  areas: activeAreas(), channels: local.channels, entities: local.entities, look: look(), layers: layersShown() });
+  areas: activeAreas(), channels: local.channels, entities: local.entities, look: look(), layers: layersShown(), stack: stackShown() });
 const setSettings = (patch: PulseSettings) => {
   local = { ...local, ...patch };
   for (const k of Object.keys(local) as (keyof PulseSettings)[]) {
@@ -322,7 +331,7 @@ function repaint() {
 // What was sent and not confirmed is marked pending (it beats).
 function ring(key: string, r: Reading, lanes: number, controls = false, muted = false, call = false, name?: string) {
   return drawRing(key, ringReading(r), lanes, {
-    name, controls, muted, call, open: look().dial === 'open',
+    name, controls, muted, call, open: look().dial === 'open', ends: look().ends,
     pending: (entity) => entity === undefined ? isPending(r) : pending.has(entity),
     failed: (entity) => entity === undefined ? r.entities.some((e) => failed.has(e)) : failed.has(entity),
   });
@@ -443,7 +452,7 @@ function orbitTile(id: string) {
 function hubRing(ids: string[]) {
   const segs = ids.map((id) => {
     const level = worst(id);
-    return `<o-arc style="--o-fill:${level ? levelColor(level as 1 | 2) : 'var(--dim)'}"></o-arc>`;
+    return `<o-arc${look().ends === 'rounded' ? ' shape="rounded"' : ''} style="--o-fill:${level ? levelColor(level as 1 | 2) : 'var(--dim)'}"></o-arc>`;
   }).join('');
   // The systems are shifted half a step (none right at the top): each segment
   // faces its own without rotating the ring. Inside, the clock's rim: the
@@ -527,20 +536,8 @@ function board(ctx: ViewContext) {
   fit.observe(body);
   ctx.onCleanup(() => fit.disconnect());
 
-  // Parallax in the orbit and in layers (±7° by default, tune.tilt), as in each
-  // system's object (not on the phone).
-  const tilt = (rx: number, ry: number) => {
-    const obj = body.querySelector<HTMLElement>('.stage .obj');
-    if (!obj) return;
-    obj.style.setProperty('--rx', `${rx.toFixed(2)}deg`);
-    obj.style.setProperty('--ry', `${ry.toFixed(2)}deg`);
-  };
-  body.addEventListener('pointermove', (e) => {
-    if (!['orbit', 'layers'].includes(boardMode) || PHONE || e.pointerType === 'touch') return;
-    const b = body.getBoundingClientRect();
-    tilt(-((e.clientY - b.top) / b.height - 0.5) * 2 * tune.tilt, ((e.clientX - b.left) / b.width - 0.5) * 2 * tune.tilt);
-  });
-  body.addEventListener('pointerleave', () => tilt(0, 0));
+  // The pointer tilts the object in the orbit and in layers, as in each system's object.
+  parallax(body, () => body.querySelector<HTMLElement>('.stage .obj'), () => ['orbit', 'layers'].includes(boardMode));
 
   const build = () => {
     built = boardMode;
@@ -578,7 +575,7 @@ function board(ctx: ViewContext) {
       // In 3D, like the orbit: each layer one step further back and the pointer tilts the object.
       body.innerHTML = `<div class="stage board-stage" data-zoom="calm"><div class="obj"><div class="bigbang">
         <div class="gravity-spot depth outer-perspective"></div></div></div>
-        <div class="strip board-strip"></div></div>`;
+        <div class="layer-index-slot"></div><div class="strip board-strip"></div></div>`;
     } else body.innerHTML = '';
   };
 
@@ -600,6 +597,7 @@ function board(ctx: ViewContext) {
       if (!layer) {
         layer = document.createElement('div');
         layer.className = 'gravity-spot layer';
+        layer.dataset.system = id;
         depth.append(layer);
         layers.set(id, layer);
       }
@@ -624,6 +622,8 @@ function board(ctx: ViewContext) {
           pick: { attr: 'data-bpick', value: id, aria: t.bringToFront(SYS[id].title) } })));
     });
     const stage = body.querySelector<HTMLElement>('.board-stage')!;
+    // Beside the object, the layers front to back, each a button; the ones past the cap hollow.
+    setHTML(stage.querySelector<HTMLElement>('.layer-index-slot')!, layerIndex(all.map((id, i) => ({ id, title: SYS[id].title, big: front(id).big, level: worst(id), off: i >= n })), 'data-bpick'));
     const zoom = ids.some((id) => worst(id)) ? 'alert' : 'calm';
     if (stage.dataset.zoom !== zoom) stage.dataset.zoom = zoom;
     // Under the object: the systems past the cap, then the latest changes (the headline is the front face).
@@ -807,9 +807,12 @@ function board(ctx: ViewContext) {
       } else if (field === 'layers') {
         const n = Number(data.get('layers')) || undefined;
         setSettings({ layers: n === frame.layers ? undefined : n });
-      } else if (field === 'dial' || field === 'day') {
+      } else if (field === 'stack') {
+        const n = Number(data.get('stack')) || undefined;
+        setSettings({ stack: n === (frame.stack ?? STACK_DEFAULT) ? undefined : n });
+      } else if (field === 'dial' || field === 'day' || field === 'ends') {
         const next: Look = { ...local.look, [field]: String(data.get(field)) };
-        for (const k of ['dial', 'day'] as const) if (next[k] === (frame.look?.[k] ?? (k === 'dial' ? 'full' : 'plain'))) delete next[k];
+        for (const k of ['dial', 'day', 'ends'] as const) if (next[k] === (frame.look?.[k] ?? LOOK_DEFAULT[k])) delete next[k];
         setSettings({ look: Object.keys(next).length ? next : undefined });
       }
     });
@@ -856,11 +859,16 @@ function settingsPanel() {
       <fieldset><legend>${t.layersField}</legend>
         <select name="layers" aria-describedby="pulse-settings-layers"></select>
         <p class="hint" id="pulse-settings-layers">${t.layersHint}</p></fieldset>
+      <fieldset><legend>${t.stackField}</legend>
+        <select name="stack" aria-describedby="pulse-settings-stack">${Array.from({ length: STACK_MAX }, (_, i) => `<option value="${i + 1}">${i + 1}</option>`).join('')}</select>
+        <p class="hint" id="pulse-settings-stack">${t.stackHint}</p></fieldset>
       <fieldset><legend>${t.lookField}</legend>
         <div class="settings-row" role="group" aria-label="${t.dialField}"><span class="settings-group-title">${t.dialField}</span>${DIALS.map((d) =>
           `<label><input type="radio" name="dial" value="${d}"> ${t.dialLook[d]}</label>`).join('')}</div>
         <div class="settings-row" role="group" aria-label="${t.dayField}"><span class="settings-group-title">${t.dayField}</span>${DAYS.map((d) =>
-          `<label><input type="radio" name="day" value="${d}"> ${t.dayLook[d]}</label>`).join('')}</div></fieldset>
+          `<label><input type="radio" name="day" value="${d}"> ${t.dayLook[d]}</label>`).join('')}</div>
+        <div class="settings-row" role="group" aria-label="${t.endsField}"><span class="settings-group-title">${t.endsField}</span>${ENDS.map((d) =>
+          `<label><input type="radio" name="ends" value="${d}"> ${t.endsLook[d]}</label>`).join('')}</div></fieldset>
       <footer><button type="button" class="plain" data-settings-reset>${t.resetSettings}</button>
         <button type="button" class="primary" data-settings-close>${t.done}</button></footer>
     </form>
@@ -883,7 +891,7 @@ function rebuild(list: HTMLElement, html: string) {
 function syncSettings(form: HTMLFormElement) {
   for (const box of form.querySelectorAll<HTMLInputElement>('input[name="systems"]')) box.checked = IDS.includes(box.value);
   const lk = look();
-  for (const box of form.querySelectorAll<HTMLInputElement>('input[name="dial"], input[name="day"]')) box.checked = lk[box.name as 'dial' | 'day'] === box.value;
+  for (const box of form.querySelectorAll<HTMLInputElement>('input[name="dial"], input[name="day"], input[name="ends"]')) box.checked = lk[box.name as keyof Look] === box.value;
   // Areas, grouped by floor, and the channels of the systems shown: built from
   // the registry and the readings, so only redrawn when they change (the panel
   // repaints with the house; a list rebuilt under the pointer would lose taps).
@@ -924,6 +932,7 @@ function syncSettings(form: HTMLFormElement) {
     `<option value="${i + 2}">${i + 2}</option>`).join('')}`);
   const cap = local.layers ?? frame.layers;
   layersSel.value = cap && cap < IDS.length ? String(cap) : '';
+  form.querySelector<HTMLSelectElement>('select[name="stack"]')!.value = String(stackShown());
 }
 
 // ─── Dials: the value moves in place, the command goes out on release ──
@@ -1032,7 +1041,7 @@ function system(ctx: ViewContext, id: string) {
   // The object fills the stage: what fits depends on the state (calm shows the
   // layers behind, an alert zooms the front), so it is set again on each paint.
   let box = { width: 0, height: 0 };
-  const refit = (alert: boolean) => { if (box.width) stage.style.setProperty('--fit', fitFor(box.width, box.height, alert).toFixed(3)); };
+  const refit = (alert: boolean) => { if (box.width) stage.style.setProperty('--fit', fitFor(box.width, box.height, alert, stackShown()).toFixed(3)); };
   const fit = new ResizeObserver(([entry]) => { box = entry.contentRect; refit(stage.dataset.zoom === 'alert'); });
   fit.observe(stage);
   ctx.onCleanup(() => fit.disconnect());
@@ -1056,7 +1065,8 @@ function system(ctx: ViewContext, id: string) {
     if (dragging) return;              // repainting would cut the dial drag
     const ord = order(id), u = ui[id], map = readings[id];
     // Repaint only if something of this system changed.
-    const now = JSON.stringify([ord, ord.map((k) => [map.get(k)!.r, isPending(map.get(k)!.r)]), [...u.seen], [...failed.keys()], flat, toast,
+    const SZ = sizes(stackShown());
+    const now = JSON.stringify([ord, ord.map((k) => [map.get(k)!.r, isPending(map.get(k)!.r)]), [...u.seen], [...failed.keys()], flat, toast, SZ.length,
       PHONE ? IDS.map((o) => [order(o)[0], worst(o)]) : 0]);
     if (now === last) return;
     last = now;
@@ -1079,22 +1089,23 @@ function system(ctx: ViewContext, id: string) {
     ord.forEach((key, i) => {
       const layer = layerOf(key), { ch, r } = map.get(key)!;
       const seen = u.seen.has(key);
-      const d = Math.min(i, SIZE.length - 1);
-      layer.hidden = i >= SIZE.length;
+      const d = Math.min(i, SZ.length - 1);
+      layer.hidden = i >= SZ.length;
       layer.dataset.depth = String(d);
       layer.classList.toggle('layer-front', i === 0);
       layer.classList.toggle('is-alert', !!r.alert);
       layer.classList.toggle('is-seen', seen);
       layer.dataset.level = String(r.alert?.level ?? 0);
-      const grow = SIZE[d];
+      const grow = SZ[d];
       layer.style.setProperty('--halo', (d * 0.8 / (grow * (1 + d * 110 / 900))).toFixed(2));
       const shown = r.alert && !seen ? r.alert : r;
       // The alerts that wait are their layers behind, in their color and named; the strip counts them.
-      layer.innerHTML = ring(key, r, STROKE[d] / grow / LANE, i === 0, false, i === 0 && !!r.alert && !seen, ch.name) + (i === 0
-        ? face({ glyph: ch.glyph, name: ch.name, big: shown.big, label: shown.label, to: 'detail',
+      const more = detailAdds(r);
+      layer.innerHTML = ring(key, r, strokeAt(d) / grow / LANE, i === 0, false, i === 0 && !!r.alert && !seen, ch.name) + (i === 0
+        ? face({ glyph: ch.glyph, name: ch.name, big: shown.big, label: shown.label, to: more ? 'detail' : undefined,
           props: { system: id, channel: key }, aria: t.details(ch.name), image: imageOf(r),
           extra: (isPending(r) ? `<span class="face-wait">${t.sending}</span>` : '') + visualFor(id, key) })
-        : backLayer({ text: `${ch.name} · ${shown.big}`, at: labelAt(i), grow, stroke: STROKE[d], hit: 12,
+        : backLayer({ text: `${ch.name} · ${shown.big}`, at: labelAt(i), grow, stroke: strokeAt(d), hit: 12,
           pick: { attr: 'data-pick', value: key, aria: t.bringToFront(ch.name) } }));
     });
 
@@ -1102,7 +1113,7 @@ function system(ctx: ViewContext, id: string) {
 
     const frontItem = map.get(ord[0]);
     if (!frontItem) { strip.textContent = t.noEntities; return; }
-    const hidden = ord.slice(SIZE.length).map((k) => ({ key: k, name: map.get(k)!.ch.name }));
+    const hidden = ord.slice(SZ.length).map((k) => ({ key: k, name: map.get(k)!.ch.name }));
     const fa = frontItem.r.alert && !u.seen.has(ord[0]) ? frontItem.r.alert : null;
     if (dotsEl) {
       dotsEl.innerHTML = dots(IDS.filter((other) => order(other).length).map((other) => {
@@ -1203,13 +1214,20 @@ function system(ctx: ViewContext, id: string) {
   // The browser leaves the horizontal gesture to the page (otherwise it cancels
   // it as a scroll) so Zumly's lateral swipe sees it.
   if (PHONE) el.style.touchAction = 'pan-y';
-  parallax(stage, obj, () => !flat);
+  parallax(stage, () => obj, () => !flat);
 
   paint();
   whenCurrent(ctx, paint);
 }
 
 // ─── Channel detail ─────────────────────────────────────────────────
+
+// Principle: the disc opens a detail only when the detail adds something the
+// face does not have: a day of changes, a history, a long list, a picture,
+// color, the month, or several entities to name. A control of one entity
+// that is resolved on the face (a volume, a fan, a thermostat with no
+// history) has no detail: it would repeat the face.
+const detailAdds = (r: Reading) => !!(r.tracks?.length || r.history || r.list || r.image || r.color || r.month) || r.entities.length > 1;
 
 // Home Assistant states as words; anything else is shown as it comes.
 const stateWords: Record<string, string> = {
