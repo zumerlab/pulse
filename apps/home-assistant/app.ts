@@ -32,7 +32,11 @@ export type PulseSettings = {
   channels?: Record<string, string[]>;
   // The entity a channel follows instead of the first of its kind: { 'lights/brightness': 'light.kitchen' }.
   entities?: Record<string, string>;
+  // How the object draws: the dial as a full ring or open at the bottom with its ends; the day ring bare or with hour marks.
+  look?: Look;
 };
+export type Look = { dial?: 'full' | 'open'; day?: 'plain' | 'marks' };
+export const DIALS = ['full', 'open'] as const, DAYS = ['plain', 'marks'] as const;
 
 export type PulseOptions = {
   source: PulseSource;
@@ -44,6 +48,8 @@ export type PulseOptions = {
   start?: string;
   // Only what is in these areas (registry ids); the gear chooses among them.
   areas?: string[];
+  // How the object draws (the gear's defaults): see Look.
+  look?: Look;
   // Where the viewer's choices are kept: a localStorage key (default
   // 'pulse-ha-settings'); `false` hides the gear and keeps nothing.
   settings?: string | false;
@@ -89,6 +95,7 @@ const valid = (ids?: string[]) => (ids ?? []).filter((id) => ALL.includes(id));
 const frame = {
   systems: valid(options.systems).length ? valid(options.systems) : ALL, mode: options.mode, start: options.start,
   areas: options.areas?.length ? options.areas : undefined,
+  look: options.look,
 };
 const STORE = options.settings === false ? null : options.settings ?? 'pulse-ha-settings';
 const loadSettings = (): PulseSettings => {
@@ -124,8 +131,10 @@ const hiddenChannels = (id: string) => {
   // At least one channel: a system with all of them hidden shows all of them.
   return SYS[id].channels.every((ch) => hidden.includes(ch.key)) ? [] : hidden;
 };
+// The look in force: the viewer's choice over the host's.
+const look = (): Required<Look> => ({ dial: 'full', day: 'plain', ...frame.look, ...local.look });
 const settings = (): PulseSettings => ({ systems: IDS, mode: boardMode, start: startId() ?? undefined,
-  areas: activeAreas(), channels: local.channels, entities: local.entities });
+  areas: activeAreas(), channels: local.channels, entities: local.entities, look: look() });
 const setSettings = (patch: PulseSettings) => {
   local = { ...local, ...patch };
   for (const k of Object.keys(local) as (keyof PulseSettings)[]) {
@@ -265,14 +274,15 @@ function repaint() {
 // What was sent and not confirmed is marked pending (it beats).
 function ring(key: string, r: Reading, lanes: number, controls = false, muted = false, call = false, name?: string) {
   return drawRing(key, ringReading(r), lanes, {
-    name, controls, muted, call,
+    name, controls, muted, call, open: look().dial === 'open',
     pending: (entity) => entity === undefined ? isPending(r) : pending.has(entity),
   });
 }
-// The model's reading is the core's, except that a range is given in the dial's units.
+// The model's reading is the core's, except that a range and the measurement are given in the dial's units.
 const frac = (d: Dial, v: number) => Math.min(1, Math.max(0, (v - d.min) / (d.max - d.min)));
 function ringReading(r: Reading): RingReading {
-  return { ...r, range: r.range && r.dial ? { lo: frac(r.dial, r.range.lo), hi: frac(r.dial, r.range.hi) } : undefined };
+  return { ...r, range: r.range && r.dial ? { lo: frac(r.dial, r.range.lo), hi: frac(r.dial, r.range.hi) } : undefined,
+    now: r.now != null && r.dial ? frac(r.dial, r.now) : undefined };
 }
 // A reading's picture, resolved against the source. A camera's snapshot is
 // asked again every few seconds (the bucket in the URL): the browser does not cache it.
@@ -653,6 +663,10 @@ function board(ctx: ViewContext) {
         if (BOARD_MODES.includes(mode)) setSettings({ mode });
       } else if (field === 'start') {
         setSettings({ start: String(data.get('start') ?? '') || undefined });
+      } else if (field === 'dial' || field === 'day') {
+        const next: Look = { ...local.look, [field]: String(data.get(field)) };
+        for (const k of ['dial', 'day'] as const) if (next[k] === (frame.look?.[k] ?? (k === 'dial' ? 'full' : 'plain'))) delete next[k];
+        setSettings({ look: Object.keys(next).length ? next : undefined });
       }
     });
     // The dialog keeps the keyboard: Escape closes, Tab cycles inside.
@@ -696,6 +710,11 @@ function settingsPanel() {
       <fieldset><legend>${t.openInside}</legend>
         <select name="start" aria-describedby="pulse-settings-start"></select>
         <p class="hint" id="pulse-settings-start">${t.startHint}</p></fieldset>
+      <fieldset><legend>${t.lookField}</legend>
+        <div class="settings-row" role="group" aria-label="${t.dialField}"><span class="settings-group-title">${t.dialField}</span>${DIALS.map((d) =>
+          `<label><input type="radio" name="dial" value="${d}"> ${t.dialLook[d]}</label>`).join('')}</div>
+        <div class="settings-row" role="group" aria-label="${t.dayField}"><span class="settings-group-title">${t.dayField}</span>${DAYS.map((d) =>
+          `<label><input type="radio" name="day" value="${d}"> ${t.dayLook[d]}</label>`).join('')}</div></fieldset>
       <footer><button type="button" class="plain" data-settings-reset>${t.resetSettings}</button>
         <button type="button" class="primary" data-settings-close>${t.done}</button></footer>
     </form>
@@ -717,6 +736,8 @@ function rebuild(list: HTMLElement, html: string) {
 }
 function syncSettings(form: HTMLFormElement) {
   for (const box of form.querySelectorAll<HTMLInputElement>('input[name="systems"]')) box.checked = IDS.includes(box.value);
+  const lk = look();
+  for (const box of form.querySelectorAll<HTMLInputElement>('input[name="dial"], input[name="day"]')) box.checked = lk[box.name as 'dial' | 'day'] === box.value;
   // Areas, grouped by floor, and the channels of the systems shown: built from
   // the registry and the readings, so only redrawn when they change (the panel
   // repaints with the house; a list rebuilt under the pointer would lose taps).
@@ -1086,7 +1107,7 @@ function detail(ctx: ViewContext) {
     if (r.history && ha.history) {
       if (!history || (Date.now() - history.at > HISTORY_MS && history.values)) void loadHistory(r.history);
       const u = String(ha.states.get(r.history)?.attributes.unit_of_measurement ?? '');
-      day = `<div class="history">${history?.values ? timeRing({ values: history.values, label: t.last24h, unit: u === '%' || !u ? u : ` ${u}` })
+      day = `<div class="history">${history?.values ? timeRing({ values: history.values, label: t.last24h, unit: u === '%' || !u ? u : ` ${u}`, marks: look().day === 'marks' })
         : `<p class="hint">${history?.error ? t.historyNone : t.historyLoading}</p>`}</div>`;
     }
     el.innerHTML = `<div class="detail">

@@ -106,6 +106,11 @@ button { font: inherit; color: inherit; }
 .disc.has-image .face-name, .disc.has-image .face-label { color: rgba(255,255,255,.85); }
 .disc.has-image .face-big { font-size: clamp(16px, 11cqw, 26px); }
 
+/* The open dial: its ends named just outside, a mark where the measurement is. */
+.dial-end { font-size: 10px; color: var(--muted); white-space: nowrap; }
+.now-mark { height: 2px; background: var(--muted); border-radius: 1px; }
+.layer:not(.layer-front) .dial-ends, .layer:not(.layer-front) .now-orbit { display: none; }
+
 /* The names of a choice, along the inside of the ring. */
 .choice-label { --o-fill: transparent; --o-color: var(--muted); font-size: 12px; }
 .choice-label.is-on { --o-color: var(--ink); }
@@ -165,7 +170,12 @@ button { font: inherit; color: inherit; }
 .time-ring { width: 220px; margin: 10px auto; }
 .time-bar { --o-fill: var(--ink); --o-stroke: transparent; cursor: default; }
 .time-bar.is-now { opacity: 1 !important; filter: drop-shadow(0 0 4px var(--ink)); }
-.time-center { display: grid; justify-items: center; text-align: center; gap: 2px; }
+.time-center { display: grid; justify-items: center; text-align: center; gap: 1px; }
+.time-range { font-size: 10px; color: var(--ink); white-space: nowrap; }
+.time-ring.has-marks { margin: 26px auto; }
+.time-tick { height: 1px; background: var(--dim); --o-alignment: 5px; }
+.time-tick.is-major { height: 2px; background: var(--muted); }
+.time-hour { --o-fill: transparent; --o-color: var(--muted); font-size: 10px; }
 .time-big { font-size: 13px; font-weight: 600; letter-spacing: -.3px; white-space: nowrap; }
 .time-label { font-size: 10px; color: var(--muted); white-space: nowrap; }
 

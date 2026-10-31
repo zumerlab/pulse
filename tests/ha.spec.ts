@@ -294,13 +294,42 @@ test("a numeric channel's detail draws its last 24 hours as a ring", async ({ pa
   await bring(page, 'humidity');
   await current(page).locator('.layer-front .disc').click();
   const ring = current(page).locator('.time-ring');
-  // One bar per hour, the current one at the top; the center gives the day's range.
-  await expect(ring).toHaveAttribute('aria-label', /^last 24 hours: 5\d(\.\d)?–6\d(\.\d)?%$/);
-  // Two bars an hour, the half hours interpolated; the current one is the last, at the top.
+  // Sectors from a baseline, the current hour at the top; the center says now and the day's range.
+  await expect(ring).toHaveAttribute('aria-label', /^last 24 hours: 5\d–6\d%$/);
+  // Two sectors an hour, the half hours interpolated; the current one is the last, at the top.
   await expect(ring.locator('.time-bar')).toHaveCount(47);
   await expect(ring.locator('.time-bar.is-now')).toHaveAttribute('title', /^now: 52%/);
   await expect(ring.locator('.time-bar[title]')).toHaveCount(24);
-  await expect(ring.locator('.time-big')).toHaveText(/^5\d(\.\d)?–6\d(\.\d)?%$/);
+  await expect(ring.locator('.time-big')).toHaveText('52%');
+  await expect(ring.locator('.time-range')).toHaveText(/^5\d–6\d%$/);
+  // Bare by default; the gear can add the hour marks.
+  await expect(ring.locator('.time-tick')).toHaveCount(0);
+});
+
+test('the gear can open the dial at the bottom and put hour marks on the day ring', async ({ page }) => {
+  await page.goto(`${HA}?demo=home`);
+  await page.locator('.gear').click();
+  await page.locator('.settings input[name="dial"][value="open"]').check();
+  await page.locator('.settings input[name="day"][value="marks"]').check();
+  await page.keyboard.press('Escape');
+  await page.locator('.tile[data-system="climate"]').click();
+  const front = current(page).locator('.layer-front');
+  // The thermostat's band runs from 225° through the top to 135°, its ends named, a mark at the measurement.
+  await expect(front.locator('.orbit-12').first()).toHaveAttribute('style', /--o-from: ?225deg; --o-range: ?270deg/);
+  await expect(front.locator('.dial-end')).toHaveText(['7°', '35°']);
+  await expect(front.locator('.now-mark')).toHaveCount(1);
+  // The keyboard still moves the target by its step (down: up would heat with the windows open and raise the alert).
+  const dial = front.locator('[data-dial]');
+  await expect(dial).toHaveAttribute('aria-valuenow', '21');
+  await dial.focus();
+  await page.keyboard.press('ArrowLeft');
+  await expect(dial).toHaveAttribute('aria-valuenow', '20');
+  // The day ring, in a detail, carries its marks.
+  await bring(page, 'humidity');
+  await current(page).locator('.layer-front .disc').click();
+  const ring = current(page).locator('.time-ring.has-marks');
+  await expect(ring.locator('.time-tick')).toHaveCount(24);
+  await expect(ring.locator('.time-hour')).toHaveCount(3);
 });
 
 test('a color light takes its hue and saturation from a wheel in the detail', async ({ page }) => {

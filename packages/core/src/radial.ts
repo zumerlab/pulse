@@ -20,6 +20,7 @@ export type RingReading = {
   segs?: RingSeg[];
   dial?: RingDial;
   range?: { lo: number; hi: number };   // a 'p' with two handles: the band goes from lo to hi (fractions 0..1)
+  now?: number;                     // where the measurement sits (fraction 0..1) when the band is a target: a mark on the open dial
   tint?: string;                    // CSS color of what is on, when nothing is wrong (a light's color)
   alert?: { level: 1 | 2; fail?: number[] };
 };
@@ -63,7 +64,24 @@ export type RingOptions = {
   muted?: boolean;                     // painted gray even with an alert (mini rings)
   call?: boolean;                      // the alert calls: its failing segments ripple
   pending?: (entity?: string) => boolean;   // a command sent and not yet confirmed
+  open?: boolean;                      // a band as a three-quarter dial, open at the bottom, with its ends named
 };
+
+// The open dial: from 225° to 135° through the top, the gap at the bottom.
+export const OPEN = { from: 225, range: 270 };
+const openStyle = (o: RingOptions) => o.open ? `; --o-from:${OPEN.from}deg; --o-range:${OPEN.range}deg` : '';
+// The ends of the open dial (min and max) and, when the band is a target, a
+// mark where the measurement is: the eye reads how far it is from its goal.
+function openMarks(r: RingReading, o: RingOptions) {
+  if (!o.open || !o.controls) return '';   // only on the ring that is operated: not on tiles, dots or layers behind
+  const dial = r.dial;
+  const ends = dial ? `<div class="orbit-13 dial-ends" style="--o-from:${OPEN.from}deg; --o-range:${OPEN.range}deg; --o-fit-range:1">
+      <div class="satellite" style="--o-size-ratio:3"><div class="capsule dial-end">${esc(`${num(dial.min)}${dial.unit}`)}</div></div>
+      <div class="satellite" style="--o-size-ratio:3"><div class="capsule dial-end">${esc(`${num(dial.max)}${dial.unit}`)}</div></div></div>` : '';
+  const now = r.now != null ? `<div class="orbit-12 now-orbit" style="--o-range:0deg; --o-from:${(OPEN.from + Math.min(1, Math.max(0, r.now)) * OPEN.range).toFixed(2)}deg">
+      <div class="vector now-mark" style="--o-size-ratio:1.6"></div></div>` : '';
+  return ends + now;
+}
 
 // A channel's ring on orbit-12, which touches the edge of the universe (.bigbang).
 // Thickness is in lanes: `lanes` = px / lane. With `controls`, the dial is
@@ -81,14 +99,14 @@ export function ring(key: string, r: RingReading, lanes: number, o: RingOptions 
     const busy = r.segs?.some((s) => isPending(s.entity)) || isPending(undefined) ? ' is-pending' : '';
     const dial = o.controls && r.dial;
     if (!dial) {
-      return `<div class="orbit-12${busy}" style="${size}"><o-progress value="${pct}"
-        style="--o-fill:${fill}; --o-back-fill:var(--line)"></o-progress></div>`;
+      return `<div class="orbit-12${busy}" style="${size}${openStyle(o)}"><o-progress value="${pct}"
+        style="--o-fill:${fill}; --o-back-fill:var(--line)"></o-progress></div>${openMarks(r, o)}`;
     }
-    return `<div class="orbit-12${busy}" style="${size}"><o-progress value="${pct}" class="dial" data-dial="${key}"
+    return `<div class="orbit-12${busy}" style="${size}${openStyle(o)}"><o-progress value="${pct}" class="dial" data-dial="${key}"
         interactive hit-width="12" role="slider" tabindex="0" aria-label="${esc(o.name ? t.dialOf(dial.label, o.name) : dial.label)}"
         aria-valuemin="${dial.min}" aria-valuemax="${dial.max}" aria-valuenow="${dial.value}"
         aria-valuetext="${num(dial.value)}${dial.unit}" style="--o-fill:${fill}; --o-back-fill:var(--line)"></o-progress>
-      <div class="satellite knob at-value" style="--o-size-ratio:1.4"></div></div>`;
+      <div class="satellite knob at-value" style="--o-size-ratio:1.4"></div></div>${openMarks(r, o)}`;
   }
   // A choice is a radio group: the one that is on has no action, the others switch to themselves.
   const role = r.kind === 'c' ? 'radio' : 'switch';
@@ -256,22 +274,34 @@ export function dialControls(el: HTMLElement, c: DialControls) {
   let drag: { key: string; last: number; handle?: string } | null = null;
   let swallowUntil = 0;
 
-  // Pointer angle (0 at the top, clockwise) as a fraction of a turn. Near the
-  // center the angle jumps with any movement: there it does not change.
+  // The ring's span: a full turn, or the open dial's (--o-from / --o-range on the orbit).
+  const spanOf = (ring: Element) => {
+    const cs = getComputedStyle(ring);
+    return { from: parseFloat(cs.getPropertyValue('--o-from')) || 0, range: parseFloat(cs.getPropertyValue('--o-range')) || 360 };
+  };
+  // Pointer angle as a fraction of the ring's span (0 at its start, clockwise).
+  // Near the center the angle jumps with any movement: there it does not
+  // change. In the gap of an open dial, the nearer end.
   const angleAt = (key: string, x: number, y: number) => {
-    const b = c.ringOf(key)?.getBoundingClientRect();
-    if (!b) return null;
+    const ring = c.ringOf(key), b = ring?.getBoundingClientRect();
+    if (!ring || !b) return null;
     const dx = x - (b.left + b.width / 2), dy = y - (b.top + b.height / 2);
     if (Math.hypot(dx, dy) < b.width * 0.2) return null;
-    return ((Math.atan2(dx, -dy) * 180 / Math.PI) + 360) % 360 / 360;
+    const { from, range } = spanOf(ring);
+    const a = ((Math.atan2(dx, -dy) * 180 / Math.PI) + 360 - from) % 360;
+    if (a > range) return a - range < 360 - a ? 1 : 0;
+    return a / range;
   };
   const dragTo = (x: number, y: number) => {
     if (!drag) return;
     let v = angleAt(drag.key, x, y);
     if (v === null) return;
-    // No jumps across zero: from the end to the start (and back) it stays at the limit.
-    if (drag.last > 0.75 && v < 0.25) v = 1;
-    else if (drag.last < 0.25 && v > 0.75) v = 0;
+    // On a full ring, no jumps across zero: from the end to the start (and back) it stays at the limit.
+    const ring = c.ringOf(drag.key);
+    if (ring && spanOf(ring).range >= 360) {
+      if (drag.last > 0.75 && v < 0.25) v = 1;
+      else if (drag.last < 0.25 && v > 0.75) v = 0;
+    }
     drag.last = v;
     c.set(drag.key, v, drag.handle);
   };
@@ -354,6 +384,7 @@ export type TimeRing = {
   label: string;                       // under the day's range, in the center
   unit?: string;                       // after the numbers
   min?: number; max?: number;          // the scale; by default from zero (or the lowest value, when some are negative) to the highest
+  marks?: boolean;                     // hour ticks on the rim and "6 h ago", "12 h ago", "18 h ago" outside
 };
 
 // The last 24 hours as a ring of radial bars, the way a voice visualizer
@@ -395,11 +426,22 @@ export function timeRing(tr: TimeRing) {
     // The older, the fainter.
     return `<o-arc class="time-bar outer-orbit${ago === 0 ? ' is-now' : ''}" start="${start}" value="1" interactive style="--o-size-ratio:${len.toFixed(3)}; opacity:${(1 - 0.6 * ago / (n / 2)).toFixed(2)}"${title}></o-arc>`;
   }).join('');
-  const range = nums.length ? (dataLo === dataHi ? `${num(dataHi)}${tr.unit ?? ''}` : `${num(dataLo)}–${num(dataHi)}${tr.unit ?? ''}`) : '';
-  return `<div class="bigbang time-ring" role="img" aria-label="${esc(`${t.last24h}: ${range}`)}"><div class="gravity-spot">
+  // The center says now; the day's range under it, rounded to what matters.
+  const r = (v: number) => num(v, Math.abs(dataHi) >= 10 ? 0 : 1);
+  const last = [...tr.values].reverse().find((v): v is number => v != null);
+  const range = nums.length ? (r(dataLo) === r(dataHi) ? `${r(dataHi)}${tr.unit ?? ''}` : `${r(dataLo)}–${r(dataHi)}${tr.unit ?? ''}`) : '';
+  const big = last != null ? `${num(last)}${tr.unit ?? ''}` : range;
+  // Hour marks, on request: a tick per hour on the rim, longer every six, and
+  // "6 h ago", "12 h ago", "18 h ago" along the outside; now is the top.
+  const marks = tr.marks ? `<div class="orbit-13 time-ticks">${Array.from({ length: 24 }, (_, k) =>
+      `<div class="vector time-tick${k % 6 === 0 ? ' is-major' : ''}" style="--o-size-ratio:${k % 6 === 0 ? 1 : 0.5}"></div>`).join('')}</div>
+    <div class="orbit-14 time-hours" style="--o-max:24">${[6, 12, 18].map((h) =>
+      `<o-arc range="auto" text-anchor="middle" start="${24 - h}"${h === 12 ? ' flip' : ''} class="time-hour">${esc(t.hAgo(h))}</o-arc>`).join('')}</div>` : '';
+  return `<div class="bigbang time-ring${tr.marks ? ' has-marks' : ''}" role="img" aria-label="${esc(`${t.last24h}: ${range}`)}"><div class="gravity-spot">
     <div class="orbit-6 time-bars" style="--o-max:${slots}; --o-gap:1; --o-stroke-width:0">${bars}</div>
+    ${marks}
     <div class="orbit-0" style="--o-size-ratio:8"><div class="satellite at-center"><div class="capsule time-center">
-      <span class="time-big">${esc(range)}</span><span class="time-label">${esc(tr.label)}</span></div></div></div>
+      <span class="time-big">${esc(big)}</span><span class="time-range">${esc(range)}</span><span class="time-label">${esc(tr.label)}</span></div></div></div>
   </div></div>`;
 }
 export const TIME_RING = 220;        // px; the universe of the time ring (see .time-ring in the CSS)

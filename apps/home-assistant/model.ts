@@ -30,6 +30,7 @@ export type Reading = {
   segs?: Seg[];
   dial?: Dial;
   range?: Range;
+  now?: number;                     // the measurement, in the dial's units, when the band is a target (a thermostat)
   big: string; label: string;
   name?: string;                    // replaces the channel's name when it follows the entity
   alert?: Alert;
@@ -209,7 +210,7 @@ function thermostat(pick: (s: States) => string | undefined, domain: 'climate' |
       kind: 'p', v: clamp((t - min) / (max - min)), entities: [id],
       dial: { min, max, step: attr(e, 'target_temp_step') ?? 1, unit: '°', label: 'target', value: t, entity: id,
         set: (x) => call(domain, 'set_temperature', id, { temperature: x }) },
-      big: cur != null ? `${num(cur)}${u.temp}` : `${num(t)}°`, label: label(e), alert: alert?.(s, e),
+      now: cur ?? undefined, big: cur != null ? `${num(cur)}${u.temp}` : `${num(t)}°`, label: label(e), alert: alert?.(s, e),
       name: ownName(s, id),
     };
   };
