@@ -149,7 +149,7 @@ button { font: inherit; color: inherit; }
 .time-bar { height: 3px; border-radius: 2px; background: var(--muted); opacity: .8; }
 .time-bar.is-now { background: var(--ink); height: 4px; opacity: 1; }
 .time-bar.is-empty { visibility: hidden; }
-.time-mark { --o-size-ratio: 4; }
+.time-mark { --o-size-ratio: 6.5; }
 .time-mark .capsule { font-size: 10px; color: var(--muted); white-space: nowrap; }
 .time-center { display: grid; justify-items: center; text-align: center; gap: 2px; }
 .time-big { font-size: 15px; font-weight: 600; letter-spacing: -.3px; white-space: nowrap; }
