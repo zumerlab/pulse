@@ -61,7 +61,7 @@ o-arc.is-failed { --o-stroke: var(--critical); --o-stroke-width: 2; }
 .foot .controls { padding: 0; justify-content: flex-end; }
 .foot .dots { justify-self: center; }
 .icon-btn { width: 44px; min-height: 44px; padding: 0; display: inline-grid; place-items: center; border-radius: 50%; color: var(--muted); }
-.icon-btn[aria-pressed="true"] { color: var(--ink); border-color: var(--muted); }
+.icon-btn[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
 .icon-btn .glyph { stroke-width: 1.5; }
 .stage { position: relative; width: 100%; overflow: hidden; perspective: 900px; }
 .obj {
@@ -74,7 +74,12 @@ o-arc.is-failed { --o-stroke: var(--critical); --o-stroke-width: 2; }
   transform: scale(calc(var(--zoom, 1.2) * var(--fit, 1))) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
   transition: transform .8s cubic-bezier(.2,.8,.2,1);
 }
-.stage[data-zoom="alert"] .obj { --zoom: 1.7; }
+/* In 3D the rings behind soften with the distance: a translucent halo of
+   their own color, wider the farther (--halo, set by the view). A blur filter
+   would do it better, but a filter inside a 3D-transformed tree flickers in
+   Chrome while the parallax moves. */
+.stage.is-3d .layer:not(.layer-front) > .orbit-12 :is(o-arc, o-progress) { --o-stroke: color-mix(in srgb, var(--o-fill, var(--muted)) 30%, transparent); --o-stroke-width: var(--halo, 0); }
+.stage[data-zoom="alert"] .obj { --zoom: 1.35; }
 .obj > .bigbang { width: 240px; }
 .obj .depth {
   --o-perspective: 900;             /* the same as .stage */
@@ -89,7 +94,7 @@ o-arc.is-failed { --o-stroke: var(--critical); --o-stroke-width: 2; }
 .disc {
   position: relative; width: 100%; height: 100%; border-radius: 50%;
   display: grid; place-content: center; justify-items: center; gap: 4px;
-  background: rgba(255,255,255,.06); backdrop-filter: blur(6px); border: 0;
+  background: rgba(255,255,255,.06); border: 0;   /* no backdrop-filter: inside a 3D tree it flickers black in Chrome and costs a frame */
   color: var(--ink); text-align: center;
   container-type: size;                /* the face sizes its lines from the disc (cqw) */
 }
@@ -177,7 +182,7 @@ o-arc.is-failed { --o-stroke: var(--critical); --o-stroke-width: 2; }
 /* ─── Time ring ───────────────────────────────────────── */
 .time-ring { width: 220px; aspect-ratio: 1; margin: 10px auto; }
 .time-bar { --o-fill: var(--ink); --o-stroke: transparent; cursor: default; }
-.time-bar.is-now { opacity: 1 !important; filter: drop-shadow(0 0 4px var(--ink)); }
+.time-bar.is-now { opacity: 1 !important; --o-stroke: color-mix(in srgb, var(--ink) 45%, transparent); --o-stroke-width: 3; }
 .time-center { display: grid; justify-items: center; text-align: center; gap: 1px; }
 .time-range { font-size: 10px; color: var(--ink); white-space: nowrap; }
 .time-ring.has-marks { margin: 26px auto; }
@@ -197,9 +202,11 @@ o-arc.is-failed { --o-stroke: var(--critical); --o-stroke-width: 2; }
 .track.warn .track-span { --o-fill: var(--minor); }
 .track.critical .track-span { --o-fill: var(--critical); }
 .track.has-act o-arc { cursor: pointer; }
-.track.is-on .track-span:last-of-type { filter: drop-shadow(0 0 3px var(--ink)); }
-.track.warn.is-on .track-span:last-of-type { filter: drop-shadow(0 0 3px var(--minor)); }
-.track.critical.is-on .track-span:last-of-type { filter: drop-shadow(0 0 3px var(--critical)); }
+.track-name { --o-fill: var(--bg); --o-color: var(--muted); }
+/* The ring on right now arrives at the top brighter (a glow would be a filter: those are drawn every frame behind a zoom). */
+.track.is-on .track-span:last-of-type { --o-stroke: color-mix(in srgb, var(--ink) 40%, transparent); --o-stroke-width: 2.5; }
+.track.warn.is-on .track-span:last-of-type { --o-stroke: color-mix(in srgb, var(--minor) 40%, transparent); }
+.track.critical.is-on .track-span:last-of-type { --o-stroke: color-mix(in srgb, var(--critical) 40%, transparent); }
 .track.is-pending { animation: track-beat 1.2s ease-in-out infinite; }
 .capsule.time-event { width: max-content; height: auto; }
 @keyframes track-beat { 50% { opacity: .35; } }
@@ -211,6 +218,19 @@ o-arc.is-failed { --o-stroke: var(--critical); --o-stroke-width: 2; }
 .timeline .time-big, .timeline .time-label { max-width: 100%; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .timeline .time-big { font-size: 22px; }
 .timeline .time-label { font-size: 11px; }
+
+/* ─── Detail ring: the channel's dial, big, with the color arcs inside ── */
+.detail-ring { width: 260px; height: 260px; margin: 16px auto; }
+.ring-grab { outline: none; }
+.ring-grab o-arc { --o-fill: transparent; --o-stroke: transparent; cursor: grab; }
+.ring-grab:focus-visible + .knob-orbit .knob { box-shadow: 0 0 0 3px var(--bg), 0 0 0 5px var(--ink); }
+.hue-ring o-arc, .sat-ring o-arc { --o-stroke: transparent; }
+.hue-ring.is-unset, .sat-ring.is-unset { opacity: .5; }
+.hue-knob, .sat-knob { box-shadow: 0 0 0 2px #fff, 0 0 0 3px rgba(0,0,0,.4); }
+.ring-center { width: 100%; height: 100%; border-radius: 50%; display: grid; place-content: center; justify-items: center; gap: 2px; text-align: center; }
+.ring-center.has-color { background: color-mix(in srgb, var(--c) 30%, transparent); }
+.ring-big { font-size: 22px; font-weight: 600; letter-spacing: -.5px; white-space: nowrap; }
+.ring-label { font-size: 11px; color: var(--muted); white-space: nowrap; max-width: 90px; overflow: hidden; text-overflow: ellipsis; }
 
 /* ─── Color wheel ─────────────────────────────────────── */
 .color-wheel {
@@ -227,7 +247,7 @@ o-arc.is-failed { --o-stroke: var(--critical); --o-stroke-width: 2; }
 }
 .color-wheel.is-unset .color-handle { opacity: .5; }
 .toggle { cursor: pointer; outline: none; }
-.toggle:focus-visible { filter: drop-shadow(0 0 3px var(--ink)); }
+.toggle:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; border-radius: 50%; }
 .how { flex-basis: 100%; font-size: 12px; color: var(--muted); }
 .switches { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
 .switches label { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 14px; border: 1px solid var(--dim); border-radius: 8px; cursor: pointer; }
@@ -260,3 +280,68 @@ o-arc.is-failed { --o-stroke: var(--critical); --o-stroke-width: 2; }
   .obj { --zoom: 1.1; }
 }
 @media (prefers-reduced-motion: reduce) { .dot.has-alert, .track.is-pending { animation: none; } }
+
+/* ─── Month ring: a calendar ──────────────────────────── */
+.day .capsule { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.day.is-today .capsule { color: var(--ink); font-weight: 650; }
+.day.is-today { background: rgba(255,255,255,.1); border-radius: 50%; }
+.day.is-ahead { opacity: .4; }
+.month-bar { --o-fill: var(--muted); --o-stroke: transparent; cursor: default; }
+.month-bar.is-today { --o-fill: var(--ink); }
+.month-ring .time-big { font-size: 26px; }
+.month-ring .time-range { color: var(--muted); }
+
+/* ─── Clock rim (inside the orbit's center) ───────────── */
+.clock-tick { height: 1px; background: var(--dim); --o-alignment: 2px; }
+.clock-mark { border-radius: 50%; background: var(--muted); cursor: default; }
+.clock-mark.level-1 { background: var(--minor); }
+.clock-mark.level-2 { background: var(--critical); }
+.clock-now { border-radius: 50%; background: var(--ink); box-shadow: 0 0 0 2px var(--bg); cursor: default; }
+
+/* ─── Radial list ─────────────────────────────────────── */
+.radial-list { outline: none; }
+.radial-list:focus-visible .list-item.is-focus { box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--ink); border-radius: 50%; }
+.list-orbit.is-hidden { display: none; }
+.list-item { cursor: pointer; }
+.list-item .capsule { position: relative; width: 100%; height: 100%; display: grid; place-items: center; }
+.list-item .list-ring { position: absolute; inset: 0; width: 100%; }
+.list-item .list-glyph { display: grid; color: var(--muted); }
+.list-item.is-focus .list-glyph { color: var(--ink); }
+.list-item.level-1 .list-glyph { color: var(--minor); }
+.list-item.level-2 .list-glyph { color: var(--critical); }
+.list-track o-arc { --o-stroke: transparent; }
+.list-center.level-1 .face-big { color: var(--minor); }
+.list-center.level-2 .face-big { color: var(--critical); }
+
+/* ─── Music visual, inside a face ─────────────────────── */
+.disc:has(.face-visual) { overflow: hidden; isolation: isolate; }
+.face-visual { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 50%; z-index: -1; pointer-events: none; }
+
+/* ─── Scroll list: a long list, in a circle ───────────── */
+.scroll-list { outline: none; touch-action: none; }
+.scroll-orbit.is-hidden { display: none; }
+.scroll-orbit > .satellite { transition: transform .25s cubic-bezier(.2, .8, .2, 1), opacity .25s; }
+.scroll-item { cursor: pointer; }
+.scroll-item .capsule { position: relative; width: 100%; height: 100%; overflow: visible; }
+/* The name reaches inward from its point on the ring, never past the center. */
+.scroll-item .sl-text {
+  position: absolute; right: 50%; top: 50%; transform: translateY(-50%); width: 168px; padding-right: 12px;
+  text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 14px; color: var(--muted); transition: color .2s;
+}
+.scroll-item.is-focus .sl-text { color: var(--ink); }
+.scroll-item.is-on .sl-text { color: var(--ink); font-weight: 600; }
+.scroll-item.is-on::after { content: ""; position: absolute; left: 50%; top: 50%; width: 7px; height: 7px; margin: -3.5px 0 0 -3.5px; border-radius: 50%; background: var(--ink); }
+.scroll-list:focus-visible .scroll-item.is-focus .sl-text { text-decoration: underline; text-underline-offset: 3px; }
+.scroll-list.is-pending .scroll-item { opacity: .5 !important; }
+.scroll-track o-arc { --o-fill: var(--line); --o-stroke: transparent; }
+.scroll-thumb { --o-fill: var(--muted); --o-stroke: transparent; cursor: grab; }
+.scroll-list:active .scroll-thumb { cursor: grabbing; }
+@media (prefers-reduced-motion: reduce) { .scroll-orbit > .satellite { transition: none; } }
+
+/* ─── Behind the current view, nothing moves ──────────── */
+/* Zumly keeps the views behind in the DOM, scaled and blurred: an animation
+   there (an alert's wave, a tile's call) makes Chrome blur the whole view
+   again every frame. */
+.zumly-canvas > :not(.is-current-view):not(.is-new-current-view) * { animation-play-state: paused !important; }
+.zumly-canvas > :not(.is-current-view):not(.is-new-current-view) *::after,
+.zumly-canvas > :not(.is-current-view):not(.is-new-current-view) *::before { animation-play-state: paused !important; }

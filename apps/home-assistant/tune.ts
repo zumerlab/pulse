@@ -7,6 +7,7 @@ import { t } from './strings.ts';
 export type Tune = {
   orbit: number; tile: number; align: number; hub: number; orbitStep: number;
   layerGrow: number; layerStep: number; layerZoom: number; layerOpacity: number;
+  layerEase: number; layerStroke: number; layerBlur: number;
   tilt: number;
 };
 
@@ -14,6 +15,7 @@ export type Tune = {
 export const DEFAULTS: Tune = {
   orbit: 10, tile: 3.5, align: 20, hub: 11, orbitStep: -110,
   layerGrow: 0.42, layerStep: -70, layerZoom: 1.1, layerOpacity: 0.6,
+  layerEase: 0, layerStroke: 4, layerBlur: 0.5,
   tilt: 7,
 };
 
@@ -27,19 +29,27 @@ const GROUPS: [string, Control[]][] = [
     { key: 'orbitStep', label: 'Distance of the systems behind', min: -250, max: 0, step: 5, unit: 'px' },
   ]],
   ['Layers', [
-    { key: 'layerGrow', label: 'Growth per layer', min: 0, max: 0.42, step: 0.01 },
+    { key: 'layerGrow', label: 'Growth per layer (at most; all the layers fit)', min: 0, max: 0.42, step: 0.01 },
+    { key: 'layerEase', label: 'Spacing: bunched behind ← even → bunched in front', min: -1, max: 1, step: 0.05 },
+    { key: 'layerStroke', label: 'Stroke of the layers behind', min: 1, max: 8, step: 0.5, unit: 'px' },
+    { key: 'layerBlur', label: 'Halo per layer behind', min: 0, max: 3, step: 0.1, unit: 'px' },
     { key: 'layerStep', label: 'Distance between layers', min: -150, max: 0, step: 5, unit: 'px' },
     { key: 'layerZoom', label: 'Object zoom', min: 0.7, max: 1.5, step: 0.05 },
     { key: 'layerOpacity', label: 'Opacity of the layers behind', min: 0.2, max: 1, step: 0.05 },
   ]],
   ['3D', [
-    { key: 'tilt', label: 'Maximum tilt', min: 0, max: 20, step: 1, unit: '°' },
+    { key: 'tilt', label: 'Maximum tilt with the pointer', min: 0, max: 20, step: 1, unit: '°' },
   ]],
 ];
 
 const KEY = 'pulse-ha-tune';
 export const tune: Tune = { ...DEFAULTS };
-try { Object.assign(tune, JSON.parse(localStorage.getItem(KEY) ?? '{}')); } catch { /* no storage: code values */ }
+// Only the keys that still exist: a value kept by an old build (the rest tilt
+// of 31/10, which Martin turned down) stays out, and the panel has no control for it.
+try {
+  const kept = JSON.parse(localStorage.getItem(KEY) ?? '{}') as Record<string, number>;
+  for (const k of Object.keys(DEFAULTS) as (keyof Tune)[]) if (typeof kept[k] === 'number') tune[k] = kept[k];
+} catch { /* no storage: code values */ }
 
 // What is CSS goes into root variables; what changes the markup (the orbit,
 // the growth of the layers) asks the board to redraw.
@@ -52,6 +62,8 @@ function apply() {
   s.setProperty('--t-layer-step', String(tune.layerStep));
   s.setProperty('--t-layer-zoom', String(tune.layerZoom));
   s.setProperty('--t-layer-opacity', String(tune.layerOpacity));
+  s.setProperty('--t-layer-blur', `${tune.layerBlur}px`);
+  s.removeProperty('--tilt-rest');
 }
 apply();
 

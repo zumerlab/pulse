@@ -25,7 +25,7 @@ function status(ha: PulseSource) {
     <button class="plain" data-action="signout">${ha === demo ? t.leaveDemo : t.signOut}</button></span>`;
 }
 
-// `?systems=lights,climate&mode=orbit&start=climate&areas=kitchen,living_room`
+// `?systems=lights,climate&mode=orbit&start=climate&areas=kitchen,living_room&layers=3`
 // fixes what the page shows (a kiosk, a shared link); the gear chooses within that.
 const query = new URLSearchParams(location.search);
 const listParam = (name: string) => { const v = query.get(name)?.split(',').map((s) => s.trim()).filter(Boolean); return v?.length ? v : undefined; };
@@ -37,6 +37,7 @@ const pulse = mountPulse(canvas, {
   areas: listParam('areas'),
   mode: modeParam && BOARD_MODES.includes(modeParam) ? modeParam : undefined,
   start: query.get('start') ?? undefined,
+  layers: Number(query.get('layers')) || undefined,
   status,
   onAction: (action) => { if (action === 'signout') void leave(); },
   // Signed out: the login covers the canvas; signed in: the object.

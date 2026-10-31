@@ -60,7 +60,25 @@ export interface PulseSource {
   // The last `hours` hours of these entities as the moments their state
   // changed (see Change), one list per entity.
   changes?(entities: string[], hours: number): Promise<Record<string, Change[]>>;
+  // A total-increasing entity (energy, kWh) as one value per day of this
+  // month, the first day first, up to today; null where nothing is known.
+  statistics?(entity: string): Promise<(number | null)[]>;
 }
+
+// What `recorder/statistics_during_period` returns per entity with period
+// 'day': one row per day, `start` in ms and the day's `change`.
+export type StatRow = { start: number; change?: number | null };
+// The days of this month from the recorder's rows: a value where a day has one.
+export function dailyOf(rows: StatRow[], now = new Date()): (number | null)[] {
+  const days = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const out: (number | null)[] = Array.from({ length: days }, () => null);
+  for (const r of rows) {
+    const d = new Date(r.start);
+    if (d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && r.change != null) out[d.getDate() - 1] = Math.round(r.change * 100) / 100;
+  }
+  return out;
+}
+export const monthStart = (now = new Date()) => new Date(now.getFullYear(), now.getMonth(), 1);
 
 // What `history/history_during_period` returns with minimal_response and
 // no_attributes: per entity, the state and when it was last updated (seconds).
@@ -316,5 +334,14 @@ export class WebSocketSource implements PulseSource {
       start_time: new Date(now - hours * 3600_000).toISOString(), end_time: new Date(now).toISOString(),
     });
     return Object.fromEntries(entities.map((e) => [e, changesOf(rows[e] ?? [], hours, now)]));
+  }
+
+  async statistics(entity: string) {
+    if (!this.conn) throw new Error(t.errNoConnection);
+    const rows = await this.conn.sendMessagePromise<Record<string, StatRow[]>>({
+      type: 'recorder/statistics_during_period', statistic_ids: [entity], period: 'day', types: ['change'],
+      start_time: monthStart().toISOString(), end_time: new Date().toISOString(),
+    });
+    return dailyOf(rows[entity] ?? []);
   }
 }

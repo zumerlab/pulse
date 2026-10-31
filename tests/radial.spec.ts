@@ -85,9 +85,18 @@ test('a simulated alert ripples from the failing segment, not from the disc', as
   await expect(current(page).locator('.strip')).toContainText('Opened with the alarm armed');
   const discWave = await front.locator('.disc').evaluate((el) => getComputedStyle(el, '::after').display);
   expect(discWave).toBe('none');
-  // The stage zooms in with the alert and the 3D view switches on.
+  // The stage zooms in with the alert and the 3D view switches on: the button shows it pressed.
   await expect(current(page).locator('.stage')).toHaveAttribute('data-zoom', 'alert');
-  await expect(current(page).locator('[data-act="view"]')).toHaveAttribute('aria-label', 'View flat');
+  const view = current(page).locator('[data-act="view"]');
+  await expect(view).toHaveAttribute('aria-label', 'View flat');
+  await expect(view).toHaveAttribute('aria-pressed', 'true');
+  await expect(current(page).locator('.stage')).toHaveClass(/is-3d/);
+  // The toggle still decides while the alert lasts.
+  await view.click();
+  await expect(view).toHaveAttribute('aria-pressed', 'false');
+  await expect(current(page).locator('.stage')).not.toHaveClass(/is-3d/);
+  await view.click();
+  await expect(current(page).locator('.stage')).toHaveClass(/is-3d/);
 
   await current(page).locator('[data-resolve="security"]').click();
   await expect(current(page).locator('.layer-front .face-name')).toHaveText('Climate');

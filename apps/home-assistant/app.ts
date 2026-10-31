@@ -3,9 +3,10 @@ import type { Call, Change, HassState, PulseSource, Status } from './source.ts';
 import { nameOf, placeOf, spansOf, systems, type Alert, type Channel, type Dial, type Reading } from './model.ts';
 import { tune } from './tune.ts';
 import {
-  DOT_LANES, LANE, LOCK_MS, MAX_TRACKS, MINI_LANES, PHONE, SIZE, STROKE, backLayer, calmStrip, colorWheel, dialControls, dots, esc, face,
-  fitFor, icon, labelAt, levelColor, num, parallax, ring as drawRing, setViewToggle, startInside, systemShell, time, timeRing, timeline, viewToggle, wheelControls, zumlyOptions,
-  type RingReading,
+  DOT_LANES, LANE, LOCK_MS, MAX_TRACKS, MINI_LANES, PHONE, SIZE, STROKE, backLayer, calmStrip, clockRim, colorArcs, dialControls, dots, esc, face,
+  fitFor, hsCss, icon, labelAt, levelColor, listCenter, listControls, monthRing, musicVisual, num, parallax, radialList, ring as drawRing, ringCenter, satColor,
+  SCROLL_VISIBLE, scrollControls, scrollList, setViewToggle, startInside, systemShell, time, timeRing, timeline, turnList, viewToggle, zumlyOptions,
+  type ListItem, type RingReading, type ScrollState,
 } from '@zumer/pulse';
 import { t } from './strings.ts';
 
@@ -17,8 +18,8 @@ import { t } from './strings.ts';
 // WebSocket or a demo home; the card (`card/`) in its shadow root with the
 // `hass` object.
 
-export type BoardMode = 'grid' | 'orbit' | 'layers';
-export const BOARD_MODES: BoardMode[] = ['grid', 'orbit', 'layers'];
+export type BoardMode = 'grid' | 'orbit' | 'layers' | 'list';
+export const BOARD_MODES: BoardMode[] = ['grid', 'orbit', 'layers', 'list'];
 
 // What a screen shows: the viewer's choices (the gear on the board), kept in
 // the browser. The host's `PulseOptions` are the frame they are made within.
@@ -34,6 +35,8 @@ export type PulseSettings = {
   entities?: Record<string, string>;
   // How the object draws: the dial as a full ring or open at the bottom with its ends; the day ring bare or with hour marks.
   look?: Look;
+  // How many systems the Layers view stacks (the rest are named under the object); nothing set: all of them.
+  layers?: number;
 };
 export type Look = { dial?: 'full' | 'open'; day?: 'plain' | 'marks' };
 export const DIALS = ['full', 'open'] as const, DAYS = ['plain', 'marks'] as const;
@@ -50,6 +53,8 @@ export type PulseOptions = {
   areas?: string[];
   // How the object draws (the gear's defaults): see Look.
   look?: Look;
+  // How many systems the Layers view stacks by default; nothing set: all of them.
+  layers?: number;
   // Where the viewer's choices are kept: a localStorage key (default
   // 'pulse-ha-settings'); `false` hides the gear and keeps nothing.
   settings?: string | false;
@@ -96,6 +101,7 @@ const frame = {
   systems: valid(options.systems).length ? valid(options.systems) : ALL, mode: options.mode, start: options.start,
   areas: options.areas?.length ? options.areas : undefined,
   look: options.look,
+  layers: options.layers && options.layers >= 1 ? Math.floor(options.layers) : undefined,
 };
 const STORE = options.settings === false ? null : options.settings ?? 'pulse-ha-settings';
 const loadSettings = (): PulseSettings => {
@@ -133,8 +139,10 @@ const hiddenChannels = (id: string) => {
 };
 // The look in force: the viewer's choice over the host's.
 const look = (): Required<Look> => ({ dial: 'full', day: 'plain', ...frame.look, ...local.look });
+// How many layers the Layers view stacks: the viewer's choice, the host's, or every system.
+const layersShown = () => { const n = local.layers ?? frame.layers; return n && n >= 1 ? Math.min(n, IDS.length) : IDS.length; };
 const settings = (): PulseSettings => ({ systems: IDS, mode: boardMode, start: startId() ?? undefined,
-  areas: activeAreas(), channels: local.channels, entities: local.entities, look: look() });
+  areas: activeAreas(), channels: local.channels, entities: local.entities, look: look(), layers: layersShown() });
 const setSettings = (patch: PulseSettings) => {
   local = { ...local, ...patch };
   for (const k of Object.keys(local) as (keyof PulseSettings)[]) {
@@ -167,6 +175,22 @@ const failed = new Map<string, { calls: Call[]; message: string }>();
 const hold = new Map<string, { value: number; until: number }>();
 const log: { at: Date; text: string; level: number; entity?: string }[] = [];
 const rerender = new Set<() => void>();
+// A view behind the current one (Zumly keeps it, scaled and blurred) does not
+// repaint: Chrome would blur it again on each change. It repaints when it
+// comes back to the front.
+function whenCurrent(ctx: ViewContext, paint: () => void) {
+  let dirty = false;
+  const el = ctx.target;
+  const run = () => {
+    if (el.isConnected && !el.closest('.is-current-view, .is-new-current-view')) { dirty = true; return; }
+    dirty = false;
+    paint();
+  };
+  ctx.onActivate(() => { if (dirty) run(); });
+  rerender.add(run);
+  ctx.onCleanup(() => { rerender.delete(run); });
+  return run;
+}
 let toast = '';
 
 const PENDING_MS = 8000;
@@ -174,6 +198,12 @@ const PENDING_MS = 8000;
 // (tune.layerGrow, 16% by default), and the labels of the layers behind spread
 // out so they do not overlap.
 const LABEL_AT = [300, 30, 330, 60, 280, 80];
+// The detail's ring: about 11 px of stroke on its 260 px universe.
+const DETAIL_LANES = 1;
+// Where each scrolling list of the detail is (first item shown, focus), kept across repaints and visits.
+const scrolls = new Map<string, ScrollState>();
+const scrollState = (key: string) => { let st = scrolls.get(key); if (!st) { st = { offset: 0, focus: 0 }; scrolls.set(key, st); } return st; };
+const scrollOpened = new Set<string>();
 
 const sig = (a: Alert) => `${a.level}|${a.big}|${a.why}`;
 
@@ -321,11 +351,23 @@ function mini(id: string) {
   const level = worst(id);
   return `<button class="tile zoom-me${level ? ` has-alert level-${level}` : ''}" data-to="sys-${id}" data-system="${id}"
       aria-label="${t.open(sys.title)}">
-    <span class="bigbang mini-ring"><span class="gravity-spot">${ring(key, r, MINI_LANES, false, !r.alert)}</span></span>
+    <span class="bigbang mini-ring"><span class="gravity-spot">${ring(key, r, MINI_LANES, false, !r.alert)}</span></span>${visualFor(id, key)}
     <span class="mini-glyph">${icon(ch.glyph, 26)}</span>
     <span class="tile-title">${sys.title}</span>
     <span class="tile-big">${esc(r.alert && !ui[id].seen.has(key) ? r.alert.big : r.big)}</span>
   </button>`;
+}
+
+// Sound in Media's face: a canvas the visual draws on, when the playing channel is in front.
+const visualFor = (id: string, key: string) => id === 'media' && key === 'playing' ? '<canvas class="face-visual" aria-hidden="true"></canvas>' : '';
+// Starts the visual on every canvas of a view not drawing yet; returns the stop of them all.
+function startVisuals(root: HTMLElement, stops: Map<HTMLCanvasElement, () => void>) {
+  for (const [c, stop] of stops) if (!c.isConnected) { stop(); stops.delete(c); }
+  for (const c of root.querySelectorAll<HTMLCanvasElement>('canvas.face-visual')) {
+    if (stops.has(c)) continue;
+    const map = readings.media;
+    stops.set(c, musicVisual(c, { level: () => map?.get('volume')?.r.v ?? 0.6, playing: () => !!map?.get('playing')?.r.segs?.some((x) => x.on) }));
+  }
 }
 
 function headline() {
@@ -340,12 +382,29 @@ function headline() {
 // The connection line is the shell's (sign out, leave the demo); a card has none.
 const status = () => options.status?.(ha) ?? '';
 
-// Three ways to look at the whole home, over the same data:
+// Four ways to look at the whole home, over the same data:
 // - grid: a mini ring per system (the usual one);
-// - orbit: the home's pulse in the center and the systems around it;
-// - layers: a single object, one system per layer; the one calling the most in front.
-const MODES: [BoardMode, string][] = [['grid', t.modes.grid], ['orbit', t.modes.orbit], ['layers', t.modes.layers]];
+// - orbit: the home's pulse in the center (with the clock's rim: the hours, the latest changes at their minute) and the systems around it;
+// - layers: a single object, one system per layer; the one calling the most in front;
+// - list: the systems on a ring that turns, like the lists of a watch.
+const MODES: [BoardMode, string][] = BOARD_MODES.map((m) => [m, t.modes[m]]);
 let boardPick: string | null = null;
+// The list: which item is at the top (fractional while it turns). Kept across views.
+let listOffset = 0;
+
+// This month of an energy meter, by day (the detail's calendar), asked once
+// per meter and kept a while.
+const months = new Map<string, { values: (number | null)[]; at: number; error?: boolean }>();
+const MONTH_MS = 15 * 60_000;
+const monthLoading = new Set<string>();
+async function loadMonth(entity: string) {
+  if (monthLoading.has(entity) || !ha.statistics) return;
+  monthLoading.add(entity);
+  try { months.set(entity, { values: await ha.statistics(entity), at: Date.now() }); }
+  catch { months.set(entity, { values: [], at: Date.now(), error: true }); }
+  monthLoading.delete(entity);
+  repaint();
+}
 
 // Systems front to back: the choice made by hand, the ones calling (most serious
 // first) and then the usual order. A new alert cancels the choice.
@@ -387,9 +446,12 @@ function hubRing(ids: string[]) {
     return `<o-arc style="--o-fill:${level ? levelColor(level as 1 | 2) : 'var(--dim)'}"></o-arc>`;
   }).join('');
   // The systems are shifted half a step (none right at the top): each segment
-  // faces its own without rotating the ring.
+  // faces its own without rotating the ring. Inside, the clock's rim: the
+  // hours, now, and the latest changes as dots at their minute.
+  const since = Date.now() - 12 * 3600_000;
   return `<span class="bigbang hub-ring"><span class="gravity-spot">
-    <div class="orbit-12" style="--o-size-ratio:.5; --o-gap:30">${segs}</div></span></span>`;
+    <div class="orbit-12" style="--o-size-ratio:.5; --o-gap:30">${segs}</div>
+    ${clockRim(log.filter((l) => l.at.getTime() > since).slice(0, 24).map((l) => ({ at: l.at, level: l.level, text: l.text })))}</span></span>`;
 }
 
 // Inside the center, one thing at a time: each alert (most serious first) and
@@ -411,7 +473,7 @@ function hubSlides(): Slide[] {
     .sort((a, b) => b.last_changed.localeCompare(a.last_changed)).slice(0, 3)
     .map((s) => `<li><span>${esc(nameOf(ha.states, s.entity_id))}</span><strong>${esc(stateText(s))}</strong></li>`);
   list.push({ key: 'pulse', level: 0, html: `<div class="slide">
-    <p class="eyebrow">${t.pulse}</p>
+    <p class="eyebrow">${t.pulse} · ${time(new Date()).slice(0, 5)}</p>
     <p class="slide-big${alerts.length ? ' is-calling' : ''}">${alerts.length ? t.nAlerts(alerts.length) : t.allCalm.replace(/\.$/, '')}</p>
     <ul class="hub-rows">${rows.join('') || `<li><span>${t.waitingChanges}</span></li>`}</ul></div>` });
   return list;
@@ -448,6 +510,10 @@ function board(ctx: ViewContext) {
   let built: BoardMode | null = null;
   let layers = new Map<string, HTMLElement>();
   let beat = log[0];
+  let unbuild: (() => void) | null = null;     // what the built view set up (the list's controls)
+  ctx.onCleanup(() => unbuild?.());
+  const visuals = new Map<HTMLCanvasElement, () => void>();
+  ctx.onCleanup(() => { for (const stop of visuals.values()) stop(); });
 
   // Orbit and layers are sized by the space left (--S, in px). In the orbit,
   // Orbit places everything from its universe; --S only scales text and icons.
@@ -470,7 +536,7 @@ function board(ctx: ViewContext) {
     obj.style.setProperty('--ry', `${ry.toFixed(2)}deg`);
   };
   body.addEventListener('pointermove', (e) => {
-    if (boardMode === 'grid' || PHONE || e.pointerType === 'touch') return;
+    if (!['orbit', 'layers'].includes(boardMode) || PHONE || e.pointerType === 'touch') return;
     const b = body.getBoundingClientRect();
     tilt(-((e.clientY - b.top) / b.height - 0.5) * 2 * tune.tilt, ((e.clientX - b.left) / b.width - 0.5) * 2 * tune.tilt);
   });
@@ -481,7 +547,22 @@ function board(ctx: ViewContext) {
     layers = new Map();
     boardEl.className = `board mode-${boardMode}`;
     drawn.delete(body);
-    if (boardMode === 'orbit') {
+    unbuild?.();
+    unbuild = null;
+    if (boardMode === 'list') {
+      body.innerHTML = `<div class="stage list-stage"><div class="one"></div></div>`;
+      const obj = body.querySelector<HTMLElement>('.one')!;
+      const turn = (o: number, settled: boolean) => {
+        listOffset = o;
+        const root = obj.querySelector<HTMLElement>('.radial-list');
+        if (!root) return;
+        root.classList.toggle('is-turning', !settled);
+        const i = turnList(root, o);
+        const id = listIds[i];
+        if (id) setHTML(root.querySelector<HTMLElement>('.list-center-orbit')!, listCenter(listItem(id)));
+      };
+      unbuild = listControls(obj, { count: () => listIds.length, offset: () => listOffset, set: (o) => turn(o, false), settle: (o) => turn(o, true) });
+    } else if (boardMode === 'orbit') {
       // The whole orbit is one Orbit system: the universe is the space left, the
       // pulse is the center satellite and the systems, satellites of orbit-10
       // (tune.orbit).
@@ -496,16 +577,23 @@ function board(ctx: ViewContext) {
     } else if (boardMode === 'layers') {
       // In 3D, like the orbit: each layer one step further back and the pointer tilts the object.
       body.innerHTML = `<div class="stage board-stage" data-zoom="calm"><div class="obj"><div class="bigbang">
-        <div class="gravity-spot depth outer-perspective" style="--o-depth-grow:${tune.layerGrow}"></div></div></div>
+        <div class="gravity-spot depth outer-perspective"></div></div></div>
         <div class="strip board-strip"></div></div>`;
     } else body.innerHTML = '';
   };
 
-  // Three layers at most (two on the phone), like a system's object; the
-  // systems past them are named under it, each a button that brings it to the front.
+  // One layer per system, all of them by default (the gear or the host can
+  // cap it; the rest are named under the object, each a button). The growth
+  // per layer shrinks so the outermost always fits, and the spacing is even
+  // or bunched behind or in front (tune.layerEase): each layer gets a
+  // fractional depth, which Orbit turns into its distance and its size.
   const paintLayers = (all: string[]) => {
     const depth = body.querySelector<HTMLElement>('.depth')!;
-    const ids = all.slice(0, SIZE.length), rest = all.slice(SIZE.length);
+    const n = Math.max(1, Math.min(all.length, layersShown()));
+    const ids = all.slice(0, n), rest = all.slice(n);
+    const grow = n > 1 ? Math.min(tune.layerGrow, 0.96 / (n - 1)) : tune.layerGrow;
+    const ease = Math.pow(2, tune.layerEase * 1.5);
+    depth.style.setProperty('--o-depth-grow', grow.toFixed(3));
     for (const [id, layer] of layers) if (!ids.includes(id)) { layer.remove(); layers.delete(id); }
     ids.forEach((id, i) => {
       let layer = layers.get(id);
@@ -515,25 +603,51 @@ function board(ctx: ViewContext) {
         depth.append(layer);
         layers.set(id, layer);
       }
-      const f = front(id), grow = 1 + tune.layerGrow * i, level = worst(id);
+      const d = n > 1 ? (n - 1) * Math.pow(i / (n - 1), ease) : 0;
+      const f = front(id), scale = 1 + grow * d, level = worst(id);
       // Orbit redraws the arcs on any attribute change, even to the same value:
       // only what changed is written.
       if (layer.dataset.depth !== String(i)) layer.dataset.depth = String(i);
+      const dz = d.toFixed(3);
+      if (layer.style.getPropertyValue('--o-depth') !== dz) layer.style.setProperty('--o-depth', dz);
+      // The halo is drawn before Orbit scales the layer: divided by that scale, it reads the same on every layer.
+      const halo = (d * tune.layerBlur / (scale * (1 - d * tune.layerStep / 900))).toFixed(2);
+      if (layer.style.getPropertyValue('--halo') !== halo) layer.style.setProperty('--halo', halo);
       if (layer.dataset.level !== String(level)) layer.dataset.level = String(level);
       if (layer.classList.contains('layer-front') !== (i === 0)) layer.classList.toggle('layer-front', i === 0);
       if (layer.classList.contains('is-alert') !== level > 0) layer.classList.toggle('is-alert', level > 0);
-      const stroke = i === 0 ? 6 : 2.5;
-      setHTML(layer, ring(f.key, f.r, stroke / grow / LANE, false, !level) + (i === 0
+      const stroke = i === 0 ? 6 : tune.layerStroke;
+      setHTML(layer, ring(f.key, f.r, stroke / scale / LANE, false, !level) + (i === 0
         ? face({ glyph: f.ch.glyph, name: SYS[id].title, big: f.big, label: f.a ? f.a.why : `${f.ch.name.toLowerCase()} · ${f.label}`,
-          to: `sys-${id}`, props: { system: id }, aria: t.open(SYS[id].title) })
-        : backLayer({ text: `${SYS[id].title} · ${f.big}`, at: LABEL_AT[(i - 1) % LABEL_AT.length], grow, stroke, hit: 8,
+          to: `sys-${id}`, props: { system: id }, aria: t.open(SYS[id].title), extra: visualFor(id, f.key) })
+        : backLayer({ text: `${SYS[id].title} · ${f.big}`, at: LABEL_AT[(i - 1) % LABEL_AT.length], grow: scale, stroke, hit: 8,
           pick: { attr: 'data-bpick', value: id, aria: t.bringToFront(SYS[id].title) } })));
     });
     const stage = body.querySelector<HTMLElement>('.board-stage')!;
     const zoom = ids.some((id) => worst(id)) ? 'alert' : 'calm';
     if (stage.dataset.zoom !== zoom) stage.dataset.zoom = zoom;
-    setHTML(stage.querySelector<HTMLElement>('.board-strip')!, rest.length ? `<span class="behind">${t.behind(rest.length)}: ${rest.map((id) =>
-      `<button class="more" data-bpick="${id}" aria-label="${esc(t.bringToFront(SYS[id].title))}">${SYS[id].title}</button>`).join(', ')}</span>` : '');
+    // Under the object: the systems past the cap, then the latest changes (the headline is the front face).
+    setHTML(stage.querySelector<HTMLElement>('.board-strip')!, (rest.length ? `<span class="behind">${t.behind(rest.length)}: ${rest.map((id) =>
+      `<button class="more" data-bpick="${id}" aria-label="${esc(t.bringToFront(SYS[id].title))}">${SYS[id].title}</button>`).join(', ')}</span>` : '')
+      + log.slice(0, PHONE ? 2 : 3).map((l) => `<span class="tick${l.level ? ` level-${l.level}` : ''}"><time>${time(l.at)}</time> ${esc(l.text)}</span>`).join(''));
+  };
+
+  // The list: a system as an item of it, its mini ring and its front reading.
+  let listIds: string[] = [];
+  const listItem = (id: string): ListItem => {
+    const f = front(id);
+    return { id, title: SYS[id].title, ring: ring(f.key, f.r, MINI_LANES, false, !f.r.alert), glyph: f.ch.glyph, big: f.big,
+      label: f.a ? f.a.why : `${f.ch.name.toLowerCase()} · ${f.label}`, level: worst(id) };
+  };
+  const paintList = (ids: string[]) => {
+    const obj = body.querySelector<HTMLElement>('.list-stage .one')!;
+    listIds = ids;
+    const items = ids.map(listItem);
+    // Only a change of the items redraws; the ring itself turns in place.
+    const key = JSON.stringify(items);
+    if (drawn.get(obj) === key && obj.firstElementChild) return;
+    drawn.set(obj, key);
+    obj.innerHTML = radialList(items, listOffset);
   };
 
   const paint = () => {
@@ -564,10 +678,12 @@ function board(ctx: ViewContext) {
       setHTML(tilesEl, fixed.map(orbitTile).join(''));
       if (ready) paintSlide();
       if (log[0] !== beat) { hubEl.classList.remove('beat'); void hubEl.offsetWidth; hubEl.classList.add('beat'); }
-    } else if (ready) paintLayers(ids);
+    } else if (boardMode === 'list') { if (ready) paintList(IDS.filter((id) => ids.includes(id))); }
+    else if (ready) paintLayers(ids);
     beat = log[0];
-    // In the orbit the latest changes are already in the center.
-    el.querySelector('.ticker')!.innerHTML = boardMode === 'orbit' ? '' : log.slice(0, PHONE ? 3 : 4).map((l) =>
+    startVisuals(body, visuals);
+    // The latest changes under the grid and the list; the orbit's center and the layers' strip already show them.
+    el.querySelector('.ticker')!.innerHTML = !['grid', 'list'].includes(boardMode) ? '' : log.slice(0, PHONE ? 3 : 4).map((l) =>
       `<li class="${l.level ? `level-${l.level}` : ''}"><time>${time(l.at)}</time> ${esc(l.text)}</li>`).join('');
   };
 
@@ -688,6 +804,9 @@ function board(ctx: ViewContext) {
         if (BOARD_MODES.includes(mode)) setSettings({ mode });
       } else if (field === 'start') {
         setSettings({ start: String(data.get('start') ?? '') || undefined });
+      } else if (field === 'layers') {
+        const n = Number(data.get('layers')) || undefined;
+        setSettings({ layers: n === frame.layers ? undefined : n });
       } else if (field === 'dial' || field === 'day') {
         const next: Look = { ...local.look, [field]: String(data.get(field)) };
         for (const k of ['dial', 'day'] as const) if (next[k] === (frame.look?.[k] ?? (k === 'dial' ? 'full' : 'plain'))) delete next[k];
@@ -706,8 +825,7 @@ function board(ctx: ViewContext) {
   }
 
   paint();
-  rerender.add(paint);
-  ctx.onCleanup(() => { rerender.delete(paint); });
+  whenCurrent(ctx, paint);
 }
 
 // The panel behind the gear: the systems of the frame to tick, the board's
@@ -735,6 +853,9 @@ function settingsPanel() {
       <fieldset><legend>${t.openInside}</legend>
         <select name="start" aria-describedby="pulse-settings-start"></select>
         <p class="hint" id="pulse-settings-start">${t.startHint}</p></fieldset>
+      <fieldset><legend>${t.layersField}</legend>
+        <select name="layers" aria-describedby="pulse-settings-layers"></select>
+        <p class="hint" id="pulse-settings-layers">${t.layersHint}</p></fieldset>
       <fieldset><legend>${t.lookField}</legend>
         <div class="settings-row" role="group" aria-label="${t.dialField}"><span class="settings-group-title">${t.dialField}</span>${DIALS.map((d) =>
           `<label><input type="radio" name="dial" value="${d}"> ${t.dialLook[d]}</label>`).join('')}</div>
@@ -798,6 +919,99 @@ function syncSettings(form: HTMLFormElement) {
   const select = form.querySelector<HTMLSelectElement>('select[name="start"]')!;
   setHTML(select, `<option value="">${t.theBoard}</option>${IDS.map((id) => `<option value="${id}">${SYS[id].title}</option>`).join('')}`);
   select.value = startId() ?? '';
+  const layersSel = form.querySelector<HTMLSelectElement>('select[name="layers"]')!;
+  setHTML(layersSel, `<option value="">${t.allSystems}</option>${Array.from({ length: Math.max(0, IDS.length - 1) }, (_, i) =>
+    `<option value="${i + 2}">${i + 2}</option>`).join('')}`);
+  const cap = local.layers ?? frame.layers;
+  layersSel.value = cap && cap < IDS.length ? String(cap) : '';
+}
+
+// ─── Dials: the value moves in place, the command goes out on release ──
+
+type ValueText = { big: string; label: string; sentence: string };
+// A dial's state, shared by the system view and the detail: `root` finds the
+// markup that holds a channel's dial, `onValue` writes what it says now. The
+// command goes out on release (or after a keyboard pause); until the source
+// confirms it, the value shown is the one asked for.
+function dialBinding(id: string, root: (key: string) => HTMLElement | null, onValue: (key: string, text: ValueText) => void) {
+  const dialOf = (key: string) => readings[id].get(key)!.r.dial!;
+  // Undefined for a key that is not a channel's (the color sliders "key:hue"
+  // and "key:sat" share the dial's gestures): nearest() is asked on every
+  // pointerdown, and a throw there would lose the drag.
+  const rangeOf = (key: string) => readings[id].get(key)?.r.range;
+  const snap = (key: string, v: number) => {
+    const dial = dialOf(key);
+    const raw = dial.min + Math.min(1, Math.max(0, v)) * (dial.max - dial.min);
+    return Math.round(raw / dial.step) * dial.step;
+  };
+  // Where each end of a range is now (held or read), in the dial's units.
+  const endOf = (key: string, handle: string) => {
+    const dial = dialOf(key), range = rangeOf(key)!;
+    return hold.get(`${dial.entity}#${handle}`)?.value ?? (handle === 'lo' ? range.lo : range.hi);
+  };
+  const setDial = (key: string, value: number, until = Infinity, handle?: string) => {
+    const dial = dialOf(key);
+    value = Math.min(dial.max, Math.max(dial.min, value));
+    const el = root(key);
+    if (handle) {
+      // One end never crosses the other.
+      const other = endOf(key, handle === 'lo' ? 'hi' : 'lo');
+      value = handle === 'lo' ? Math.min(value, other) : Math.max(value, other);
+      hold.set(`${dial.entity}#${handle}`, { value, until });
+      const lo = endOf(key, 'lo'), hi = endOf(key, 'hi'), fl = frac(dial, lo), fh = frac(dial, hi);
+      const band = el?.querySelector<HTMLElement>('.range-band o-arc');
+      band?.setAttribute('start', (fl * 100).toFixed(1));
+      band?.setAttribute('value', ((fh - fl) * 100).toFixed(1));
+      for (const [h, v, f] of [['lo', lo, fl], ['hi', hi, fh]] as const) {
+        const knob = el?.querySelector<HTMLElement>(`.knob[data-handle="${h}"]`);
+        knob?.parentElement?.style.setProperty('--o-from', `${(f * 360).toFixed(2)}deg`);
+        knob?.setAttribute('aria-valuenow', String(v));
+        knob?.setAttribute('aria-valuetext', `${num(v)}${dial.unit}`);
+      }
+      onValue(key, { big: `${num(lo)}–${num(hi)}${dial.unit}`, label: dial.label, sentence: `between ${num(lo)}${dial.unit} and ${num(hi)}${dial.unit}` });
+      return value;
+    }
+    hold.set(dial.entity, { value, until });
+    const v = (value - dial.min) / (dial.max - dial.min);
+    const ringEl = el?.querySelector<HTMLElement>('[data-dial]');
+    ringEl?.setAttribute('value', (v * 100).toFixed(1));
+    ringEl?.setAttribute('aria-valuenow', String(value));
+    ringEl?.setAttribute('aria-valuetext', `${num(value)}${dial.unit}`);
+    onValue(key, { big: `${num(value)}${dial.unit}`, label: dial.label, sentence: `${dial.label} ${num(value)}${dial.unit}` });
+    return value;
+  };
+  const commit = (key: string) => {
+    const dial = dialOf(key), range = rangeOf(key);
+    if (range) {
+      const lo = hold.get(`${dial.entity}#lo`), hi = hold.get(`${dial.entity}#hi`);
+      if (!lo && !hi) return;
+      for (const h of [lo, hi]) if (h) h.until = Date.now() + PENDING_MS;
+      void send([range.set(lo?.value ?? range.lo, hi?.value ?? range.hi)]);
+      return;
+    }
+    const h = hold.get(dial.entity);
+    if (!h) return;
+    h.until = Date.now() + PENDING_MS;
+    void send([dial.set(h.value)]);
+  };
+  let keyTimer = 0;
+  const commitSoon = (key: string) => {
+    clearTimeout(keyTimer);
+    keyTimer = window.setTimeout(() => commit(key), 500);
+  };
+  const fraction = (key: string, handle?: string) => {
+    const d = dialOf(key);
+    if (handle) return frac(d, endOf(key, handle));
+    return ((hold.get(d.entity)?.value ?? d.value) - d.min) / (d.max - d.min);
+  };
+  const stepOf = (key: string) => { const d = dialOf(key); return d.step / (d.max - d.min); };
+  // On a range's track, the end nearer to the pointer follows it.
+  const nearest = (key: string, v: number) => {
+    if (!rangeOf(key)) return undefined;
+    const dist = (f: number) => Math.min(Math.abs(f - v), 1 - Math.abs(f - v));
+    return dist(fraction(key, 'lo')) <= dist(fraction(key, 'hi')) ? 'lo' : 'hi';
+  };
+  return { snap, setDial, commit, commitSoon, fraction, stepOf, nearest };
 }
 
 // ─── System: the radial object in layers ────────────────────────────
@@ -806,7 +1020,9 @@ function system(ctx: ViewContext, id: string) {
   ctx.target.dataset.title = SYS[id].title;
   const sys = SYS[id];
   const el = ctx.target;
-  let flat = true, locked = false, dragging = false;
+  let flat = true, locked = false, dragging = false, alertWas = false;
+  const visuals = new Map<HTMLCanvasElement, () => void>();
+  ctx.onCleanup(() => { for (const stop of visuals.values()) stop(); });
 
   el.innerHTML = systemShell(sys.title, viewToggle());
   const stage = el.querySelector<HTMLElement>('.stage')!;
@@ -848,8 +1064,10 @@ function system(ctx: ViewContext, id: string) {
     const focus = activeElement() as HTMLElement | null;
     const focusSel = focus && el.contains(focus) ? focusKey(focus) : null;
 
+    // A new alert opens the 3D view; after that the toggle decides.
     const alert = live(id).length > 0;
-    if (alert) flat = false;
+    if (alert && !alertWas) flat = false;
+    alertWas = alert;
     stage.dataset.zoom = alert ? 'alert' : 'calm';
     refit(alert);
     stage.classList.toggle('is-3d', !flat);
@@ -869,21 +1087,18 @@ function system(ctx: ViewContext, id: string) {
       layer.classList.toggle('is-seen', seen);
       layer.dataset.level = String(r.alert?.level ?? 0);
       const grow = SIZE[d];
+      layer.style.setProperty('--halo', (d * 0.8 / (grow * (1 + d * 110 / 900))).toFixed(2));
       const shown = r.alert && !seen ? r.alert : r;
-      // Rule 3: the alerts that wait orbit the front ring with their icon.
-      const sats = i === 0 ? waiting.map((k, j) => {
-        const w = map.get(k)!;
-        return `<div class="orbit-12 sat-orbit" style="--o-range:0deg; --o-from:${(45 + j * 32)}deg">
-          <div class="satellite sat level-${w.r.alert!.level}" data-pick="${k}" role="button" tabindex="0"
-            aria-label="${esc(t.alertIn(w.ch.name, w.r.alert!.why))}" style="--o-size-ratio:3">${icon(w.ch.glyph, 14)}</div></div>`;
-      }).join('') : '';
-      layer.innerHTML = ring(key, r, STROKE[d] / grow / LANE, i === 0, false, i === 0 && !!r.alert && !seen, ch.name) + sats + (i === 0
+      // The alerts that wait are their layers behind, in their color and named; the strip counts them.
+      layer.innerHTML = ring(key, r, STROKE[d] / grow / LANE, i === 0, false, i === 0 && !!r.alert && !seen, ch.name) + (i === 0
         ? face({ glyph: ch.glyph, name: ch.name, big: shown.big, label: shown.label, to: 'detail',
           props: { system: id, channel: key }, aria: t.details(ch.name), image: imageOf(r),
-          extra: isPending(r) ? `<span class="face-wait">${t.sending}</span>` : '' })
+          extra: (isPending(r) ? `<span class="face-wait">${t.sending}</span>` : '') + visualFor(id, key) })
         : backLayer({ text: `${ch.name} · ${shown.big}`, at: labelAt(i), grow, stroke: STROKE[d], hit: 12,
           pick: { attr: 'data-pick', value: key, aria: t.bringToFront(ch.name) } }));
     });
+
+    startVisuals(el, visuals);
 
     const frontItem = map.get(ord[0]);
     if (!frontItem) { strip.textContent = t.noEntities; return; }
@@ -918,93 +1133,21 @@ function system(ctx: ViewContext, id: string) {
   };
 
   // ─── Direct controls ───
-  const dialOf = (key: string) => readings[id].get(key)!.r.dial!;
-  const snap = (key: string, v: number) => {
-    const dial = dialOf(key);
-    const raw = dial.min + Math.min(1, Math.max(0, v)) * (dial.max - dial.min);
-    return Math.round(raw / dial.step) * dial.step;
-  };
-  const rangeOf = (key: string) => readings[id].get(key)!.r.range;
-  // Where each end of a range is now (held or read), in the dial's units.
-  const endOf = (key: string, handle: string) => {
-    const dial = dialOf(key), range = rangeOf(key)!;
-    return hold.get(`${dial.entity}#${handle}`)?.value ?? (handle === 'lo' ? range.lo : range.hi);
-  };
-  // The dial moves in place; the command goes out on release (or after a keyboard pause).
-  const setDial = (key: string, value: number, until = Infinity, handle?: string) => {
-    const dial = dialOf(key);
-    value = Math.min(dial.max, Math.max(dial.min, value));
-    const layer = layers.get(key)!;
-    if (handle) {
-      // One end never crosses the other.
-      const other = endOf(key, handle === 'lo' ? 'hi' : 'lo');
-      value = handle === 'lo' ? Math.min(value, other) : Math.max(value, other);
-      hold.set(`${dial.entity}#${handle}`, { value, until });
-      const lo = endOf(key, 'lo'), hi = endOf(key, 'hi'), fl = frac(dial, lo), fh = frac(dial, hi);
-      const band = layer.querySelector<HTMLElement>('.range-band o-arc');
-      band?.setAttribute('start', (fl * 100).toFixed(1));
-      band?.setAttribute('value', ((fh - fl) * 100).toFixed(1));
-      for (const [h, v, f] of [['lo', lo, fl], ['hi', hi, fh]] as const) {
-        const knob = layer.querySelector<HTMLElement>(`.knob[data-handle="${h}"]`);
-        knob?.parentElement?.style.setProperty('--o-from', `${(f * 360).toFixed(2)}deg`);
-        knob?.setAttribute('aria-valuenow', String(v));
-        knob?.setAttribute('aria-valuetext', `${num(v)}${dial.unit}`);
-      }
-      const label = layer.querySelector('.face-label');
-      if (label) label.textContent = `between ${num(lo)}° and ${num(hi)}°`;
-      return value;
-    }
-    hold.set(dial.entity, { value, until });
-    const v = (value - dial.min) / (dial.max - dial.min);
-    const ringEl = layer.querySelector<HTMLElement>('[data-dial]');
-    ringEl?.setAttribute('value', (v * 100).toFixed(1));
-    ringEl?.setAttribute('aria-valuenow', String(value));
-    ringEl?.setAttribute('aria-valuetext', `${num(value)}${dial.unit}`);
-    const label = layer.querySelector('.face-label');
-    if (label) label.textContent = `${dial.label} ${num(value)}${dial.unit}`;
-    return value;
-  };
-  const commit = (key: string) => {
-    const dial = dialOf(key), range = rangeOf(key);
-    if (range) {
-      const lo = hold.get(`${dial.entity}#lo`), hi = hold.get(`${dial.entity}#hi`);
-      if (!lo && !hi) return;
-      for (const h of [lo, hi]) if (h) h.until = Date.now() + PENDING_MS;
-      void send([range.set(lo?.value ?? range.lo, hi?.value ?? range.hi)]);
-      return;
-    }
-    const h = hold.get(dial.entity);
-    if (!h) return;
-    h.until = Date.now() + PENDING_MS;
-    void send([dial.set(h.value)]);
-  };
-  let keyTimer = 0;
-  const commitSoon = (key: string) => {
-    clearTimeout(keyTimer);
-    keyTimer = window.setTimeout(() => commit(key), 500);
-  };
-
-  const fraction = (key: string, handle?: string) => {
-    const d = dialOf(key);
-    if (handle) return frac(d, endOf(key, handle));
-    return ((hold.get(d.entity)?.value ?? d.value) - d.min) / (d.max - d.min);
-  };
+  const d = dialBinding(id, (key) => layers.get(key) ?? null, (key, v) => {
+    const label = layers.get(key)?.querySelector('.face-label');
+    if (label) label.textContent = v.sentence;
+  });
   ctx.onCleanup(dialControls(el, {
     locked: () => locked,
     ringOf: (key) => layers.get(key)?.querySelector('.orbit-12') ?? null,
-    current: fraction,
-    stepOf: (key) => { const d = dialOf(key); return d.step / (d.max - d.min); },
-    set: (key, v, handle) => setDial(key, snap(key, v), Infinity, handle),
-    // On a range's track, the end nearer to the pointer follows it.
-    nearest: (key, v) => {
-      if (!rangeOf(key)) return undefined;
-      const dist = (f: number) => Math.min(Math.abs(f - v), 1 - Math.abs(f - v));
-      return dist(fraction(key, 'lo')) <= dist(fraction(key, 'hi')) ? 'lo' : 'hi';
-    },
+    current: d.fraction,
+    stepOf: d.stepOf,
+    set: (key, v, handle) => d.setDial(key, d.snap(key, v), Infinity, handle),
+    nearest: d.nearest,
     onStart: () => { dragging = true; },
-    onEnd: (key) => { dragging = false; commit(key); },
-    onInput: commitSoon,
-    activate: 'o-arc[data-pick], o-arc[data-seg], .sat[data-pick]',
+    onEnd: (key) => { dragging = false; d.commit(key); },
+    onInput: d.commitSoon,
+    activate: 'o-arc[data-pick], o-arc[data-seg]',
   }));
 
   // A camera in the face: its snapshot is asked again every 8 s.
@@ -1063,8 +1206,7 @@ function system(ctx: ViewContext, id: string) {
   parallax(stage, obj, () => !flat);
 
   paint();
-  rerender.add(paint);
-  ctx.onCleanup(() => { rerender.delete(paint); });
+  whenCurrent(ctx, paint);
 }
 
 // ─── Channel detail ─────────────────────────────────────────────────
@@ -1092,30 +1234,41 @@ function detail(ctx: ViewContext) {
   const el = ctx.target;
   el.dataset.title = readings[id]?.get(key)?.ch.name ?? key;
   let last = '';
-  let square = false, live = false;
+  let square = false, live = false, dragging = false;
   const paint = () => {
+    if (dragging) return;              // repainting would cut the drag
     const item = readings[id]?.get(key);
     if (!item) return;
     const { ch, r } = item;
     const history = r.history ? histories.get(r.history) : undefined;
     const trackIds = r.tracks?.length && ha.changes ? r.tracks.map((x) => x.entity).join(' ') : '';
     const changes = trackIds ? changesOf.get(trackIds) : undefined;
+    const monthOf = r.month ? months.get(r.month) : undefined;
     const now = JSON.stringify([r, [...pending.keys()], [...failed.keys()], toast, square, live, history?.values?.length ?? history?.error,
-      changes?.at ?? changes?.error, ha.states.get(r.events?.[0]?.entity ?? '')?.last_changed]);
+      changes?.at ?? changes?.error, monthOf?.at, ha.states.get(r.events?.[0]?.entity ?? '')?.last_changed, look()]);
     if (now === last) return;
     last = now;
-    const active = activeElement() as HTMLElement | null;
-    if (el.contains(active) && active?.matches('input[type="range"], [data-wheel]')) return;
+    // Focus returns to the same control after repainting.
+    const focus = activeElement();
+    const focusSel = focus && el.contains(focus) && focus.matches('[data-dial]')
+      ? `[data-dial="${focus.dataset.dial}"]${focus.dataset.handle ? `[data-handle="${focus.dataset.handle}"]` : ''}` : null;
     const a = r.alert && !ui[id].seen.has(key) ? r.alert : null;
+    // The dial, big, operated like the system's front ring (a knob at each
+    // end of a range), what is now in its center; a light's hue and
+    // saturation as curved sliders inside it, the center washed with the color.
     let control = '';
-    if (r.dial && r.range) {
-      const d = r.dial;
-      const one = (handle: 'lo' | 'hi', value: number, label: string) => `<label class="slider">${esc(label)} · <output>${num(value)}${d.unit}</output>
-        <input type="range" data-handle="${handle}" min="${d.min}" max="${d.max}" step="${d.step}" value="${value}"></label>`;
-      control = `<div class="ranges">${one('lo', r.range.lo, t.lowOf(d.label))}${one('hi', r.range.hi, t.highOf(d.label))}</div>`;
-    } else if (r.dial) {
-      control = `<label class="slider">${r.dial.label[0].toUpperCase()}${r.dial.label.slice(1)} · <output>${num(r.dial.value)}${r.dial.unit}</output>
-        <input type="range" min="${r.dial.min}" max="${r.dial.max}" step="${r.dial.step}" value="${r.dial.value}"></label>`;
+    if (r.dial) {
+      const color = r.color?.hs ? hsCss(r.color.hs[0], r.color.hs[1]) : undefined;
+      const value = r.range ? `${num(r.range.lo)}–${num(r.range.hi)}${r.dial.unit}` : `${num(r.dial.value)}${r.dial.unit}`;
+      control = `<div class="bigbang detail-ring"><div class="gravity-spot">${ring(key, r, DETAIL_LANES, true, false, false, ch.name)}${
+        r.color ? colorArcs(key, r.color.hs, { open: look().dial === 'open', name: ch.name }) : ''}${
+        ringCenter(value, r.dial.label, r.color ? 13 : 18, color)}</div></div>`;
+    } else if (r.list) {
+      // A long choice: its options scrolled in a circle; the list opens at the one that is on.
+      const sk = `${id}/${key}`, st = scrollState(sk), on = r.list.findIndex((x) => x.on);
+      if (!scrollOpened.has(sk) && on >= 0) { st.focus = on; st.offset = Math.max(0, Math.min(r.list.length - SCROLL_VISIBLE, on - 3)); scrollOpened.add(sk); }
+      control = scrollList(r.list.map((x) => ({ label: x.label, on: x.on, act: !!x.act })), st, { key: sk, name: r.name ?? ch.name });
+      if (r.entities.some((e) => pending.has(e))) control = control.replace('class="bigbang detail-ring scroll-list"', 'class="bigbang detail-ring scroll-list is-pending"');
     } else if (r.segs) {
       // Switches, or the options of a choice (radios: the one that is on has no action).
       const type = r.kind === 'c' ? 'radio' : 'checkbox';
@@ -1124,7 +1277,6 @@ function detail(ctx: ViewContext) {
         <input type="${type}" name="seg" data-seg="${i}"${s.on ? ' checked' : ''}${s.act ? '' : ' disabled'}> ${esc(s.label)}
         <span class="state">${esc(r.kind === 'c' ? '' : stateText(ha.states.get(s.entity)!))}</span></label></li>`).join('')}</ul>`;
     }
-    if (r.color) control += colorWheel(r.color.hs, key, t.colorOf(ch.name));
     // The picture, round like the face or square on request; a camera can go live.
     let figure = '';
     if (r.image) {
@@ -1149,7 +1301,7 @@ function detail(ctx: ViewContext) {
           on: x.on(ha.states.get(x.entity)?.state ?? ''), tone: x.tone, act: !!x.act, pending: pending.has(x.entity), failed: failed.has(x.entity) })),
         events: (r.events ?? []).map((ev) => ({ ago: (Date.now() - Date.parse(ha.states.get(ev.entity)?.last_changed ?? '')) / 3_600_000, text: ev.text, tone: ev.tone }))
           .filter((ev) => Number.isFinite(ev.ago)),
-        big: a ? a.big : r.big, label: a ? a.label : r.label, marks: look().day === 'marks', aria: t.dayOf(ch.name),
+        big: a ? a.big : r.big, label: a ? a.label : r.label, marks: true, names: true, aria: t.dayOf(ch.name),
       }) : `<p class="hint">${changes?.error ? t.historyNone : t.historyLoading}</p>`}</div>`;
     } else if (r.history && ha.history) {
       if (!history || (Date.now() - history.at > HISTORY_MS && history.values)) void loadHistory(r.history);
@@ -1157,10 +1309,21 @@ function detail(ctx: ViewContext) {
       day = `<div class="history">${history?.values ? timeRing({ values: history.values, label: t.last24h, unit: u === '%' || !u ? u : ` ${u}`, marks: look().day === 'marks' })
         : `<p class="hint">${history?.error ? t.historyNone : t.historyLoading}</p>`}</div>`;
     }
+    // This month, a day per sector around: an energy meter's calendar.
+    if (r.month && ha.statistics) {
+      if (!monthOf || (Date.now() - monthOf.at > MONTH_MS)) void loadMonth(r.month);
+      const nowD = new Date(), days = new Date(nowD.getFullYear(), nowD.getMonth() + 1, 0).getDate(), today = nowD.getDate();
+      const values = monthOf?.values.length === days ? monthOf.values : Array.from({ length: days }, () => null);
+      const title = nowD.toLocaleDateString('en', { month: 'long', year: 'numeric' }), v = values[today - 1], name = nameOf(ha.states, r.month);
+      day += `<div class="history">${monthOf?.error ? `<p class="hint">${t.monthNone}</p>` : monthRing({ days, today, values, unit: ' kWh', title, aria: t.monthAria(name, title),
+        big: v != null ? `${num(v)} kWh` : monthOf ? '—' : t.loadingMonth, label: `${t.today} · ${name}` })}</div>`;
+    }
+    // What is now is said once: in the center of the rings, or as the headline.
+    const inRing = rings || !!r.dial;
     el.innerHTML = `<div class="detail">
       <p class="eyebrow">${SYS[id].title}</p>
       <h1>${icon(ch.glyph, 30)} ${ch.name}</h1>
-      ${rings ? '' : `<p class="detail-big${a ? ` level-${a.level}` : ''}">${esc(a ? a.big : r.big)}</p>
+      ${inRing ? '' : `<p class="detail-big${a ? ` level-${a.level}` : ''}">${esc(a ? a.big : r.big)}</p>
       <p class="detail-label">${esc(a ? a.label : r.label)}</p>`}
       ${a ? `<p class="detail-why level-${a.level}">${esc(a.why)}. ${a.busy ? `<span class="face-wait">${t.inProgress}</span>`
         : `<button class="primary" data-resolve>${esc(a.verb)}</button>`}</p>` : ''}
@@ -1174,6 +1337,7 @@ function detail(ctx: ViewContext) {
         return s ? `<li><code>${e}</code> <span>${esc(nameOf(ha.states, e))}</span> <strong>${esc(stateText(s))}</strong></li>` : '';
       }).join('')}</ul></details>
     </div>`;
+    if (focusSel) el.querySelector<HTMLElement>(focusSel)?.focus({ preventScroll: true });
   };
   const loadChanges = (key: string, entities: string[]) => {
     const was = changesOf.get(key);
@@ -1197,16 +1361,20 @@ function detail(ctx: ViewContext) {
   }, 8000);
   ctx.onCleanup(() => clearInterval(refresh));
   paint();
-  rerender.add(paint);
-  ctx.onCleanup(() => { rerender.delete(paint); });
+  whenCurrent(ctx, paint);
 
-  // ─── The color wheel: the handle follows the pointer; the light gets the color on release ───
+  // ─── The dial and the color arcs: they move in place; the command goes out on release ───
+  const d = dialBinding(id, () => el.querySelector<HTMLElement>('.detail-ring'), (_key, v) => {
+    const big = el.querySelector('.detail-ring .ring-big');
+    if (big) big.textContent = v.big;
+  });
+  const isHue = (k: string) => k.endsWith(':hue'), isSat = (k: string) => k.endsWith(':sat'), isColor = (k: string) => isHue(k) || isSat(k);
   const hsOf = (): [number, number] => {
     const r = readings[id].get(key)!.r, h = hold.get(`${r.color!.entity}#hs`);
-    // A white light has no hue yet: the keys start from a full red, not from white.
+    // A white light has no hue yet: the sliders start from a full red, not from white.
     return h ? [Math.floor(h.value / 1000), h.value % 1000] : r.color!.hs ?? [0, 100];
   };
-  let wheelTimer = 0;
+  let colorTimer = 0;
   const sendColor = () => {
     const r = readings[id].get(key)!.r, h = hold.get(`${r.color!.entity}#hs`);
     if (!h) return;
@@ -1214,51 +1382,52 @@ function detail(ctx: ViewContext) {
     const [hue, sat] = [Math.floor(h.value / 1000), h.value % 1000];
     void send([r.color!.set(hue, sat)]);
   };
-  ctx.onCleanup(wheelControls(el, {
-    current: hsOf,
-    set: (_k, [h, sat]) => {
-      const r = readings[id].get(key)!.r;
-      // One number holds both: hue × 1000 + saturation.
-      hold.set(`${r.color!.entity}#hs`, { value: h * 1000 + sat, until: Infinity });
-      const wheel = el.querySelector<HTMLElement>('[data-wheel]'), handle = wheel?.querySelector<HTMLElement>('.color-handle');
-      if (!wheel || !handle) return;
-      wheel.classList.remove('is-unset');
-      wheel.setAttribute('aria-valuenow', String(h));
-      wheel.setAttribute('aria-valuetext', t.hueSat(h, sat));
-      handle.style.left = `${(50 + 50 * (sat / 100) * Math.sin(h * Math.PI / 180)).toFixed(1)}%`;
-      handle.style.top = `${(50 - 50 * (sat / 100) * Math.cos(h * Math.PI / 180)).toFixed(1)}%`;
-      handle.style.background = `hsl(${h} 100% ${Math.round(100 - sat / 2)}%)`;
-    },
-    onEnd: sendColor,
-    onInput: () => { clearTimeout(wheelTimer); wheelTimer = window.setTimeout(sendColor, 500); },
+  // The knob follows; the saturation arcs take the hue; the center takes the color.
+  const setColor = (what: 'hue' | 'sat', v: number) => {
+    const r = readings[id].get(key)!.r, [h0, s0] = hsOf();
+    const h = what === 'hue' ? Math.round(v * 360) % 360 : h0, sat = what === 'sat' ? Math.round(v * 100) : s0;
+    // One number holds both: hue × 1000 + saturation.
+    hold.set(`${r.color!.entity}#hs`, { value: h * 1000 + sat, until: Infinity });
+    const root = el.querySelector<HTMLElement>('.detail-ring');
+    if (!root) return;
+    const place = (w: 'hue' | 'sat', fraction: number, value: number, color: string) => {
+      const grab = root.querySelector<HTMLElement>(`[data-dial="${key}:${w}"]`), knob = root.querySelector<HTMLElement>(`.${w}-knob`);
+      if (!grab || !knob) return;
+      const cs = getComputedStyle(grab), from = parseFloat(cs.getPropertyValue('--o-from')) || 0, range = parseFloat(cs.getPropertyValue('--o-range')) || 360;
+      knob.parentElement!.style.setProperty('--o-from', `${(from + fraction * range).toFixed(2)}deg`);
+      knob.style.background = color;
+      grab.setAttribute('aria-valuenow', String(value));
+    };
+    place('hue', h / 360, h, `hsl(${h} 100% 50%)`);
+    place('sat', sat / 100, sat, hsCss(h, sat));
+    if (what === 'hue') root.querySelectorAll<HTMLElement>('.sat-ring o-arc').forEach((arc, i) => arc.style.setProperty('--o-fill', satColor(h, i)));
+    for (const x of root.querySelectorAll('.hue-ring, .sat-ring')) x.classList.remove('is-unset');
+    const center = root.querySelector<HTMLElement>('.ring-center');
+    if (center) { center.classList.add('has-color'); center.style.setProperty('--c', hsCss(h, sat)); }
+  };
+  ctx.onCleanup(dialControls(el, {
+    locked: () => false,
+    ringOf: (k) => { const x = el.querySelector<HTMLElement>(`[data-dial="${k}"]`); return x ? (x.classList.contains('ring-grab') ? x : x.parentElement) : null; },
+    current: (k, handle) => isHue(k) ? hsOf()[0] / 360 : isSat(k) ? hsOf()[1] / 100 : d.fraction(k, handle),
+    stepOf: (k) => isHue(k) ? 5 / 360 : isSat(k) ? 0.05 : d.stepOf(k),
+    set: (k, v, handle) => { if (isHue(k)) setColor('hue', v); else if (isSat(k)) setColor('sat', v); else d.setDial(k, d.snap(k, v), Infinity, handle); },
+    nearest: (k, v) => (isColor(k) ? undefined : d.nearest(k, v)),
+    onStart: () => { dragging = true; },
+    onEnd: (k) => { dragging = false; if (isColor(k)) sendColor(); else d.commit(k); },
+    onInput: (k) => { if (isColor(k)) { clearTimeout(colorTimer); colorTimer = window.setTimeout(sendColor, 500); } else d.commitSoon(k); },
   }));
 
-  el.addEventListener('input', (e) => {
-    const input = e.target as HTMLInputElement, r = readings[id].get(key)!.r;
-    if (input.type !== 'range' || !r.dial) return;
-    const handle = input.dataset.handle;
-    hold.set(handle ? `${r.dial.entity}#${handle}` : r.dial.entity, { value: Number(input.value), until: Infinity });
-    input.closest('label')!.querySelector('output')!.textContent = `${num(Number(input.value))}${r.dial.unit}`;
-  });
+  ctx.onCleanup(scrollControls(el, {
+    state: scrollState,
+    count: () => readings[id].get(key)?.r.list?.length ?? 0,
+    pick: (_, i) => { const x = readings[id].get(key)?.r.list?.[i]; if (x?.act && !pending.has(x.entity)) void send([x.act]); },
+  }));
+
   el.addEventListener('change', (e) => {
     const input = e.target as HTMLInputElement, r = readings[id].get(key)!.r;
-    if (input.type === 'range' && r.dial && r.range) {
-      const handle = input.dataset.handle!, value = Number(input.value);
-      const lo = handle === 'lo' ? value : hold.get(`${r.dial.entity}#lo`)?.value ?? r.range.lo;
-      const hi = handle === 'hi' ? value : hold.get(`${r.dial.entity}#hi`)?.value ?? r.range.hi;
-      const [l, h] = lo <= hi ? [lo, hi] : handle === 'lo' ? [lo, lo] : [hi, hi];
-      hold.set(`${r.dial.entity}#lo`, { value: l, until: Date.now() + PENDING_MS });
-      hold.set(`${r.dial.entity}#hi`, { value: h, until: Date.now() + PENDING_MS });
-      void send([r.range.set(l, h)]);
-      input.blur();
-    } else if (input.type === 'range' && r.dial) {
-      hold.set(r.dial.entity, { value: Number(input.value), until: Date.now() + PENDING_MS });
-      void send([r.dial.set(Number(input.value))]);
-      input.blur();
-    } else if (input.dataset.seg !== undefined) {
-      const s = r.segs![Number(input.dataset.seg)];
-      if (s.act) void send([s.act]);
-    }
+    if (input.dataset.seg === undefined) return;
+    const s = r.segs![Number(input.dataset.seg)];
+    if (s.act) void send([s.act]);
   });
   el.addEventListener('click', (e) => {
     const target = e.target as HTMLElement;

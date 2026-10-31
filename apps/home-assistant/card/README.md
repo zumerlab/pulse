@@ -144,9 +144,10 @@ strategy alike.
 |---|---|---|---|
 | `systems` | list of `lights`, `climate`, `security`, `openings`, `media`, `energy`, `maintenance` | all seven | Which systems the board shows. A system with no matching entities does not show anyway. |
 | `areas` | list of area ids (the editor offers an area picker) | the whole home | Only the entities in those areas count, by their own area or their device's. An entity with no area stays out, as in Home Assistant's area views (whole-home sensors such as grid power usually have none). |
-| `mode` | `grid`, `orbit`, `layers` | the view the viewer picked last | The board's view when the card opens. With it set, the switch at the top still works, but the choice is not remembered. |
+| `mode` | `grid`, `orbit`, `layers`, `list` | the view the viewer picked last | The board's view when the card opens. With it set, the switch at the top still works, but the choice is not remembered. |
 | `start` | one of the system ids | the board (on a phone, the system that calls the most) | Open the card zoomed into that system. The board stays one step back ("Board" at the bottom left). Must be one of `systems` if both are given. |
 | `settings` | `true`, `false` | `true` | The gear at the top right of the board (see below). `false` hides it: the options above are final. |
+| `layers` | a whole number | all of them | How many systems the Layers view stacks, front to back; the rest are named under the object, each a button that brings it to the front. |
 | `dial` | `full`, `open` | `full` | How a band (a thermostat, brightness, volume) is drawn: a full ring, or three quarters open at the bottom, its ends named (min and max) and a mark where the measurement is when the band is a target. |
 | `day` | `plain`, `marks` | `plain` | The ring of the last 24 hours in a detail (humidity, power, carbon monoxide): bars only, or with a tick per hour and "6 h ago", "12 h ago", "18 h ago" around it. |
 
@@ -167,7 +168,7 @@ phone in a pocket can show different things from the same card. "Back to
 defaults" returns to what the card's options say.
 
 The options you set in the card or the strategy are the frame: the gear only
-offers the systems and areas you allowed, and `mode`, `start`, `dial` and
+offers the systems and areas you allowed, and `mode`, `start`, `layers`, `dial` and
 `day` are its defaults. At least one system, one area and one channel per system stay
 ticked. If you want the card to show exactly what you configured, everywhere,
 set `settings: false`.
@@ -177,14 +178,15 @@ set `settings: false`.
 **The board.** One ring per system, each with the one reading that matters
 (lights on, temperature, alarm state, power), the headline with what calls
 ("4 things calling · poorly installed door did not finish locking.") and the
-latest changes of your entities. Three ways to look at it, switchable at the
+latest changes of your entities. Four ways to look at it, switchable at the
 top:
 
 | View | What it is |
 |---|---|
 | **Grid** | A mini ring per system in a row, the log below. Reads fast. |
-| **Orbit** | The home's pulse in the center, the systems around it. The center cycles through the alerts and the latest changes; its ring shows which system calls. |
+| **Orbit** | The home's pulse in the center, the systems around it. The center cycles through the alerts and the latest changes; its ring shows which system calls, and inside it a clock's rim: the hours, now, and the latest changes as dots at their minute. |
 | **Layers** | One object, one system per layer, the one calling the most in front. Tap a band to bring that system forward, the center to enter. |
+| **List** | The systems on a ring, like the lists of a watch: turn it (wheel, drag, arrows) and the one at the top is named in the center; tap the center to enter. |
 
 ![The orbit view](images/dashboard-orbit.png)
 

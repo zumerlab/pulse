@@ -28,6 +28,8 @@ export type PulseCardConfig = CardConfig & {
   mode?: BoardMode;
   // Open inside this system; the board stays one step out.
   start?: string;
+  // How many systems the Layers view stacks; by default all of them.
+  layers?: number;
   // The gear on the board, where whoever looks at the card chooses its systems
   // and view for their browser (default true). `false` hides it: the config rules.
   settings?: boolean;
@@ -38,13 +40,14 @@ export type PulseCardConfig = CardConfig & {
 };
 
 const SYSTEM_IDS = systems.map((s) => s.id);
-const MODE_LABELS: Record<BoardMode, string> = { grid: 'Grid', orbit: 'Orbit', layers: 'Layers' };
-const LABELS: Record<string, string> = { systems: 'Systems', areas: 'Areas', mode: 'Board view', start: 'Open inside', settings: 'Viewer settings (the gear)', dial: 'Dial', day: 'Day ring' };
+const MODE_LABELS: Record<BoardMode, string> = { grid: 'Grid', orbit: 'Orbit', layers: 'Layers', list: 'List' };
+const LABELS: Record<string, string> = { systems: 'Systems', areas: 'Areas', mode: 'Board view', start: 'Open inside', layers: 'Layers', settings: 'Viewer settings (the gear)', dial: 'Dial', day: 'Day ring' };
 const HELPERS: Record<string, string> = {
   systems: 'Leave empty for all of them.',
   areas: 'Only what is in these areas; leave empty for the whole home. An entity with no area stays out.',
   mode: 'The view when the card opens, until the viewer picks another in their browser.',
   start: 'The card opens zoomed into this system; the board is one step back.',
+  layers: 'How many systems the Layers view stacks, the rest named under the object. Leave empty for all of them.',
   settings: 'Whoever looks at the card can choose its systems and view, kept in their browser. Off, the options above rule.',
   dial: 'A full ring, or open at the bottom with its ends named and a mark at the measurement.',
   day: 'The last 24 hours in a detail: bars only, or with hour marks around.',
@@ -55,6 +58,7 @@ const FORM: FormSchema[] = [
   { name: 'areas', selector: { area: { multiple: true } } },
   { name: 'mode', selector: { select: { mode: 'dropdown', options: BOARD_MODES.map((m) => ({ value: m, label: MODE_LABELS[m] })) } } },
   { name: 'start', selector: { select: { mode: 'dropdown', options: systems.map((s) => ({ value: s.id, label: s.title })) } } },
+  { name: 'layers', selector: { number: { min: 1, max: systems.length, mode: 'box' } } },
   { name: 'settings', default: true, selector: { boolean: {} } },
   { name: 'dial', selector: { select: { mode: 'dropdown', options: [{ value: 'full', label: 'Full ring' }, { value: 'open', label: 'Open at the bottom' }] } } },
   { name: 'day', selector: { select: { mode: 'dropdown', options: [{ value: 'plain', label: 'Bars only' }, { value: 'marks', label: 'With hour marks' }] } } },
@@ -67,6 +71,7 @@ function assertConfig(config: PulseCardConfig) {
   if (config.mode !== undefined && !BOARD_MODES.includes(config.mode)) throw new Error(`mode must be one of ${BOARD_MODES.join(', ')}`);
   if (config.start !== undefined && !SYSTEM_IDS.includes(config.start)) throw new Error(`Unknown system "${config.start}" in start`);
   if (config.start && config.systems?.length && !config.systems.includes(config.start)) throw new Error('start must be one of the systems shown');
+  if (config.layers !== undefined && !(Number.isInteger(config.layers) && config.layers >= 1)) throw new Error('layers must be a whole number from 1 up');
   if (config.settings !== undefined && typeof config.settings !== 'boolean') throw new Error('settings must be true or false');
   if (config.dial !== undefined && !DIALS.includes(config.dial)) throw new Error(`dial must be one of ${DIALS.join(', ')}`);
   if (config.day !== undefined && !DAYS.includes(config.day)) throw new Error(`day must be one of ${DAYS.join(', ')}`);
@@ -75,9 +80,9 @@ function assertConfig(config: PulseCardConfig) {
 // A strategy's `generate` receives its own `strategy:` object (`type` and the
 // options next to it); the card's options go through to the card.
 function cardConfig(strategy: Record<string, unknown> = {}): PulseCardConfig {
-  const { systems, areas, mode, start, settings, dial, day } = strategy as PulseCardConfig;
+  const { systems, areas, mode, start, layers, settings, dial, day } = strategy as PulseCardConfig;
   return { type: 'custom:pulse-card', ...(systems ? { systems } : {}), ...(areas?.length ? { areas } : {}), ...(mode ? { mode } : {}), ...(start ? { start } : {}),
-    ...(settings === false ? { settings } : {}), ...(dial ? { dial } : {}), ...(day ? { day } : {}) };
+    ...(layers ? { layers } : {}), ...(settings === false ? { settings } : {}), ...(dial ? { dial } : {}), ...(day ? { day } : {}) };
 }
 
 // @property declared in a shadow-root stylesheet is ignored; Orbit's five are
@@ -138,11 +143,11 @@ class PulseCard extends HTMLElement implements LovelaceCard {
     const root = this.shadowRoot ?? this.attachShadow({ mode: 'open' });
     root.adoptedStyleSheets = sheets;
     root.innerHTML = '<div class="zumly-canvas" tabindex="0"></div>';
-    const { systems, areas, mode, start, settings, dial, day } = this.config;
+    const { systems, areas, mode, start, layers, settings, dial, day } = this.config;
     // The viewer's choices are kept per card config: a card set up differently
     // starts afresh.
     const key = `pulse-card:${JSON.stringify({ systems, areas, mode, start })}`;
-    this.pulse = mountPulse(root.querySelector<HTMLElement>('.zumly-canvas')!, { source: this.source, systems, areas, mode, start, settings: settings === false ? false : key,
+    this.pulse = mountPulse(root.querySelector<HTMLElement>('.zumly-canvas')!, { source: this.source, systems, areas, mode, start, layers, settings: settings === false ? false : key,
       look: dial || day ? { dial, day } : undefined });
   }
 

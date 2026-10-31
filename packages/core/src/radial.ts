@@ -36,7 +36,7 @@ export const STROKE = [6, 3, 2.5];                         // apparent stroke pe
 export const LOCK_MS = 800;                                // controls locked after a layer change
 export const UNIVERSE = 240;                               // px; one lane is radius / 12 = 10 px
 export const LANE = UNIVERSE / 2 / 12;
-export const ZOOM = { calm: PHONE ? 1.1 : 1.2, alert: 1.7 };   // --zoom of .obj (see .stage[data-zoom])
+export const ZOOM = { calm: PHONE ? 1.1 : 1.2, alert: 1.35 };   // --zoom of .obj (see .stage[data-zoom])
 
 // How much the object scales to fill its stage (--fit): calm, the outermost
 // visible layer touches the shorter side; in an alert, the front disc at its
@@ -185,8 +185,9 @@ export type BackLayer = {
 
 // A layer behind: the label takes the length of its text (range="auto") and a
 // transparent interactive arc on the ring receives the tap that brings it forward.
+// The label rides just outside its ring (orbit 13), never over the rings inside it.
 export function backLayer(b: BackLayer) {
-  return `<div class="orbit-11" style="--o-from:${b.at}deg">
+  return `<div class="orbit-13" style="--o-from:${b.at}deg">
       <o-arc range="auto" class="arc-label" style="font-size:${(11 / b.grow).toFixed(2)}px">${esc(b.text)}</o-arc></div>
     <div class="orbit-12" style="--o-size-ratio:${(b.stroke / b.grow / LANE).toFixed(3)}">
       <o-arc interactive hit-width="${(b.hit / b.grow).toFixed(1)}" ${b.pick.attr}="${esc(b.pick.value)}" class="ring-hit"
@@ -468,6 +469,7 @@ export type Timeline = {
   events?: TimeEvent[];
   big: string; label: string;        // the center: what is now
   marks?: boolean;                   // hour ticks and "6 h ago"… (24 h only)
+  names?: boolean;                   // each ring named on itself, at its start
   aria: string;
 };
 export const MAX_TRACKS = 8;
@@ -492,8 +494,12 @@ export function timeline(tl: Timeline) {
       const title = `${tr.name}: ${to <= 0 ? t.sinceTime(when(f)) : `${when(f)}–${when(to)}`}`;
       return `<o-arc class="track-span${tr.failed ? ' is-failed' : ''}" start="${at(f).toFixed(1)}" value="${Math.max(len, 3).toFixed(1)}" interactive data-track="${esc(tr.key)}" title="${esc(title)}"></o-arc>`;
     }).join('');
+    // Each ring is named on itself, a step further round than the one outside
+    // it (the names would pile up at one angle), over whatever is there.
+    const name = tl.names ? `<div class="orbit-${12 - i} track-name-orbit" style="--o-from:${(half / S * 360 + 6 + i * 38).toFixed(1)}deg">
+      <o-arc range="auto" class="arc-label track-name" style="font-size:${i ? 9.5 : 10.5}px">${esc(tr.name)}</o-arc></div>` : '';
     return `<div class="orbit-${12 - i} ${cls}" style="--o-max:${S}; --o-gap:0; --o-stroke-width:0; --o-size-ratio:.3">
-      <o-arc class="track-back" start="${at(tl.hours).toFixed(1)}" value="${W}" interactive data-track="${esc(tr.key)}" title="${esc(tr.name)}"></o-arc>${spans}</div>`;
+      <o-arc class="track-back" start="${at(tl.hours).toFixed(1)}" value="${W}" interactive data-track="${esc(tr.key)}" title="${esc(tr.name)}"></o-arc>${spans}</div>${name}`;
   }).join('');
   // Events within the same half hour share a word.
   const grouped: TimeEvent[] = [];
@@ -527,6 +533,40 @@ export function colorWheel(hs: [number, number] | null, key: string, label: stri
 }
 // CSS color of a hue/saturation at full brightness.
 export const hsCss = (h: number, s: number) => `hsl(${Math.round(h)} 100% ${Math.round(100 - s / 2)}%)`;
+
+// ─── Color arcs ─────────────────────────────────────────────────────
+
+// A light's color as two curved sliders inside its brightness dial: the hue
+// around (a rainbow of short arcs on orbit 10) and the saturation inside it
+// (from white to that hue, on orbit 8). Each is a slider of its own, with the
+// dial's gestures (data-dial "key:hue" and "key:sat" on a transparent grab
+// ring), and a knob sits at its value, painted with the color it points at.
+// Both follow the dial's span: a full ring, or the open dial.
+export const HUE_STEPS = 36, SAT_STEPS = 12;
+export const COLOR_ORBITS = { hue: 10, sat: 8 } as const;
+export const satColor = (h: number, i: number) => hsCss(h, (i + 0.5) * 100 / SAT_STEPS);
+export function colorArcs(key: string, hs: [number, number] | null, o: { open?: boolean; name: string }) {
+  const [h, s] = hs ?? [0, 100];
+  const from = o.open ? OPEN.from : 0, range = o.open ? OPEN.range : 360;
+  const span = o.open ? `--o-from:${from}deg; --o-range:${range}deg; ` : '';
+  const unset = hs ? '' : ' is-unset';
+  const part = (what: 'hue' | 'sat', value: number, max: number, label: string, size: number, arcs: string, v: number, color: string) =>
+    `<div class="orbit-${COLOR_ORBITS[what]} ${what}-ring${unset}" style="${span}--o-size-ratio:${size}; --o-gap:0; --o-stroke-width:0">${arcs}</div>
+    <div class="orbit-${COLOR_ORBITS[what]} ring-grab" style="${span}--o-size-ratio:${size}" data-dial="${esc(key)}:${what}" role="slider" tabindex="0"
+      aria-label="${esc(label)}" aria-valuemin="0" aria-valuemax="${max}" aria-valuenow="${Math.round(value)}"><o-arc interactive hit-width="4"></o-arc></div>
+    <div class="orbit-${COLOR_ORBITS[what]} knob-orbit" style="--o-range:0deg; --o-from:${(from + v * range).toFixed(2)}deg">
+      <div class="satellite knob ${what}-knob" style="--o-size-ratio:1.4; background:${color}"></div></div>`;
+  const hue = Array.from({ length: HUE_STEPS }, (_, i) => `<o-arc style="--o-fill:hsl(${i * 360 / HUE_STEPS} 100% 50%)"></o-arc>`).join('');
+  const sat = Array.from({ length: SAT_STEPS }, (_, i) => `<o-arc style="--o-fill:${satColor(h, i)}"></o-arc>`).join('');
+  return part('hue', h, 360, t.hueOf(o.name), 1.2, hue, h / 360, `hsl(${Math.round(h)} 100% 50%)`)
+    + part('sat', s, 100, t.saturationOf(o.name), 1, sat, s / 100, hsCss(h, s));
+}
+
+// The center of a detail's ring: what is now, over a wash of the color when there is one.
+export function ringCenter(big: string, label: string, size: number, color?: string) {
+  return `<div class="orbit-0" style="--o-size-ratio:${size}"><div class="satellite at-center"><div class="capsule ring-center${color ? ' has-color' : ''}"${color ? ` style="--c:${color}"` : ''}>
+    <span class="ring-big">${esc(big)}</span><span class="ring-label">${esc(label)}</span></div></div></div>`;
+}
 
 export type WheelControls = {
   current: (key: string) => [number, number];
@@ -582,18 +622,25 @@ export function wheelControls(el: HTMLElement, c: WheelControls) {
 }
 
 // ±7° parallax with the pointer, only in 3D and not on the phone (no pointer).
+// One write per frame, in half degrees: the pointer sends many more moves
+// than there are frames, and each write re-composites the 3D object.
 export function parallax(stage: HTMLElement, obj: HTMLElement, active: () => boolean) {
+  let rx = '0deg', ry = '0deg', frame = 0;
+  const write = () => {
+    frame = 0;
+    if (obj.style.getPropertyValue('--rx') !== rx) obj.style.setProperty('--rx', rx);
+    if (obj.style.getPropertyValue('--ry') !== ry) obj.style.setProperty('--ry', ry);
+  };
+  const half = (d: number) => `${(Math.round(d * 2) / 2).toFixed(1)}deg`;
   stage.addEventListener('pointermove', (e) => {
     if (!active() || PHONE) return;
     const b = stage.getBoundingClientRect();
     const x = (e.clientX - b.left) / b.width - 0.5, y = (e.clientY - b.top) / b.height - 0.5;
-    obj.style.setProperty('--rx', `${(-y * 14).toFixed(2)}deg`);
-    obj.style.setProperty('--ry', `${(x * 14).toFixed(2)}deg`);
+    rx = half(-y * 14);
+    ry = half(x * 14);
+    if (!frame) frame = requestAnimationFrame(write);
   });
-  stage.addEventListener('pointerleave', () => {
-    obj.style.setProperty('--rx', '0deg');
-    obj.style.setProperty('--ry', '0deg');
-  });
+  stage.addEventListener('pointerleave', () => { rx = '0deg'; ry = '0deg'; if (!frame) frame = requestAnimationFrame(write); });
 }
 
 // ─── Zumly ──────────────────────────────────────────────────────────
@@ -613,10 +660,15 @@ export function zumlyOptions(views: ZumlyOptions['views'], initialView: string, 
       animateEffects: false,
       hideTrigger: 'fade',
     },
-    // Going back: the button names where it goes (depthNav 'title'); the wheel,
-    // a swipe and a pinch move the view while the gesture lasts (gestures.follow).
+    // Going back: the button names where it goes (depthNav 'title'); a swipe
+    // and a pinch move the view while the gesture lasts (gestures.follow).
+    // Never the wheel: on a trackpad any two-finger movement over a view (an
+    // inertial scroll past the end of a panel included) would start the
+    // zoom-out scrub, and the blurred views behind, scaled up, took the
+    // screen for a moment (31/10, Martin's recording). The dials and the
+    // lists keep their own wheel.
     depthNav: { style: 'title' },
-    inputs: { pinch: true },
+    inputs: { pinch: true, wheel: false },
     gestures: { follow: true },
     // On the phone, swiping sideways moves between systems (sibling views sys-*).
     // No Zumly bar: the mini-ring dots belong to the view. A gesture that starts
@@ -633,4 +685,397 @@ export async function startInside(app: Zumly, systemId: string, root: ParentNode
   tile.dataset.withDuration = '1ms';
   await app.zoomIn(tile);
   delete tile.dataset.withDuration;
+}
+
+// ─── Month ring: a calendar ─────────────────────────────────────────
+
+export type MonthRing = {
+  days: number;                      // days in the month
+  today: number;                     // today's day number (1-based); 0 when the month is not this one
+  values: (number | null)[];         // one per day, the first day first; null where nothing is known (the days to come)
+  unit?: string;
+  big: string; label: string;        // the center: today's value and what it is
+  title: string;                     // the month and year
+  aria: string;
+};
+
+// A month as a ring: the days around (satellites, the first at the top,
+// today marked, the days to come faint) and each day's value as a sector
+// growing out from a baseline inside them, the way the day ring draws its
+// hours. The center says today and the month.
+export function monthRing(m: MonthRing) {
+  const nums = m.values.filter((v): v is number => v != null);
+  const hi = Math.max(0, ...nums);
+  const REACH = 3.5;                 // lanes from the baseline (orbit 7) outward
+  const bars = m.values.map((v, i) => v == null ? '' : `<o-arc class="month-bar outer-orbit${i + 1 === m.today ? ' is-today' : ''}" start="${i}" value="1" interactive
+      style="--o-size-ratio:${Math.max(0.2, REACH * (hi ? v / hi : 0)).toFixed(3)}" title="${esc(`${i + 1} ${m.title}: ${num(v)}${m.unit ?? ''}`)}"></o-arc>`).join('');
+  const days = Array.from({ length: m.days }, (_, i) => `<div class="orbit-12 day-orbit" style="--o-range:0deg; --o-from:${((i + 0.5) * 360 / m.days).toFixed(2)}deg">
+      <div class="satellite day${i + 1 === m.today ? ' is-today' : ''}${m.today && i + 1 > m.today ? ' is-ahead' : ''}" style="--o-size-ratio:1.5"><div class="capsule">${i + 1}</div></div></div>`).join('');
+  return `<div class="bigbang month-ring" role="img" aria-label="${esc(m.aria)}"><div class="gravity-spot">
+    ${days}<div class="orbit-7 month-bars" style="--o-max:${m.days}; --o-gap:1; --o-stroke-width:0">${bars}</div>
+    <div class="orbit-0" style="--o-size-ratio:9"><div class="satellite at-center"><div class="capsule time-center">
+      <span class="time-big">${esc(m.big)}</span><span class="time-label">${esc(m.label)}</span><span class="time-range">${esc(m.title)}</span></div></div></div>
+  </div></div>`;
+}
+
+// ─── Clock rim ──────────────────────────────────────────────────────
+
+export type ClockMark = { at: Date; level?: number; text: string };
+// A clock's rim inside a ring: twelve hour ticks, the latest changes as dots
+// at their minute (in their level's color, the text as a title) and now as a
+// brighter dot. For the center of the orbit view; the time itself is text.
+export function clockRim(marks: ClockMark[], now = new Date()) {
+  const angle = (d: Date) => (d.getHours() % 12) * 30 + d.getMinutes() * 0.5;
+  const ticks = Array.from({ length: 12 }, () => `<div class="vector clock-tick" style="--o-size-ratio:.6"></div>`).join('');
+  const dots = marks.map((mk) => `<div class="orbit-11 clock-mark-orbit" style="--o-range:0deg; --o-from:${angle(mk.at).toFixed(1)}deg">
+      <div class="satellite clock-mark${mk.level ? ` level-${mk.level}` : ''}" style="--o-size-ratio:.55" title="${esc(`${time(mk.at).slice(0, 5)} ${mk.text}`)}"></div></div>`).join('');
+  return `<div class="orbit-11 clock-ticks">${ticks}</div>${dots}
+    <div class="orbit-11 clock-now-orbit" style="--o-range:0deg; --o-from:${angle(now).toFixed(1)}deg"><div class="satellite clock-now" style="--o-size-ratio:.9" title="${esc(time(now).slice(0, 5))}"></div></div>`;
+}
+
+// ─── Radial list ────────────────────────────────────────────────────
+
+export type ListItem = { id: string; title: string; ring: string; glyph: string; big: string; label: string; level?: number };
+export const LIST_STEP = 30;         // degrees between items when there are more than fit around
+// Up to twelve items share the whole circle; past that they keep 30° apart and
+// the ring shows a window of them, the rest waiting past its ends.
+export const listStep = (n: number) => n <= 12 ? 360 / Math.max(1, n) : LIST_STEP;
+function listPlace(i: number, offset: number, n: number) {
+  const step = listStep(n), full = n <= 12;
+  let a = ((i - offset) * step) % 360;
+  if (a > 180) a -= 360;
+  if (a < -180) a += 360;
+  return { a, hidden: !full && Math.abs(a) > 100, focus: Math.abs(a) < step / 2, opacity: (1 - 0.55 * Math.abs(a) / (full ? 180 : 100)).toFixed(2) };
+}
+
+// A list to turn, like the lists of a watch: the items sit on a ring and the
+// one at the top is the one chosen (its name and reading in the center, which
+// opens it); turning the ring (wheel, drag, arrows) brings the next one up,
+// and past the last comes the first again. `offset` is the index at the top,
+// fractional while the ring turns.
+export function radialList(items: ListItem[], offset: number) {
+  const n = items.length;
+  if (!n) return '';
+  const slots = items.map((it, i) => {
+    const { a, hidden, focus, opacity } = listPlace(i, offset, n);
+    return `<div class="orbit-10 list-orbit${hidden ? ' is-hidden' : ''}" style="--o-range:0deg; --o-from:${a.toFixed(2)}deg">
+      <div class="satellite list-item${focus ? ' is-focus' : ''}${it.level ? ` level-${it.level}` : ''}" role="option" aria-selected="${focus}" aria-label="${esc(it.title)}"
+        data-item="${esc(it.id)}" style="--o-size-ratio:${focus ? 4.4 : 2.8}; opacity:${opacity}">
+        <div class="capsule"><span class="bigbang list-ring"><span class="gravity-spot">${it.ring}</span></span><span class="list-glyph">${icon(it.glyph, focus ? 22 : 15)}</span></div></div></div>`;
+  }).join('');
+  const f = items[((Math.round(offset) % n) + n) % n];
+  return `<div class="bigbang radial-list" role="listbox" aria-label="${esc(t.systems)}" tabindex="0"><div class="gravity-spot">
+    <div class="orbit-10 list-track" style="--o-from:${n <= 12 ? 0 : -100}deg; --o-range:${n <= 12 ? 360 : 200}deg; --o-size-ratio:.15"><o-arc style="--o-fill:var(--line)"></o-arc></div>${slots}
+    <div class="orbit-0 list-center-orbit" style="--o-size-ratio:11">${listCenter(f)}</div></div></div>`;
+}
+// The center of the list: the item at the top, named with its reading; it opens the system.
+export function listCenter(f: ListItem) {
+  return `<div class="satellite at-center">
+    <div class="capsule disc list-center zoom-me${f.level ? ` level-${f.level}` : ''}" role="button" tabindex="0" data-to="sys-${esc(f.id)}" data-system="${esc(f.id)}" aria-label="${esc(t.open(f.title))}">
+      <span class="face-name">${esc(f.title)}</span><span class="face-big">${esc(f.big)}</span><span class="face-label">${esc(f.label)}</span></div></div>`;
+}
+
+// Turns a drawn list in place (no redraw: the satellites slide to their new
+// angle). Returns the index of the item now at the top.
+export function turnList(root: HTMLElement, offset: number) {
+  const orbits = [...root.querySelectorAll<HTMLElement>('.list-orbit')], n = orbits.length;
+  orbits.forEach((o, i) => {
+    const { a, hidden, focus, opacity } = listPlace(i, offset, n);
+    o.style.setProperty('--o-from', `${a.toFixed(2)}deg`);
+    o.classList.toggle('is-hidden', hidden);
+    const it = o.firstElementChild as HTMLElement;
+    it.classList.toggle('is-focus', focus);
+    it.setAttribute('aria-selected', String(focus));
+    it.style.setProperty('--o-size-ratio', focus ? '4.4' : '2.8');
+    it.style.opacity = opacity;
+    const g = it.querySelector('.list-glyph svg');
+    if (g) { g.setAttribute('width', focus ? '22' : '15'); g.setAttribute('height', focus ? '22' : '15'); }
+  });
+  return n ? ((Math.round(offset) % n) + n) % n : 0;
+}
+
+export type ListControls = {
+  count: () => number;
+  offset: () => number;
+  set: (offset: number) => void;        // the ring turned (fractional while it moves)
+  settle: (offset: number) => void;     // it came to rest on an item
+};
+// Turning the list: the wheel and the arrows move one item; a drag around
+// the center turns it with the pointer, and it settles on the nearest item
+// when the pointer lets go. A tap on an item brings it to the top. Zumly's
+// gestures do not see a drag here. Returns the cleanup.
+export function listControls(el: HTMLElement, c: ListControls) {
+  const wrap = (o: number) => { const n = c.count(); return n ? ((o % n) + n) % n : 0; };
+  let wheelTimer = 0, wheelAcc = 0;
+  const onWheel = (e: WheelEvent) => {
+    if (!(e.target as HTMLElement).closest('.radial-list')) return;
+    e.preventDefault();
+    e.stopPropagation();
+    wheelAcc += e.deltaY;
+    const steps = Math.trunc(wheelAcc / 60);
+    if (steps) { wheelAcc -= steps * 60; c.settle(wrap(Math.round(c.offset()) + steps)); }
+    clearTimeout(wheelTimer);
+    wheelTimer = window.setTimeout(() => { wheelAcc = 0; }, 300);
+  };
+  let drag: { angle: number; start: number; moved: boolean; target: HTMLElement } | null = null;
+  let swallowUntil = 0;
+  const angleAt = (list: Element, x: number, y: number) => {
+    const b = list.getBoundingClientRect();
+    return Math.atan2(x - (b.left + b.width / 2), -(y - (b.top + b.height / 2))) * 180 / Math.PI;
+  };
+  const onDown = (e: PointerEvent) => {
+    const list = (e.target as HTMLElement).closest<HTMLElement>('.radial-list');
+    if (!list || (e.target as HTMLElement).closest('.list-center')) return;
+    list.setPointerCapture(e.pointerId);
+    drag = { angle: angleAt(list, e.clientX, e.clientY), start: c.offset(), moved: false, target: e.target as HTMLElement };
+  };
+  const onMove = (e: PointerEvent) => {
+    if (!drag) return;
+    const list = (e.target as HTMLElement).closest<HTMLElement>('.radial-list') ?? el.querySelector<HTMLElement>('.radial-list');
+    if (!list) return;
+    let d = angleAt(list, e.clientX, e.clientY) - drag.angle;
+    if (d > 180) d -= 360;
+    if (d < -180) d += 360;
+    if (Math.abs(d) > 3) { drag.moved = true; swallowUntil = Infinity; }
+    if (drag.moved) c.set(drag.start - d / listStep(c.count()));
+  };
+  const onUp = () => {
+    if (!drag) return;
+    const { moved, target } = drag;
+    drag = null;
+    if (moved) { swallowUntil = performance.now() + 400; c.settle(wrap(Math.round(c.offset()))); return; }
+    const item = target.closest<HTMLElement>('[data-item]');
+    if (item) { const i = [...el.querySelectorAll('[data-item]')].indexOf(item); if (i >= 0) c.settle(i); }
+  };
+  const swallow = (e: Event) => { if (performance.now() < swallowUntil) e.stopPropagation(); };
+  const onKey = (e: KeyboardEvent) => {
+    if (!(e.target as HTMLElement).closest('.radial-list')) return;
+    const step: Record<string, number> = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 };
+    if (e.key in step) { e.preventDefault(); c.settle(wrap(Math.round(c.offset()) + step[e.key])); }
+    else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); el.querySelector<HTMLElement>('.list-center')?.click(); }
+  };
+  el.addEventListener('wheel', onWheel, { passive: false });
+  el.addEventListener('pointerdown', onDown);
+  el.addEventListener('pointermove', onMove);
+  el.addEventListener('pointerup', onUp);
+  el.addEventListener('pointercancel', onUp);
+  el.addEventListener('keydown', onKey);
+  const swallowed = ['mouseup', 'touchend', 'click'];
+  for (const type of swallowed) window.addEventListener(type, swallow, true);
+  return () => { for (const type of swallowed) window.removeEventListener(type, swallow, true); };
+}
+
+// ─── Music visual (WebGL) ───────────────────────────────────────────
+
+export type MusicVisual = { level: () => number; playing: () => boolean };
+// Sound as a ring of 48 bars inside a face, the way a player's visualizer
+// draws it: each bar grows from the rim inward with the beat, as loud as the
+// volume says. There is no audio to listen to: the beat is kept in time (120
+// a minute) and the bars drift on their own. WebGL draws it; without WebGL,
+// or with reduced motion, one still frame. Returns the stop.
+export function musicVisual(canvas: HTMLCanvasElement, o: MusicVisual) {
+  const gl = canvas.getContext('webgl', { alpha: true, premultipliedAlpha: true, antialias: true });
+  if (!gl) return () => {};
+  const N = 48;
+  const compile = (type: number, src: string) => { const sh = gl.createShader(type)!; gl.shaderSource(sh, src); gl.compileShader(sh); return sh; };
+  const prog = gl.createProgram()!;
+  gl.attachShader(prog, compile(gl.VERTEX_SHADER, 'attribute vec2 p; varying vec2 v; void main(){ v = p; gl_Position = vec4(p, 0., 1.); }'));
+  gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, `precision mediump float; varying vec2 v; uniform float bars[${N}];
+    void main(){
+      float r = length(v); float a = atan(v.x, v.y); if (a < 0.) a += 6.28318;
+      float slot = a / 6.28318 * ${N}.; int i = int(floor(slot));
+      float h = 0.; for (int k = 0; k < ${N}; k++) { if (k == i) h = bars[k]; }
+      float w = fract(slot); float edge = smoothstep(0.12, 0.3, w) * smoothstep(0.12, 0.3, 1. - w);
+      float r1 = 0.985, r0 = r1 - 0.2 * h;
+      float inBar = smoothstep(r0 - 0.008, r0 + 0.008, r) * (1. - smoothstep(r1 - 0.01, r1, r));
+      float alpha = inBar * edge * (0.3 + 0.6 * h);
+      gl_FragColor = vec4(vec3(alpha), alpha);
+    }`));
+  gl.linkProgram(prog);
+  gl.useProgram(prog);
+  const buf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+  const p = gl.getAttribLocation(prog, 'p');
+  gl.enableVertexAttribArray(p);
+  gl.vertexAttribPointer(p, 2, gl.FLOAT, false, 0, 0);
+  const loc = gl.getUniformLocation(prog, 'bars[0]');
+  const bars = new Float32Array(N), cur = new Float32Array(N);
+  const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let frame = 0, stopped = false;
+  // Behind the current view (Zumly keeps it, blurred) or in a hidden tab the bars wait.
+  const shown = () => !document.hidden && !!canvas.closest('.is-current-view, .is-new-current-view, [data-visual-live]');
+  const draw = (t: number) => {
+    if (stopped) return;
+    if (!shown()) { setTimeout(() => { if (!stopped) frame = requestAnimationFrame(draw); }, 300); return; }
+    const w = Math.round(canvas.clientWidth * devicePixelRatio), h = Math.round(canvas.clientHeight * devicePixelRatio);
+    if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; gl.viewport(0, 0, w, h); }
+    const lvl = Math.min(1, Math.max(0, o.level())), on = o.playing();
+    const beat = on ? Math.pow(1 - ((t / 500) % 1), 2) : 0;          // 120 a minute
+    for (let i = 0; i < N; i++) {
+      const drift = 0.5 + 0.5 * Math.sin(i * 1.7 + t / 1000 * (1.2 + (i % 5) * 0.25));
+      const amp = 0.3 + 0.7 * lvl;
+      const target = on ? amp * (0.15 + 0.85 * drift * (0.5 + 0.5 * beat)) : amp * 0.12;
+      cur[i] += (target - cur[i]) * (still ? 1 : 0.22);
+      bars[i] = cur[i];
+    }
+    gl.clearColor(0, 0, 0, 0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.uniform1fv(loc, bars);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    if (!still) frame = requestAnimationFrame(draw);
+  };
+  frame = requestAnimationFrame(draw);
+  return () => { stopped = true; cancelAnimationFrame(frame); };
+}
+
+// ─── Scroll list: a long list, in a circle ───────────────────────────
+
+export type ScrollItem = { label: string; on?: boolean; act?: boolean };
+export type ScrollState = { offset: number; focus: number };
+// The window: items 22° apart along the right side of the ring, from 24° to
+// 156°, the first visible at the top; a curved scrollbar outside them.
+export const SCROLL_STEP = 22, SCROLL_FROM = 24, SCROLL_SPAN = 132;
+export const SCROLL_VISIBLE = Math.floor(SCROLL_SPAN / SCROLL_STEP) + 1;
+const scrollMax = (n: number) => Math.max(0, n - SCROLL_VISIBLE);
+function scrollPlace(i: number, offset: number) {
+  const a = SCROLL_FROM + (i - offset) * SCROLL_STEP, d = Math.abs(a - (SCROLL_FROM + SCROLL_SPAN / 2));
+  return { a, hidden: a < SCROLL_FROM - 12 || a > SCROLL_FROM + SCROLL_SPAN + 12, opacity: Math.max(0.15, 1 - 0.75 * Math.max(0, d - 44) / 40).toFixed(2) };
+}
+function scrollThumb(n: number, offset: number) {
+  const len = n > SCROLL_VISIBLE ? Math.max(14, SCROLL_SPAN * SCROLL_VISIBLE / n) : SCROLL_SPAN;
+  const max = scrollMax(n);
+  return { from: SCROLL_FROM + (max ? (SCROLL_SPAN - len) * Math.min(max, Math.max(0, offset)) / max : 0), len };
+}
+
+// A long list to scroll, in a circle: the items along the right side of the
+// ring, their names reaching inward, a window of seven; the one that is on
+// has a dot on the ring, the focused one is bright. Outside them a curved
+// scrollbar whose thumb shows where the window is; it drags. The wheel, a
+// drag along the items and the arrows scroll; a tap picks. On the left,
+// what is chosen and how many there are.
+export function scrollList(items: ScrollItem[], st: ScrollState, o: { key: string; name: string }) {
+  const n = items.length;
+  const slots = items.map((it, i) => {
+    const { a, hidden, opacity } = scrollPlace(i, st.offset);
+    return `<div class="orbit-11 scroll-orbit${hidden ? ' is-hidden' : ''}" style="--o-range:0deg; --o-from:${a.toFixed(2)}deg">
+      <div class="satellite scroll-item${it.on ? ' is-on' : ''}${i === st.focus ? ' is-focus' : ''}${it.act === false ? ' is-still' : ''}" role="option" id="${esc(o.key)}-opt-${i}"
+        aria-selected="${!!it.on}" data-opt="${i}" style="--o-size-ratio:.6; opacity:${opacity}"><div class="capsule"><span class="sl-text">${esc(it.label)}</span></div></div></div>`;
+  }).join('');
+  const th = scrollThumb(n, st.offset);
+  // The ring is drawn whole, faint; the thumb rides on its right side.
+  const bar = `<div class="orbit-12 scroll-track" style="--o-size-ratio:.3"><o-arc></o-arc></div>` + (n > SCROLL_VISIBLE ? `
+    <div class="orbit-12 scroll-thumb-orbit" style="--o-from:${th.from.toFixed(2)}deg; --o-range:${th.len.toFixed(2)}deg; --o-size-ratio:.35">
+      <o-arc class="scroll-thumb" interactive hit-width="8" role="scrollbar" aria-label="${esc(t.scrollbarOf(o.name))}" aria-orientation="vertical"
+        aria-valuemin="0" aria-valuemax="${scrollMax(n)}" aria-valuenow="${Math.round(st.offset)}"></o-arc></div>` : '');
+  return `<div class="bigbang detail-ring scroll-list" role="listbox" aria-label="${esc(o.name)}" tabindex="0" data-scroll="${esc(o.key)}"
+      aria-activedescendant="${esc(o.key)}-opt-${st.focus}" aria-description="${esc(t.nOptions(n))}"><div class="gravity-spot">
+    ${bar}${slots}
+  </div></div>`;
+}
+// Scrolls a drawn list in place: the items slide, the thumb moves, the focus changes hands.
+export function turnScroll(root: HTMLElement, st: ScrollState) {
+  const orbits = [...root.querySelectorAll<HTMLElement>('.scroll-orbit')], n = orbits.length;
+  orbits.forEach((o, i) => {
+    const { a, hidden, opacity } = scrollPlace(i, st.offset);
+    o.style.setProperty('--o-from', `${a.toFixed(2)}deg`);
+    o.classList.toggle('is-hidden', hidden);
+    const it = o.firstElementChild as HTMLElement;
+    it.classList.toggle('is-focus', i === st.focus);
+    it.style.opacity = opacity;
+  });
+  const th = scrollThumb(n, st.offset);
+  const thumb = root.querySelector<HTMLElement>('.scroll-thumb-orbit');
+  if (thumb) {
+    thumb.style.setProperty('--o-from', `${th.from.toFixed(2)}deg`);
+    thumb.firstElementChild!.setAttribute('aria-valuenow', String(Math.round(st.offset)));
+  }
+  root.setAttribute('aria-activedescendant', `${root.dataset.scroll}-opt-${st.focus}`);
+}
+
+export type ScrollControls = {
+  state: (key: string) => ScrollState;        // the list's state, kept by the view
+  count: (key: string) => number;
+  pick: (key: string, i: number) => void;     // an item tapped or entered
+};
+// Scrolling: the wheel and a drag along the items move the window (the drag
+// follows the pointer's angle around the center); the thumb drags the window
+// by its share of the track; the arrows move the focus and bring it into
+// view, Enter and Space pick it. After a drag the window settles on a whole
+// item and the click that follows is swallowed. Returns the cleanup.
+export function scrollControls(el: HTMLElement, c: ScrollControls) {
+  const listAt = (target: EventTarget | null) => (target as HTMLElement | null)?.closest?.<HTMLElement>('.scroll-list') ?? null;
+  const clamp = (key: string, o: number) => Math.min(scrollMax(c.count(key)), Math.max(0, o));
+  const show = (list: HTMLElement, key: string, offset: number, focus = c.state(key).focus) => {
+    const st = c.state(key);
+    st.offset = clamp(key, offset);
+    st.focus = Math.min(c.count(key) - 1, Math.max(0, focus));
+    turnScroll(list, st);
+  };
+  let wheelTimer = 0;
+  const onWheel = (e: WheelEvent) => {
+    const list = listAt(e.target);
+    if (!list) return;
+    const key = list.dataset.scroll!;
+    e.preventDefault();
+    e.stopPropagation();                 // Zumly would read the wheel as a zoom out
+    show(list, key, c.state(key).offset + e.deltaY / 40);
+    clearTimeout(wheelTimer);
+    wheelTimer = window.setTimeout(() => show(list, key, Math.round(c.state(key).offset)), 160);
+  };
+  const angleAt = (list: Element, x: number, y: number) => {
+    const b = list.getBoundingClientRect();
+    let a = Math.atan2(x - (b.left + b.width / 2), -(y - (b.top + b.height / 2))) * 180 / Math.PI;
+    if (a < 0) a += 360;
+    return a;
+  };
+  let drag: { list: HTMLElement; key: string; angle: number; start: number; thumb: boolean; moved: boolean; target: HTMLElement } | null = null;
+  let swallowUntil = 0;
+  const onDown = (e: PointerEvent) => {
+    const list = listAt(e.target);
+    if (!list) return;
+    const key = list.dataset.scroll!;
+    list.setPointerCapture(e.pointerId);
+    drag = { list, key, angle: angleAt(list, e.clientX, e.clientY), start: c.state(key).offset, thumb: !!(e.target as HTMLElement).closest('.scroll-thumb'), moved: false, target: e.target as HTMLElement };
+  };
+  const onMove = (e: PointerEvent) => {
+    if (!drag) return;
+    const d = angleAt(drag.list, e.clientX, e.clientY) - drag.angle;
+    if (Math.abs(d) > 2) { drag.moved = true; swallowUntil = Infinity; }
+    if (!drag.moved) return;
+    const n = c.count(drag.key);
+    // The thumb moves the window by its share of the track; the items, one per step, the other way.
+    const per = drag.thumb ? scrollMax(n) / Math.max(1, SCROLL_SPAN - scrollThumb(n, 0).len) : -1 / SCROLL_STEP;
+    show(drag.list, drag.key, drag.start + d * per);
+  };
+  const onUp = () => {
+    if (!drag) return;
+    const { list, key, moved, target } = drag;
+    drag = null;
+    if (moved) { swallowUntil = performance.now() + 400; show(list, key, Math.round(c.state(key).offset)); return; }
+    const opt = target.closest<HTMLElement>('[data-opt]');
+    if (opt) { const i = Number(opt.dataset.opt); show(list, key, c.state(key).offset, i); c.pick(key, i); }
+  };
+  const swallow = (e: Event) => { if (performance.now() < swallowUntil) e.stopPropagation(); };
+  const onKey = (e: KeyboardEvent) => {
+    const list = listAt(e.target);
+    if (!list) return;
+    const key = list.dataset.scroll!, st = c.state(key), n = c.count(key);
+    const step: Record<string, number> = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1, PageDown: SCROLL_VISIBLE, PageUp: -SCROLL_VISIBLE, Home: -n, End: n };
+    if (e.key in step) {
+      e.preventDefault();
+      const focus = Math.min(n - 1, Math.max(0, st.focus + step[e.key]));
+      const offset = focus < st.offset ? focus : focus > st.offset + SCROLL_VISIBLE - 1 ? focus - SCROLL_VISIBLE + 1 : st.offset;
+      show(list, key, Math.round(offset), focus);
+    } else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); c.pick(key, st.focus); }
+  };
+  el.addEventListener('wheel', onWheel, { passive: false });
+  el.addEventListener('pointerdown', onDown);
+  el.addEventListener('pointermove', onMove);
+  el.addEventListener('pointerup', onUp);
+  el.addEventListener('pointercancel', onUp);
+  el.addEventListener('keydown', onKey);
+  const swallowed = ['mouseup', 'touchend', 'click'];
+  for (const type of swallowed) window.addEventListener(type, swallow, true);
+  return () => { for (const type of swallowed) window.removeEventListener(type, swallow, true); };
 }

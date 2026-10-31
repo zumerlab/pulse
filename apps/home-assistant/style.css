@@ -11,7 +11,10 @@
 
 /* Board: seven systems and the home's latest pulse */
 .board { gap: 28px; overflow-y: auto; align-content: safe center; }
-.tile { height: 160px; }
+.tile { height: 160px; position: relative; }
+/* Media's sound, in the tile: the visual's canvas over the mini ring. */
+.tile .face-visual { position: absolute; top: 0; left: 50%; width: 84px; height: 84px; transform: translateX(-50%); z-index: 0; }
+@media (max-width: 640px) { .tile .face-visual { width: 56px; height: 56px; } }
 .tile-big { font-size: 12px; color: var(--ink); max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tile.level-1 .tile-title, .tile.level-1 .tile-big { color: var(--minor); }
 .tile.level-2 .tile-title, .tile.level-2 .tile-big { color: var(--critical); }
@@ -39,11 +42,6 @@
 .layer.is-seen .disc::after { display: none; }
 .strip .plain { min-height: 36px; padding: 6px 12px; }
 
-/* Satellites: alerts that wait, with their channel's icon (rule 3) */
-.sat { display: grid; place-items: center; border-radius: 50%; background: var(--bg); cursor: pointer; pointer-events: auto; }
-.sat.level-1 { color: var(--minor); box-shadow: 0 0 0 1.5px var(--minor); }
-.sat.level-2 { color: var(--critical); box-shadow: 0 0 0 1.5px var(--critical); }
-.sat .glyph { width: 12px; height: 12px; }
 
 /* Detail */
 .detail { overflow-y: auto; align-content: start; padding-top: 48px; grid-template-columns: minmax(0, 1fr); }
@@ -83,10 +81,10 @@
 }
 
 /* ─── Board: view selector ─────────────────────────────── */
-.modes { display: inline-flex; justify-self: center; gap: 2px; padding: 3px; border-radius: 999px; border: 1px solid var(--line); margin-top: 6px; }
+.modes { display: inline-flex; flex-wrap: wrap; justify-content: center; max-width: 100%; justify-self: center; gap: 2px; padding: 3px; border-radius: 24px; border: 1px solid var(--line); margin-top: 6px; }
 .mode { border: 0; background: none; padding: 6px 14px; border-radius: 999px; font-size: 12px; color: var(--muted); cursor: pointer; }
 .mode[aria-pressed="true"] { background: rgba(255,255,255,.08); color: var(--ink); }
-.board.mode-orbit, .board.mode-layers {
+.board.mode-orbit, .board.mode-layers, .board.mode-list, .board.mode-clock, .board.mode-calendar {
   grid-template-rows: auto minmax(0, 1fr) auto; grid-template-columns: minmax(0, 1fr);
   align-content: stretch; justify-items: stretch; gap: 12px;
 }
@@ -112,7 +110,7 @@
 .hub { position: relative; width: 100%; aspect-ratio: 1; container-type: inline-size; }
 .hub-ring-slot, .hub-ring { position: absolute; inset: 0; width: 100%; }
 .hub.beat .hub-ring { animation: hub-beat .7s ease-out; }
-@keyframes hub-beat { 30% { transform: scale(1.04); filter: brightness(1.6); } }
+@keyframes hub-beat { 30% { transform: scale(1.04); opacity: .6; } }
 .hub-face {
   position: absolute; inset: 9%; border-radius: 50%; overflow: hidden; background: rgba(255,255,255,.04);
   display: grid; place-items: center; padding: 14% 12% 24%;
@@ -166,10 +164,21 @@
 .board-strip { position: absolute; left: 0; right: 0; bottom: 0; min-height: 36px; font-size: 13px; }
 .board-stage .obj, .board-stage[data-zoom="alert"] .obj { --zoom: var(--t-layer-zoom, 1.1); }
 .board-stage .obj .depth { --o-back-opacity: var(--t-layer-opacity, .6); --o-depth-step: var(--t-layer-step, -70); }
+/* The rings behind soften with the distance: a halo of their color (see the core's 3D rule). */
+.board-stage .layer:not(.layer-front) > .orbit-12 :is(o-arc, o-progress) { --o-stroke: color-mix(in srgb, var(--o-fill, var(--muted)) 30%, transparent); --o-stroke-width: var(--halo, 0); }
 .board-stage .face-label { max-width: 150px; }
 
 @media (prefers-reduced-motion: reduce) { .hub.beat .hub-ring, .otile.has-alert .otile-ring, .slide { animation: none; } }
-.board.mode-layers .ticker { justify-self: center; }
+.board.mode-layers .ticker, .board.mode-layers .board-head h1 { display: none; }
+.ticker li { justify-content: center; }
+/* Under the object in layers: the latest changes, and the systems past the cap. */
+.board-strip { display: grid; justify-items: center; gap: 2px; font-size: 12px; color: var(--muted); }
+.board-strip .behind { font-size: 13px; margin-bottom: 4px; }
+.board-strip .tick { display: flex; gap: 8px; white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.board-strip .tick:first-of-type { color: var(--ink); }
+.board-strip .tick.level-1 { color: var(--minor); }
+.board-strip .tick.level-2 { color: var(--critical); }
+.board-strip time { font-variant-numeric: tabular-nums; opacity: .7; }
 
 /* ─── Tuning (development only) ────────────────────────── */
 .tune {
@@ -270,3 +279,18 @@
 .bench { padding: 24px; display: grid; gap: 12px; justify-items: start; }
 .bench-lead { font-size: 12px; color: var(--muted); font-family: ui-monospace, monospace; }
 .bench-box { max-width: 100%; border-radius: 12px; outline: 1px dashed var(--line); resize: both; overflow: hidden; }
+
+/* ─── List, clock, calendar: one object in the space left ── */
+.list-stage, .clock-stage, .calendar-stage { position: absolute; inset: 0; display: grid; place-items: center; overflow: visible; }
+/* One flat object (no 3D, no parallax): the largest square that fits, up to 560 px. */
+.one { width: min(var(--S), 560px); aspect-ratio: 1; }
+.one > .bigbang { width: 100%; }
+.board.mode-list .board-head h1, .board.mode-clock .board-head h1, .board.mode-clock .ticker, .board.mode-calendar .board-head h1 { display: none; }
+/* The list's items slide to their new place when it settles; while the pointer turns it they follow at once. */
+.radial-list .list-orbit > .satellite { transition: transform .35s cubic-bezier(.2, .8, .2, 1), opacity .35s; }
+.radial-list.is-turning .list-orbit > .satellite { transition: none; }
+.list-item .list-ring { pointer-events: none; }
+.list-center.disc { --disc-pad: 10px; }
+.list-center .face-big { font-size: clamp(18px, 12cqw, 30px); }
+.list-center .face-label { max-width: 86cqw; white-space: normal; max-height: 2.6em; }
+@media (prefers-reduced-motion: reduce) { .radial-list .list-orbit > .satellite { transition: none; } }

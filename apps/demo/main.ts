@@ -130,7 +130,7 @@ function system(ctx: ViewContext, id: string) {
   const sys: PulseSystem = systems[id];
   const el = ctx.target;
   el.dataset.title = sys.title;
-  let flat = true, locked = false;
+  let flat = true, locked = false, alertWas = false;
 
   // Orbit layers: each channel is a nested .gravity-spot with data-depth;
   // .depth moves it in z and compensates the scale. The universe (.bigbang)
@@ -164,8 +164,10 @@ function system(ctx: ViewContext, id: string) {
 
   const paint = () => {
     const ord = order(id), st = state[id];
+    // A new alert opens the 3D view; after that the toggle decides.
     const alert = st.alerts.length > 0;
-    if (alert) flat = false;
+    if (alert && !alertWas) flat = false;
+    alertWas = alert;
     stage.dataset.zoom = alert ? 'alert' : 'calm';
     refit(alert);
     stage.classList.toggle('is-3d', !flat);

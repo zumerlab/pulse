@@ -28,6 +28,7 @@ export type FormSchema =
 export type Selector =
   | { select: { multiple?: boolean; mode?: 'list' | 'dropdown' | 'box'; options: { value: string; label: string }[] } }
   | { boolean: Record<string, never> }
+  | { number: { min?: number; max?: number; step?: number; mode?: 'box' | 'slider' } }
   | { area: { multiple?: boolean } };
 export type ConfigForm = {
   schema: FormSchema[];

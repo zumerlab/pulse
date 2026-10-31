@@ -44,6 +44,8 @@ export type Reading = {
   history?: string;                 // a numeric entity worth a day's ring in the detail
   tracks?: TrackSpec[];             // entities worth a day each in the detail, as rings (outermost first)
   events?: EventSpec[];             // moments to name on those rings: since each entity last changed
+  list?: Seg[];                     // a choice with more options than the ring takes: all of them, for the detail's scrolling list
+  month?: string;                   // an energy meter (kWh) worth this month's calendar in the detail
   choice?: string;                  // a channel that follows one entity: the one it follows…
   choices?: string[];               // …and the others it could (the gear offers them)
 };
@@ -180,6 +182,13 @@ const nth = (s: States, domain: string, ids: string[], fits: (e: HassState) => b
   return current.choice;
 };
 const first = (s: States, domain: string, ids: string[], fits?: (e: HassState) => boolean) => nth(s, domain, ids, fits, 0);
+// The home's energy meter: the first kWh sensor, the grid's consumption when one is named so.
+export function meterOf(s: States) {
+  const all = [...s.values()].filter((e) => e.entity_id.startsWith('sensor.') && e.attributes.unit_of_measurement === 'kWh' && Number.isFinite(Number(e.state)));
+  const pick = (f: (e: HassState) => boolean) => all.find(f)?.entity_id;
+  return pick((e) => e.attributes.device_class === 'energy' && /consum|grid|import|house|home|total/i.test(e.entity_id))
+    ?? pick((e) => e.attributes.device_class === 'energy') ?? pick((e) => /consum|grid/i.test(e.entity_id)) ?? all[0]?.entity_id;
+}
 // A channel that fell back to another installation's entity takes its name;
 // for the demo integration's the channel's own name is better ("Heating", not "HeatPump").
 const ownName = (s: States, id: string) => id in short || /^(climate\.(heatpump|hvac|ecobee)|water_heater\.demo_water_heater)$/.test(id) ? undefined : nameOf(s, id);
@@ -551,11 +560,12 @@ const SYSTEMS: PulseSystem[] = [
       const id = first(s, 'media_player', ['media_player.lounge_room'], (e) => strs(e, 'source_list').length > 1);
       const e = id ? s.get(id) : undefined;
       if (!id || !e) return null;
-      const sources = strs(e, 'source_list').slice(0, 8), current = String(e.attributes.source ?? '');
-      if (sources.length < 2) return null;
-      const segs = sources.map((src) => ({ label: src, on: src === current, entity: id,
+      const all = strs(e, 'source_list'), current = String(e.attributes.source ?? '');
+      if (all.length < 2) return null;
+      const options = all.map((src) => ({ label: src, on: src === current, entity: id,
         act: src === current ? undefined : call('media_player', 'select_source', id, { source: src }) }));
-      return { kind: 'c', segs, entities: [id], big: current || 'None', label: nameOf(s, id).toLowerCase(), name: `${nameOf(s, id)} source` };
+      // The ring takes eight names; the detail scrolls through all of them.
+      return { kind: 'c', segs: options.slice(0, 8), list: options, entities: [id], big: current || 'None', label: nameOf(s, id).toLowerCase(), name: `${nameOf(s, id)} source` };
     } },
     { key: 'volume', name: 'Living room volume', glyph: g.volume, read: (s) => {
       const id = first(s, 'media_player', ['media_player.living_room'], (e) => attr(e, 'volume_level') != null);
@@ -576,7 +586,7 @@ const SYSTEMS: PulseSystem[] = [
         (e) => e.attributes.unit_of_measurement === 'W');
       if (!id) return null;
       const w = Number(s.get(id)!.state), capW = 3000;
-      return { kind: 'p', v: clamp(w / capW), entities: [id], big: `${num(w, 0)} W`, label: `of ${num(capW)} W`, history: id,
+      return { kind: 'p', v: clamp(w / capW), entities: [id], big: `${num(w, 0)} W`, label: `of ${num(capW)} W`, history: id, month: meterOf(s),
         alert: w > 2000 ? { level: 1, big: `${num(w, 0)} W`, label: 'high consumption', why: 'Consumption went past 2000 W',
           verb: 'Got it', calls: [] } : undefined };
     } },

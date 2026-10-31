@@ -157,10 +157,13 @@ test('the gear lets the viewer choose what this screen shows, kept in the browse
   // Remembered by this browser.
   await page.reload();
   await expect(page.locator('.board')).toHaveClass(/mode-layers/);
-  // Three layers at most; the other three systems are named under the object, each a button.
+  // Every system is a layer; capped at three, the other three are named under the object, each a button.
+  await expect(page.locator('.board .layer[data-depth]')).toHaveCount(6);
+  await expect(page.locator('.board-strip .more')).toHaveCount(0);
+  await gear.click();
+  await panel.locator('select[name="layers"]').selectOption('3');
   await expect(page.locator('.board .layer[data-depth]')).toHaveCount(3);
   await expect(page.locator('.board-strip .more')).toHaveCount(3);
-  await gear.click();
   await panel.locator('[data-settings-reset]').click();
   await expect(page.locator('.board')).toHaveClass(/mode-grid/);
   await expect(page.locator('.tile[data-system]')).toHaveCount(7);
@@ -285,9 +288,13 @@ test('a thermostat with a range has two knobs, and one end never crosses the oth
   await expect(front.locator('.face-label')).toHaveText('between 25° and 25°');
   // The command went out and the demo took it.
   await expect(front.locator('.face-label')).toHaveText('between 25° and 25°');
+  // The detail draws the same band, big, with its two knobs and the range in the center.
   await front.locator('.disc').click();
-  await expect(current(page).locator('.ranges input[type="range"]')).toHaveCount(2);
-  await expect(current(page).locator('.ranges input[data-handle="lo"]')).toHaveValue('25');
+  const ring = current(page).locator('.detail-ring');
+  await expect(ring.locator('.knob[data-handle]')).toHaveCount(2);
+  await expect(ring.locator('.knob[data-handle="lo"]')).toHaveAttribute('aria-valuetext', '25°');
+  await expect(ring.locator('.ring-big')).toHaveText('25–25°');
+  await expect(current(page).locator('.detail-big')).toHaveCount(0);
 });
 
 test("a numeric channel's detail draws its last 24 hours as a ring", async ({ page }) => {
@@ -308,7 +315,7 @@ test("a numeric channel's detail draws its last 24 hours as a ring", async ({ pa
   await expect(ring.locator('.time-tick')).toHaveCount(0);
 });
 
-test("a switched channel's detail draws a day per entity as rings, outside in, and a tap on a ring toggles it", async ({ page }) => {
+test("a switched channel's detail draws a day per entity as rings, outside in, named on themselves with the hours around, and a tap on a ring toggles it", async ({ page }) => {
   await page.goto(`${HA}?demo=home`);
   await page.locator('.tile[data-system="lights"]').click();
   await current(page).locator('.layer-front .disc').click();
@@ -318,6 +325,11 @@ test("a switched channel's detail draws a day per entity as rings, outside in, a
   await expect(rings.locator('.track')).toHaveCount(8);
   await expect(rings.locator('.track').first()).toHaveClass(/orbit-12/);
   await expect(rings.locator('.track').last()).toHaveClass(/orbit-5/);
+  // Each ring says which light it is, and the hours go around.
+  await expect(rings.locator('.track-name')).toHaveCount(8);
+  await expect(rings.locator('.track-name').first()).toContainText('Ceiling light');
+  await expect(rings.locator('.time-tick')).toHaveCount(24);
+  await expect(rings.locator('.time-hour')).toHaveCount(3);
   const spans = await rings.locator('.track-span').count();
   expect(spans).toBeGreaterThan(0);
   // What is now sits in the center; the header's big number moved there.
@@ -344,11 +356,21 @@ test("the heating's detail puts the windows under the thermostat's ring and name
   await expect(rings.locator('.track')).toHaveCount(3);
   await expect(rings.locator('.track.warn')).toHaveCount(2);
   await expect(rings.locator('.time-big')).toHaveText('21.5°C');
-  // Both windows opened when the demo loaded: one word for both, at "now".
-  await expect(rings.locator('.time-event')).toHaveCount(1);
-  await expect(rings.locator('.time-event')).toHaveText(/open, .* open$/);
-  // The dial stays under the rings.
-  await expect(current(page).locator('.slider input[type="range"]')).toHaveCount(1);
+  // The two open windows are named at their hour (the demo gives each a random
+  // one): two words, or one for both when they fall within the same half hour.
+  await expect(rings.locator('.time-event').first()).toHaveText(/open$/);
+  expect(await rings.locator('.time-event').count()).toBeLessThanOrEqual(2);
+  await expect(rings.locator('.time-event.warn')).toHaveCount(await rings.locator('.time-event').count());
+  // The dial stays under the rings: the band itself, with its knob, the target in its center.
+  const dial = current(page).locator('.detail-ring');
+  await expect(dial.locator('o-progress[data-dial="heating"]')).toHaveCount(1);
+  await expect(dial.locator('.ring-big')).toHaveText('21°');
+  await expect(dial.locator('.ring-label')).toHaveText('target');
+  // The keyboard moves it there too, and the command goes out after a pause.
+  await dial.locator('[data-dial="heating"]').focus();
+  await page.keyboard.press('ArrowLeft');
+  await expect(dial.locator('.ring-big')).toHaveText('20°');
+  await expect(dial.locator('o-progress[data-dial="heating"]')).toHaveAttribute('aria-valuenow', '20');
 });
 
 test('the gear can open the dial at the bottom and put hour marks on the day ring', async ({ page }) => {
@@ -377,7 +399,7 @@ test('the gear can open the dial at the bottom and put hour marks on the day rin
   await expect(ring.locator('.time-hour')).toHaveCount(3);
 });
 
-test('a color light takes its hue and saturation from a wheel in the detail', async ({ page }) => {
+test('a color light takes its hue and saturation from two curved sliders inside its brightness dial', async ({ page }) => {
   await page.goto(`${HA}?demo=home`);
   await page.locator('.gear').click();
   await page.locator('select[name="entity"][data-key="lights/brightness"]').selectOption('light.living_room_floor_lamp');
@@ -385,19 +407,165 @@ test('a color light takes its hue and saturation from a wheel in the detail', as
   await page.locator('.tile[data-system="lights"]').click();
   await bring(page, 'brightness');
   await current(page).locator('.layer-front .disc').click();
-  const wheel = current(page).locator('.color-wheel');
+  const ring = current(page).locator('.detail-ring');
+  // The brightness dial, the hue around inside it, the saturation inside that: three sliders, one object.
+  await expect(ring.locator('o-progress[data-dial="brightness"]')).toHaveCount(1);
+  await expect(ring.locator('.hue-ring o-arc')).toHaveCount(36);
+  const hue = ring.locator('.ring-grab[data-dial="brightness:hue"]'), sat = ring.locator('.ring-grab[data-dial="brightness:sat"]');
+  await expect(hue).toHaveAttribute('aria-label', 'Hue of Floor lamp brightness');
   // White light: no hue yet.
-  await expect(wheel).toHaveClass(/is-unset/);
-  await wheel.focus();
+  await expect(ring.locator('.hue-ring')).toHaveClass(/is-unset/);
+  await hue.focus();
   await page.keyboard.press('ArrowRight');
-  await expect(wheel).toHaveAttribute('aria-valuetext', 'hue 5°, saturation 100%');
-  await expect(wheel).not.toHaveClass(/is-unset/);
+  await expect(hue).toHaveAttribute('aria-valuenow', '5');
+  await expect(sat).toHaveAttribute('aria-valuenow', '100');
+  await expect(ring.locator('.hue-ring')).not.toHaveClass(/is-unset/);
+  await expect(ring.locator('.ring-center')).toHaveClass(/has-color/);
   // After the pause the light gets the color, and the reading keeps it.
   await page.waitForTimeout(900);
   await page.keyboard.press('Tab');
-  await expect(current(page).locator('.color-wheel')).toHaveAttribute('aria-valuetext', 'hue 5°, saturation 100%');
-  await expect(current(page).locator('.color-wheel')).not.toHaveClass(/is-unset/);
+  await expect(current(page).locator('.ring-grab[data-dial="brightness:hue"]')).toHaveAttribute('aria-valuenow', '5');
+  await expect(current(page).locator('.hue-ring')).not.toHaveClass(/is-unset/);
   // Back on the ring, the dial takes the light's color.
   await page.locator('.z-nav-back').click();
   await expect(current(page).locator('.layer-front .dial')).toHaveAttribute('style', /--o-fill:\s*(hsl\(5 100% 50%\)|rgb\(255,\s*21,\s*0\))/);
+});
+
+test('the hue and the saturation rings are dragged with the pointer, like the brightness dial around them', async ({ page }) => {
+  await page.goto(`${HA}?demo=home`);
+  await page.locator('.gear').click();
+  await page.locator('select[name="entity"][data-key="lights/brightness"]').selectOption('light.living_room_floor_lamp');
+  await page.keyboard.press('Escape');
+  await page.locator('.tile[data-system="lights"]').click();
+  await bring(page, 'brightness');
+  await current(page).locator('.layer-front .disc').click();
+  const ring = current(page).locator('.detail-ring');
+  await expect(ring.locator('.ring-grab[data-dial="brightness:sat"]')).toBeVisible();
+  const box = (await ring.boundingBox())!;
+  const cx = box.x + box.width / 2, cy = box.y + box.height / 2, R = box.width / 2;
+  // A point on the ring at orbit n (of 12), at `a` radians clockwise from the top.
+  const at = (n: number, a: number): [number, number] => [cx + R * n / 12 * Math.sin(a), cy - R * n / 12 * Math.cos(a)];
+  const drag = async (n: number) => {
+    const [x0, y0] = at(n, 1), [x1, y1] = at(n, 2.4);
+    await page.mouse.move(x0, y0);
+    await page.mouse.down();
+    for (let i = 1; i <= 8; i++) await page.mouse.move(x0 + (x1 - x0) * i / 8, y0 + (y1 - y0) * i / 8);
+    await page.mouse.up();
+  };
+  // The hue ring (orbit 10): from white, a drag to ~137° gives that hue.
+  await drag(10);
+  const hue = ring.locator('.ring-grab[data-dial="brightness:hue"]');
+  await expect(hue).toHaveAttribute('aria-valuenow', /^13\d$/);
+  await expect(ring.locator('.hue-ring')).not.toHaveClass(/is-unset/);
+  // The saturation ring (orbit 8): the same drag leaves it near 38 %.
+  await drag(8);
+  await expect(ring.locator('.ring-grab[data-dial="brightness:sat"]')).toHaveAttribute('aria-valuenow', /^3\d$/);
+  // The drags were drags: the detail is still open, no zoom in or out happened.
+  await page.waitForTimeout(600);
+  await expect(ring).toBeVisible();
+});
+
+test('the wheel over a view never moves the navigation: no zoom out, no scrub of the views behind', async ({ page }) => {
+  await page.goto(`${HA}?demo=home`);
+  await page.locator('.tile[data-system="security"]').click();
+  await current(page).locator('.layer-front .disc').click();
+  const detail = current(page).locator('.detail');
+  await expect(detail).toBeVisible();
+  await page.waitForTimeout(1000);                  // the zoom in has ended: Zumly listens again
+  const box = (await detail.boundingBox())!;
+  await page.mouse.move(box.x + 20, box.y + box.height / 2);
+  // Small ticks like a trackpad's on an empty spot of the view: Zumly's wheel
+  // scrub (gestures.follow) would animate the view toward the blurred board behind.
+  const moved = () => page.locator('.z-view.is-current-view').evaluate((v) => v.getAnimations().length > 0 || getComputedStyle(v).transform !== 'matrix(1, 0, 0, 1, 0, 0)');
+  for (let i = 0; i < 12; i++) {
+    await page.mouse.wheel(0, 12);
+    expect(await moved(), `scrub after tick ${i}`).toBe(false);
+  }
+  // A long tick would be a zoom out outright.
+  await page.mouse.wheel(0, 400);
+  await page.waitForTimeout(900);
+  await expect(current(page).locator('.detail')).toHaveCount(1);
+  expect(await moved()).toBe(false);
+});
+
+test('the list puts the systems on a ring that turns: arrows bring the next to the top, and the center opens it', async ({ page }) => {
+  await page.goto(`${HA}?demo=home&mode=list`);
+  const list = page.locator('.radial-list');
+  await expect(list).toHaveAttribute('role', 'listbox');
+  await expect(list.locator('[role="option"]')).toHaveCount(7);
+  await expect(list.locator('[role="option"][aria-selected="true"]')).toHaveAttribute('aria-label', 'Lights');
+  await expect(list.locator('.list-center .face-name')).toHaveText('Lights');
+  await list.focus();
+  await page.keyboard.press('ArrowDown');
+  await expect(list.locator('[role="option"][aria-selected="true"]')).toHaveAttribute('aria-label', 'Climate');
+  await expect(list.locator('.list-center .face-name')).toHaveText('Climate');
+  // The last one comes before the first: the ring has no ends.
+  await page.keyboard.press('ArrowUp');
+  await page.keyboard.press('ArrowUp');
+  await expect(list.locator('.list-center .face-name')).toHaveText('Maintenance');
+  await page.keyboard.press('Enter');
+  await expect(current(page).locator('.system')).toBeVisible();
+  await expect(current(page).locator('.sys-title')).toHaveText('Maintenance');
+});
+
+test('Media carries its sound visual in its tile and in its face while something plays', async ({ page }) => {
+  await page.goto(`${HA}?demo=home&mode=grid`);
+  await expect(page.locator('.tile[data-system="media"] canvas.face-visual')).toHaveCount(1);
+  await page.locator('.tile[data-system="media"]').click();
+  await expect(current(page).locator('.layer-front .disc canvas.face-visual')).toHaveCount(1);
+  await expect(current(page).locator('.layer-front .face-name')).toHaveText('Playing');
+});
+
+test("the orbit's center carries the clock's rim: the hours, now, and the time in the pulse", async ({ page }) => {
+  await page.goto(`${HA}?demo=home&mode=orbit`);
+  const hub = page.locator('.hub-ring');
+  await expect(hub.locator('.clock-tick')).toHaveCount(12);
+  await expect(hub.locator('.clock-now')).toHaveCount(1);
+  const now = new Date(), angle = (now.getHours() % 12) * 30 + now.getMinutes() * 0.5;
+  const from = await hub.locator('.clock-now-orbit').evaluate((el) => parseFloat(el.style.getPropertyValue('--o-from')));
+  expect(Math.abs(from - angle)).toBeLessThan(1.5);
+  // The pulse slide names the time.
+  await page.locator('.hub-dot.pulse').click();
+  await expect(page.locator('.hub-slide .eyebrow')).toHaveText(/^Pulse · \d\d:\d\d$/);
+});
+
+test("a long choice scrolls in a circle: the sources along the ring, a curved scrollbar, the wheel and the keys move it, a tap picks", async ({ page }) => {
+  await page.goto(`${HA}?demo=arsaboo&mode=grid`);
+  await page.locator('.tile[data-system="media"]').click();
+  await current(page).locator('o-arc[data-pick="source"]').first().dispatchEvent('click');
+  await current(page).locator('.layer-front .disc').click();
+  const list = current(page).locator('.scroll-list');
+  await expect(list).toHaveAttribute('role', 'listbox');
+  await expect(list.locator('[role="option"]')).toHaveCount(11);
+  const thumb = list.locator('.scroll-thumb');
+  await expect(thumb).toHaveAttribute('aria-valuemax', '4');
+  await expect(thumb).toHaveAttribute('aria-valuenow', '0');
+  // Seven fit; the rest wait past the end.
+  await expect(list.locator('.scroll-orbit:not(.is-hidden)')).toHaveCount(7);
+  const box = (await list.boundingBox())!;
+  await page.mouse.move(box.x + box.width * 0.8, box.y + box.height / 2);
+  await page.mouse.wheel(0, 160);
+  await expect(thumb).toHaveAttribute('aria-valuenow', '4');
+  // The wheel stays in the list: Zumly does not read it as a zoom out.
+  await page.waitForTimeout(1200);
+  await expect(current(page).locator('.detail')).toBeVisible();
+  await list.focus();
+  await page.keyboard.press('End');
+  await expect(list.locator('.scroll-item.is-focus .sl-text')).toHaveText('Retro 70s and 80s');
+  await page.keyboard.press('Enter');
+  await expect(list.locator('.scroll-item.is-on .sl-text')).toHaveText('Retro 70s and 80s');
+  await expect(current(page).locator('.detail-big')).toHaveText('Retro 70s and 80s');
+});
+
+test("the Power detail puts this month under the day: a sector per day of the energy meter, today in the center", async ({ page }) => {
+  await page.goto(`${HA}?demo=home&mode=grid`);
+  await page.locator('.tile[data-system="energy"]').click();
+  await current(page).locator('.layer-front .disc').click();
+  const month = current(page).locator('.month-ring');
+  const now = new Date(), days = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  await expect(month.locator('.day')).toHaveCount(days);
+  await expect(month.locator('.day.is-today')).toHaveText(String(now.getDate()));
+  await expect(month.locator('.month-bar')).toHaveCount(now.getDate());
+  await expect(month.locator('.time-big')).toHaveText(/kWh$/);
+  await expect(month.locator('.time-range')).toHaveText(now.toLocaleDateString('en', { month: 'long', year: 'numeric' }));
 });
