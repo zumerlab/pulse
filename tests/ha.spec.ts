@@ -157,7 +157,9 @@ test('the gear lets the viewer choose what this screen shows, kept in the browse
   // Remembered by this browser.
   await page.reload();
   await expect(page.locator('.board')).toHaveClass(/mode-layers/);
-  await expect(page.locator('.board .layer[data-depth]')).toHaveCount(6);
+  // Three layers at most; the other three systems are named under the object, each a button.
+  await expect(page.locator('.board .layer[data-depth]')).toHaveCount(3);
+  await expect(page.locator('.board-strip .more')).toHaveCount(3);
   await gear.click();
   await panel.locator('[data-settings-reset]').click();
   await expect(page.locator('.board')).toHaveClass(/mode-grid/);

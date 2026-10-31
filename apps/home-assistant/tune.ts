@@ -13,7 +13,7 @@ export type Tune = {
 // The values the code uses today.
 export const DEFAULTS: Tune = {
   orbit: 10, tile: 3.5, align: 20, hub: 11, orbitStep: -110,
-  layerGrow: 0.16, layerStep: -70, layerZoom: 1.1, layerOpacity: 0.6,
+  layerGrow: 0.42, layerStep: -70, layerZoom: 1.1, layerOpacity: 0.6,
   tilt: 7,
 };
 

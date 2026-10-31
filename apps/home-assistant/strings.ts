@@ -1,4 +1,4 @@
-import { t as core } from '@zumer/pulse';
+import { listOf, t as core } from '@zumer/pulse';
 
 // The Home Assistant app's own strings, on top of the object's.
 export const t = {
@@ -29,6 +29,8 @@ export const t = {
   lowOf: (label: string) => `Low ${label}`,
   highOf: (label: string) => `High ${label}`,
   haError: (message: string) => `Home Assistant: ${message}`,
+  didNotRespond: (names: string[]) => `${listOf(names)} did not respond.`,
+  retry: 'Retry',
   signOut: 'Sign out',
 
   // The gear: what this screen shows

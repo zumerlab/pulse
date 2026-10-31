@@ -65,6 +65,7 @@ export type RingOptions = {
   call?: boolean;                      // the alert calls: its failing segments ripple
   pending?: (entity?: string) => boolean;   // a command sent and not yet confirmed
   open?: boolean;                      // a band as a three-quarter dial, open at the bottom, with its ends named
+  failed?: (entity?: string) => boolean;    // a command refused: a red outline until it goes through
 };
 
 // The open dial: from 225° to 135° through the top, the gap at the bottom.
@@ -92,11 +93,11 @@ export function ring(key: string, r: RingReading, lanes: number, o: RingOptions 
   const on = (!o.muted && !r.alert && r.tint) || 'var(--ink)';
   const fill = o.muted ? 'var(--muted)' : r.alert ? levelColor(r.alert.level) : on;
   const size = `--o-size-ratio:${lanes.toFixed(3)}`;
-  const isPending = o.pending ?? (() => false);
+  const isPending = o.pending ?? (() => false), isFailed = o.failed ?? (() => false);
   if (r.kind === 'p' && r.range) return rangeRing(key, r, fill, size, isPending(undefined), o);
   if (r.kind === 'p') {
     const pct = ((r.v ?? 0) * 100).toFixed(1);
-    const busy = r.segs?.some((s) => isPending(s.entity)) || isPending(undefined) ? ' is-pending' : '';
+    const busy = (r.segs?.some((s) => isPending(s.entity)) || isPending(undefined) ? ' is-pending' : '') + (isFailed(undefined) ? ' is-failed' : '');
     const dial = o.controls && r.dial;
     if (!dial) {
       return `<div class="orbit-12${busy}" style="${size}${openStyle(o)}"><o-progress value="${pct}"
@@ -114,7 +115,7 @@ export function ring(key: string, r: RingReading, lanes: number, o: RingOptions 
     const fail = !!r.alert?.fail?.includes(i) && !o.muted;
     const f = fail ? fill : s.on ? on : 'var(--dim)';
     // Rule 2: the wave comes out of the failing segment (o-arc.ripple).
-    const cls = (isPending(s.entity) ? ' is-pending' : '') + (o.call && fail ? ' ripple' : '');
+    const cls = (isPending(s.entity) ? ' is-pending' : '') + (isFailed(s.entity) ? ' is-failed' : '') + (o.call && fail ? ' ripple' : '');
     // The option that is chosen is a radio too, just not one that does anything.
     if (r.kind === 'c' && o.controls && s.on && !s.act) return `<o-arc class="${cls.trim()}" style="--o-fill:${f}" role="radio" aria-checked="true" aria-label="${esc(s.label)}"></o-arc>`;
     if (!(o.controls && s.act)) return `<o-arc class="${cls.trim()}" style="--o-fill:${f}"></o-arc>`;

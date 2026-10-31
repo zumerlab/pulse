@@ -161,6 +161,9 @@ let readings: Record<string, Map<string, { ch: Channel; r: Reading }>> = {};
 let channels: Record<string, { ch: Channel; r: Reading; hidden: boolean }[]> = {};
 // Entities with an unconfirmed command, and dial values the user is moving.
 const pending = new Map<string, number>();
+// Commands Home Assistant refused, by entity: what failed keeps a red outline
+// and a Retry until a retry goes through or the entity changes anyway.
+const failed = new Map<string, { calls: Call[]; message: string }>();
 const hold = new Map<string, { value: number; until: number }>();
 const log: { at: Date; text: string; level: number; entity?: string }[] = [];
 const rerender = new Set<() => void>();
@@ -239,6 +242,19 @@ function order(id: string): string[] {
 const live = (id: string) => order(id).filter((k) => readings[id].get(k)!.r.alert && !ui[id].seen.has(k));
 const worst = (id: string) => Math.max(0, ...live(id).map((k) => readings[id].get(k)!.r.alert!.level));
 const isPending = (r: Reading) => r.entities.some((e) => pending.has(e));
+const failuresOf = (r: Reading) => r.entities.filter((e) => failed.has(e)).map((e) => ({ entity: e, ...failed.get(e)! }));
+// The card under the object when something did not go through: what, and a Retry.
+const retryCard = (r: Reading) => {
+  const f = failuresOf(r);
+  if (!f.length) return '';
+  const names = f.map((x) => nameOf(ha.states, x.entity));
+  return `<span class="errc"><span>${esc(t.didNotRespond(names))}</span>
+    <button class="plain" data-retry="${esc(f.map((x) => x.entity).join(' '))}">${t.retry}</button></span>`;
+};
+const retry = (entities: string) => {
+  const calls = entities.split(' ').flatMap((e) => failed.get(e)?.calls ?? []);
+  if (calls.length) void send(calls);
+};
 
 // ─── Commands to Home Assistant ─────────────────────────────────────
 
@@ -248,9 +264,11 @@ async function send(calls: Call[]) {
     ids.forEach((e) => pending.set(e, Date.now()));
     try {
       await ha.call(c);
+      ids.forEach((e) => failed.delete(e));
     } catch (error) {
-      ids.forEach((e) => { pending.delete(e); hold.delete(e); });
-      toast = t.haError(error instanceof Error ? error.message : String(error));
+      const message = error instanceof Error ? error.message : String(error);
+      ids.forEach((e) => { pending.delete(e); hold.delete(e); failed.set(e, { calls: [c], message }); });
+      toast = t.haError(message);
       setTimeout(() => { toast = ''; repaint(); }, 5000);
     }
   }
@@ -276,6 +294,7 @@ function ring(key: string, r: Reading, lanes: number, controls = false, muted = 
   return drawRing(key, ringReading(r), lanes, {
     name, controls, muted, call, open: look().dial === 'open',
     pending: (entity) => entity === undefined ? isPending(r) : pending.has(entity),
+    failed: (entity) => entity === undefined ? r.entities.some((e) => failed.has(e)) : failed.has(entity),
   });
 }
 // The model's reading is the core's, except that a range and the measurement are given in the dial's units.
@@ -477,12 +496,16 @@ function board(ctx: ViewContext) {
     } else if (boardMode === 'layers') {
       // In 3D, like the orbit: each layer one step further back and the pointer tilts the object.
       body.innerHTML = `<div class="stage board-stage" data-zoom="calm"><div class="obj"><div class="bigbang">
-        <div class="gravity-spot depth outer-perspective" style="--o-depth-grow:${tune.layerGrow}"></div></div></div></div>`;
+        <div class="gravity-spot depth outer-perspective" style="--o-depth-grow:${tune.layerGrow}"></div></div></div>
+        <div class="strip board-strip"></div></div>`;
     } else body.innerHTML = '';
   };
 
-  const paintLayers = (ids: string[]) => {
+  // Three layers at most (two on the phone), like a system's object; the
+  // systems past them are named under it, each a button that brings it to the front.
+  const paintLayers = (all: string[]) => {
     const depth = body.querySelector<HTMLElement>('.depth')!;
+    const ids = all.slice(0, SIZE.length), rest = all.slice(SIZE.length);
     for (const [id, layer] of layers) if (!ids.includes(id)) { layer.remove(); layers.delete(id); }
     ids.forEach((id, i) => {
       let layer = layers.get(id);
@@ -509,6 +532,8 @@ function board(ctx: ViewContext) {
     const stage = body.querySelector<HTMLElement>('.board-stage')!;
     const zoom = ids.some((id) => worst(id)) ? 'alert' : 'calm';
     if (stage.dataset.zoom !== zoom) stage.dataset.zoom = zoom;
+    setHTML(stage.querySelector<HTMLElement>('.board-strip')!, rest.length ? `<span class="behind">${t.behind(rest.length)}: ${rest.map((id) =>
+      `<button class="more" data-bpick="${id}" aria-label="${esc(t.bringToFront(SYS[id].title))}">${SYS[id].title}</button>`).join(', ')}</span>` : '');
   };
 
   const paint = () => {
@@ -815,7 +840,7 @@ function system(ctx: ViewContext, id: string) {
     if (dragging) return;              // repainting would cut the dial drag
     const ord = order(id), u = ui[id], map = readings[id];
     // Repaint only if something of this system changed.
-    const now = JSON.stringify([ord, ord.map((k) => [map.get(k)!.r, isPending(map.get(k)!.r)]), [...u.seen], flat, toast,
+    const now = JSON.stringify([ord, ord.map((k) => [map.get(k)!.r, isPending(map.get(k)!.r)]), [...u.seen], [...failed.keys()], flat, toast,
       PHONE ? IDS.map((o) => [order(o)[0], worst(o)]) : 0]);
     if (now === last) return;
     last = now;
@@ -870,7 +895,8 @@ function system(ctx: ViewContext, id: string) {
         return { id: other, title: SYS[other].title, level: worst(other), ring: ring(k, readings[other].get(k)!.r, DOT_LANES) };
       }), id);
     }
-    strip.innerHTML = toast ? `<span class="error">${esc(toast)}</span>`
+    strip.innerHTML = failuresOf(frontItem.r).length ? retryCard(frontItem.r)
+      : toast ? `<span class="error">${esc(toast)}</span>`
       : fa ? `<strong>${frontItem.ch.name}:</strong> ${esc(fa.why)}.
           ${fa.busy ? `<span class="face-wait">${t.inProgress}</span>` : `<button class="primary level-${fa.level}" data-resolve="${ord[0]}">${esc(fa.verb)}</button>
           ${fa.calls.length ? `<button class="plain" data-seen="${ord[0]}">${t.mute}</button>` : ''}`}
@@ -1004,6 +1030,8 @@ function system(ctx: ViewContext, id: string) {
     const seenKey = target.closest<HTMLElement>('[data-seen]')?.dataset.seen;
     const act = target.closest<HTMLElement>('[data-act]')?.dataset.act;
     const go = target.closest<HTMLElement>('[data-go]')?.dataset.go;
+    const again = target.closest<HTMLElement>('[data-retry]')?.dataset.retry;
+    if (again) { retry(again); return; }
     if (go) { goSystem(go); return; }
     const seg = target.closest<HTMLElement>('[data-seg]');
     if (seg && !locked) {
@@ -1068,7 +1096,7 @@ function detail(ctx: ViewContext) {
     if (!item) return;
     const { ch, r } = item;
     const history = r.history ? histories.get(r.history) : undefined;
-    const now = JSON.stringify([r, [...pending.keys()], toast, square, live, history?.values?.length ?? history?.error]);
+    const now = JSON.stringify([r, [...pending.keys()], [...failed.keys()], toast, square, live, history?.values?.length ?? history?.error]);
     if (now === last) return;
     last = now;
     const active = activeElement() as HTMLElement | null;
@@ -1117,7 +1145,7 @@ function detail(ctx: ViewContext) {
       <p class="detail-label">${esc(a ? a.label : r.label)}</p>
       ${a ? `<p class="detail-why level-${a.level}">${esc(a.why)}. ${a.busy ? `<span class="face-wait">${t.inProgress}</span>`
         : `<button class="primary" data-resolve>${esc(a.verb)}</button>`}</p>` : ''}
-      ${toast ? `<p class="error">${esc(toast)}</p>` : ''}
+      ${failuresOf(r).length ? `<p class="detail-fail">${retryCard(r)}</p>` : toast ? `<p class="error">${esc(toast)}</p>` : ''}
       ${figure}
       ${day}
       ${control}
@@ -1209,6 +1237,8 @@ function detail(ctx: ViewContext) {
     const target = e.target as HTMLElement;
     if (target.closest('[data-shape]')) { square = !square; paint(); return; }
     if (target.closest('[data-live]')) { live = !live; paint(); return; }
+    const again = target.closest<HTMLElement>('[data-retry]')?.dataset.retry;
+    if (again) { retry(again); return; }
     if (!target.closest('[data-resolve]')) return;
     const a = readings[id].get(key)?.r.alert;
     if (!a) return;
@@ -1235,7 +1265,7 @@ const onStatus = () => {
   repaint();
 };
 const onChange = (changed: HassState[]) => {
-  for (const s of changed) { pending.delete(s.entity_id); const h = hold.get(s.entity_id); if (h && h.until !== Infinity) hold.delete(s.entity_id); }
+  for (const s of changed) { pending.delete(s.entity_id); failed.delete(s.entity_id); const h = hold.get(s.entity_id); if (h && h.until !== Infinity) hold.delete(s.entity_id); }
   const fresh = compute();
   if (fresh.length) boardPick = null;
   if (loaded) {

@@ -45,6 +45,12 @@ button { font: inherit; color: inherit; }
 .glyph { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .arc-label { --o-fill: transparent; --o-color: var(--muted); }
 .ring-hit { --o-fill: transparent; }
+/* What Home Assistant refused: a red outline on the segment or the band until it goes through. */
+o-arc.is-failed { --o-stroke: var(--critical); --o-stroke-width: 2; }
+.orbit-12.is-failed o-progress { --o-back-fill: var(--critical); }
+/* The card that says so, with its Retry. */
+.errc { display: inline-flex; align-items: center; gap: 10px; padding: 6px 6px 6px 14px; border-radius: 999px; border: 1px solid var(--critical); color: var(--ink); font-size: 13px; text-align: left; }
+.errc .plain { min-height: 36px; padding: 6px 14px; border-radius: 999px; }
 .ring-hit:hover, .ring-hit:focus-visible { --o-fill: rgba(255, 255, 255, .08); outline: none; }
 
 /* ─── System ──────────────────────────────────────────── */

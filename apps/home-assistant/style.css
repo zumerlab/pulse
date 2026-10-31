@@ -19,6 +19,7 @@
 .tile.level-2 .mini-ring { animation-duration: .9s; }
 @keyframes tile-call { 50% { transform: scale(1.06); } }
 .ticker { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; min-height: 100px; width: min(420px, 100%); font-size: 12px; color: var(--muted); }
+.ticker:empty { min-height: 0; }
 .ticker li { display: flex; gap: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; animation: tick-in .5s ease-out; }
 .ticker li:first-child { color: var(--ink); }
 .ticker li.level-1 { color: var(--minor); }
@@ -71,8 +72,10 @@
 .entities strong { margin-left: auto; color: var(--ink); font-weight: 500; }
 
 @media (max-width: 600px) {
-  .tiles { flex-wrap: wrap; gap: 8px 4px; }
-  .tile { height: 112px; }
+  .tiles { flex-wrap: wrap; gap: 12px 4px; }
+  .tile { height: auto; }
+  .board { gap: 20px; }
+  .conn { flex-wrap: wrap; justify-content: center; row-gap: 6px; }
   .tile-big { font-size: 10px; max-width: 64px; }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -160,6 +163,7 @@
 
 /* ─── Layers: a single object, one system per layer ────── */
 .board-stage { position: absolute; inset: 0; }
+.board-strip { position: absolute; left: 0; right: 0; bottom: 0; min-height: 36px; font-size: 13px; }
 .board-stage .obj, .board-stage[data-zoom="alert"] .obj { --zoom: var(--t-layer-zoom, 1.1); }
 .board-stage .obj .depth { --o-back-opacity: var(--t-layer-opacity, .6); --o-depth-step: var(--t-layer-step, -70); }
 .board-stage .face-label { max-width: 150px; }
