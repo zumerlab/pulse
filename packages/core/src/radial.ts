@@ -191,9 +191,12 @@ export function dots(list: Dot[], currentId: string) {
 export const DOT_LANES = 2.5 / (22 / 24);
 export const MINI_LANES = 6 / 3.5;
 
-export function calmStrip(title: string, frontName: string, extra: number, how: string) {
-  return `<strong>${esc(title)}</strong> · ${t.inFront(frontName)}${extra > 0 ? ` · ${t.behind(extra)}` : ''}${
-    how ? `<span class="how">${how}</span>` : ''}`;
+// The channels that do not fit as rings (past SIZE) are named in the strip,
+// each a button that brings it to the front, like tapping its ring would.
+export function calmStrip(title: string, frontName: string, hidden: { key: string; name: string }[], how: string) {
+  const more = hidden.length ? ` · ${t.behind(hidden.length)}: ${hidden.map((h) =>
+    `<button class="more" data-pick="${esc(h.key)}" aria-label="${esc(t.bringToFront(h.name))}">${esc(h.name)}</button>`).join(', ')}` : '';
+  return `<strong>${esc(title)}</strong> · ${t.inFront(frontName)}${more}${how ? `<span class="how">${how}</span>` : ''}`;
 }
 
 // ─── Dial gestures ──────────────────────────────────────────────────
