@@ -345,18 +345,23 @@ export function timeRing(tr: TimeRing) {
     points.push({ v, ago, real: true });
   });
   const n = points.length || 1;
-  // Lanes of this universe: the baseline sits at 5.5, the bars reach out to 12.
-  const lane = TIME_RING / 2 / 12, BASE = 5.5, REACH = 6.5;
+  const REACH = 6;                    // lanes from the baseline (orbit 6) to the edge of the universe
+  // Each point is a sector of the ring: all of them share the baseline (the
+  // rim of orbit 6) and each grows outward by its value, up to the edge of the
+  // universe. Half an hour is a slot of the scale (48 to the turn), "now" sits
+  // centered at the top and the slot after it stays empty: the seam of the day.
+  const slots = n + 1;
   const bars = points.map(({ v, ago, real }) => {
-    if (v == null) return '<div class="vector time-bar is-empty"></div>';
-    const len = Math.max(0.3, REACH * norm(v));
+    const start = (slots - 0.5 - 2 * ago).toFixed(1);
+    if (v == null) return `<o-arc class="time-bar is-empty outer-orbit" start="${start}" value="0"></o-arc>`;
+    const len = Math.max(0.25, REACH * norm(v));
     const title = real ? ` title="${esc(`${ago === 0 ? t.now : t.hoursAgo(ago)}: ${num(v)}${tr.unit ?? ''}`)}"` : '';
-    // A vector is centered where it sits: pull it in so it starts at the baseline. The older, the fainter.
-    return `<div class="vector time-bar${ago === 0 ? ' is-now' : ''}" style="--o-size-ratio:${len.toFixed(3)}; --o-alignment:${((12 - BASE - len / 2) * lane).toFixed(1)}px; opacity:${(1 - 0.6 * ago / (n / 2)).toFixed(2)}"${title}></div>`;
+    // The older, the fainter.
+    return `<o-arc class="time-bar outer-orbit${ago === 0 ? ' is-now' : ''}" start="${start}" value="1" interactive style="--o-size-ratio:${len.toFixed(3)}; opacity:${(1 - 0.6 * ago / (n / 2)).toFixed(2)}"${title}></o-arc>`;
   }).join('');
   const range = nums.length ? (dataLo === dataHi ? `${num(dataHi)}${tr.unit ?? ''}` : `${num(dataLo)}–${num(dataHi)}${tr.unit ?? ''}`) : '';
   return `<div class="bigbang time-ring" role="img" aria-label="${esc(`${t.last24h}: ${range}`)}"><div class="gravity-spot">
-    <div class="orbit-12 time-bars" style="--o-from:${(360 / n).toFixed(3)}deg">${bars}</div>
+    <div class="orbit-6 time-bars" style="--o-max:${slots}; --o-gap:1; --o-stroke-width:0">${bars}</div>
     <div class="orbit-0" style="--o-size-ratio:8"><div class="satellite at-center"><div class="capsule time-center">
       <span class="time-big">${esc(range)}</span><span class="time-label">${esc(tr.label)}</span></div></div></div>
   </div></div>`;

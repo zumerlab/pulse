@@ -145,9 +145,8 @@ button { font: inherit; color: inherit; }
 
 /* ─── Time ring ───────────────────────────────────────── */
 .time-ring { width: 220px; margin: 10px auto; }
-.time-bar { height: 4px; border-radius: 2px; background: var(--ink); }
-.time-bar.is-now { opacity: 1 !important; height: 5px; box-shadow: 0 0 6px var(--ink); }
-.time-bar.is-empty { visibility: hidden; }
+.time-bar { --o-fill: var(--ink); --o-stroke: transparent; cursor: default; }
+.time-bar.is-now { opacity: 1 !important; filter: drop-shadow(0 0 4px var(--ink)); }
 .time-center { display: grid; justify-items: center; text-align: center; gap: 2px; }
 .time-big { font-size: 13px; font-weight: 600; letter-spacing: -.3px; white-space: nowrap; }
 .time-label { font-size: 10px; color: var(--muted); white-space: nowrap; }
