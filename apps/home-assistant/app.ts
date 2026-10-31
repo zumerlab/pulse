@@ -3,10 +3,10 @@ import type { Call, Change, HassState, PulseSource, Status } from './source.ts';
 import { nameOf, placeOf, spansOf, systems, type Alert, type Channel, type Dial, type Reading } from './model.ts';
 import { tune } from './tune.ts';
 import {
-  DOT_LANES, LANE, LOCK_MS, MAX_TRACKS, MINI_LANES, PHONE, SIZE, STROKE, backLayer, calmStrip, clockRim, colorArcs, dialControls, dots, esc, face,
-  fitFor, hsCss, icon, labelAt, levelColor, listCenter, listControls, monthRing, musicVisual, num, parallax, radialList, ring as drawRing, ringCenter, satColor,
-  SCROLL_VISIBLE, scrollControls, scrollList, setViewToggle, startInside, systemShell, time, timeRing, timeline, turnList, viewToggle, zumlyOptions,
-  type ListItem, type RingReading, type ScrollState,
+  DOT_LANES, LANE, LOCK_MS, MAX_TRACKS, MINI_LANES, PHONE, SIZE, STROKE, alertSatellites, backLayer, calmStrip, clockRim, colorArcs, detailFace, detailFit, detailShell,
+  dialControls, dots, esc, face, fitFor, hsCss, icon, labelAt, levelColor, listCenter, listControls, monthRing, musicVisual, num, parallax, radialList, ring as drawRing,
+  listOf, ringCenter, satColor, SCROLL_VISIBLE, scrollControls, scrollList, setViewToggle, startInside, systemShell, time, timeRing, timeline, turnList, viewToggle, zumlyOptions,
+  type ListItem, type RingOptions, type RingReading, type ScrollState,
 } from '@zumer/pulse';
 import { t } from './strings.ts';
 
@@ -33,13 +33,15 @@ export type PulseSettings = {
   channels?: Record<string, string[]>;
   // The entity a channel follows instead of the first of its kind: { 'lights/brightness': 'light.kitchen' }.
   entities?: Record<string, string>;
-  // How the object draws: the dial as a full ring or open at the bottom with its ends; the day ring bare or with hour marks.
+  // How the object draws: the dial as a full ring or open at the bottom with its ends; the day ring bare or with hour marks; the style.
   look?: Look;
-  // How many systems the Layers view stacks (the rest are named under the object); nothing set: all of them.
+  // How many systems the Layers view stacks (the rest are named under the object); nothing set: three.
   layers?: number;
 };
-export type Look = { dial?: 'full' | 'open'; day?: 'plain' | 'marks' };
-export const DIALS = ['full', 'open'] as const, DAYS = ['plain', 'marks'] as const;
+// The style: the cookbook's four (tokens only), or `ha`, which takes the colors of the Home Assistant theme in force.
+export type Theme = 'graphite' | 'ivory' | 'paper' | 'contrast' | 'ha';
+export type Look = { dial?: 'full' | 'open'; day?: 'plain' | 'marks'; theme?: Theme };
+export const DIALS = ['full', 'open'] as const, DAYS = ['plain', 'marks'] as const, THEMES: Theme[] = ['graphite', 'ivory', 'paper', 'contrast', 'ha'];
 
 export type PulseOptions = {
   source: PulseSource;
@@ -138,9 +140,19 @@ const hiddenChannels = (id: string) => {
   return SYS[id].channels.every((ch) => hidden.includes(ch.key)) ? [] : hidden;
 };
 // The look in force: the viewer's choice over the host's.
-const look = (): Required<Look> => ({ dial: 'full', day: 'plain', ...frame.look, ...local.look });
-// How many layers the Layers view stacks: the viewer's choice, the host's, or every system.
-const layersShown = () => { const n = local.layers ?? frame.layers; return n && n >= 1 ? Math.min(n, IDS.length) : IDS.length; };
+const LOOK_DEFAULT: Required<Look> = { dial: 'full', day: 'plain', theme: 'graphite' };
+const look = (): Required<Look> => ({ ...LOOK_DEFAULT, ...frame.look, ...local.look });
+// The style goes on the root of the tree the object lives in: the page, or the card's host.
+const applyTheme = () => {
+  const root = canvas.getRootNode();
+  const target = root instanceof ShadowRoot ? root.host as HTMLElement : document.documentElement;
+  const theme = look().theme;
+  if (theme === 'graphite') target.removeAttribute('data-theme'); else target.dataset.theme = theme;
+};
+// How many layers the Layers view stacks: the viewer's choice, the host's, or
+// three (the cookbook's cap: the rest are counted, not drawn).
+const LAYERS_DEFAULT = 3;
+const layersShown = () => { const n = local.layers ?? frame.layers; return Math.min(IDS.length, n && n >= 1 ? n : LAYERS_DEFAULT); };
 const settings = (): PulseSettings => ({ systems: IDS, mode: boardMode, start: startId() ?? undefined,
   areas: activeAreas(), channels: local.channels, entities: local.entities, look: look(), layers: layersShown() });
 const setSettings = (patch: PulseSettings) => {
@@ -160,10 +172,14 @@ const setSettings = (patch: PulseSettings) => {
 type Ui = {
   pick: string | null;                 // channel chosen by hand
   since: Map<string, number>;          // when each alert appeared (rule 1: stable)
-  sig: Map<string, string>;            // what each alert says: if it changes, it is no longer seen
-  seen: Set<string>;                   // alerts marked as seen (no wave, they go behind)
+  sig: Map<string, string>;            // what each alert says: if it changes, it is no longer seen nor muted
+  seen: Set<string>;                   // alerts put off for later (no wave, they go behind, the next one comes through)
+  muted: Set<string>;                  // alerts muted (no wave; they stay where they are, in their color)
+  inside: string | null;               // with three alerts or more (rule 4), the one opened from the summary
 };
-const ui: Record<string, Ui> = Object.fromEntries(ALL.map((id) => [id, { pick: null, since: new Map(), sig: new Map(), seen: new Set() }]));
+const ui: Record<string, Ui> = Object.fromEntries(ALL.map((id) => [id, { pick: null, since: new Map(), sig: new Map(), seen: new Set(), muted: new Set(), inside: null }]));
+// The key of the summary layer: with three alerts or more, "N alerts" goes in front.
+const SUMMARY = 'summary';
 let readings: Record<string, Map<string, { ch: Channel; r: Reading }>> = {};
 // Every channel with something to show, hidden ones included: what the gear lists.
 let channels: Record<string, { ch: Channel; r: Reading; hidden: boolean }[]> = {};
@@ -243,10 +259,11 @@ function compute() {
       if (r.alert) {
         if (u.sig.get(ch.key) !== sig(r.alert)) {
           u.seen.delete(ch.key);
+          u.muted.delete(ch.key);
           u.sig.set(ch.key, sig(r.alert));
           if (!u.since.has(ch.key)) { u.since.set(ch.key, now); fresh.push({ id: sys.id, key: ch.key, a: r.alert }); }
         }
-      } else { u.since.delete(ch.key); u.sig.delete(ch.key); u.seen.delete(ch.key); }
+      } else { u.since.delete(ch.key); u.sig.delete(ch.key); u.seen.delete(ch.key); u.muted.delete(ch.key); if (u.inside === ch.key) u.inside = null; }
     }
     readings[sys.id] = map;
     // A new alert cancels the choice made by hand.
@@ -313,6 +330,7 @@ async function send(calls: Call[]) {
 
 function repaint() {
   compute();
+  applyTheme();
   rerender.forEach((fn) => fn());
 }
 
@@ -320,11 +338,12 @@ function repaint() {
 
 // `call`: this ring's alert calls (in front and not muted): its failing segments ripple.
 // What was sent and not confirmed is marked pending (it beats).
-function ring(key: string, r: Reading, lanes: number, controls = false, muted = false, call = false, name?: string) {
+function ring(key: string, r: Reading, lanes: number, controls = false, muted = false, call = false, name?: string, extra: Partial<RingOptions> = {}) {
   return drawRing(key, ringReading(r), lanes, {
     name, controls, muted, call, open: look().dial === 'open',
     pending: (entity) => entity === undefined ? isPending(r) : pending.has(entity),
     failed: (entity) => entity === undefined ? r.entities.some((e) => failed.has(e)) : failed.has(entity),
+    ...extra,
   });
 }
 // The model's reading is the core's, except that a range and the measurement are given in the dial's units.
@@ -344,6 +363,18 @@ function imageOf(r: Reading) {
 
 // ─── Board ──────────────────────────────────────────────────────────
 
+// The system as an icon: its front channel's ring on the edge and, inside it,
+// the next two as thinner gray rings (the object at a glance, the way the
+// cookbook's Mini view draws it). A channel behind that calls keeps its color.
+function miniRings(id: string) {
+  const u = ui[id];
+  return order(id).slice(0, 3).map((k, i) => {
+    const { r } = readings[id].get(k)!;
+    const calling = !!r.alert && !u.seen.has(k);
+    return ring(k, r, MINI_LANES * (i ? 0.55 : 1), false, !calling, false, undefined, { orbit: 12 - 2 * i });
+  }).join('');
+}
+
 function mini(id: string) {
   const sys = SYS[id], key = order(id)[0];
   if (!key) return '';
@@ -351,7 +382,7 @@ function mini(id: string) {
   const level = worst(id);
   return `<button class="tile zoom-me${level ? ` has-alert level-${level}` : ''}" data-to="sys-${id}" data-system="${id}"
       aria-label="${t.open(sys.title)}">
-    <span class="bigbang mini-ring"><span class="gravity-spot">${ring(key, r, MINI_LANES, false, !r.alert)}</span></span>${visualFor(id, key)}
+    <span class="bigbang mini-ring"><span class="gravity-spot">${miniRings(id)}</span></span>${visualFor(id, key)}
     <span class="mini-glyph">${icon(ch.glyph, 26)}</span>
     <span class="tile-title">${sys.title}</span>
     <span class="tile-big">${esc(r.alert && !ui[id].seen.has(key) ? r.alert.big : r.big)}</span>
@@ -431,7 +462,7 @@ function orbitTile(id: string) {
   return `<div class="satellite"><div class="capsule">
     <button class="otile zoom-me${level ? ` has-alert level-${level}` : ''}" data-to="sys-${id}" data-system="${id}"
       aria-label="${t.open(SYS[id].title)}">
-      <span class="otile-ring"><span class="bigbang"><span class="gravity-spot">${ring(f.key, f.r, MINI_LANES, false, !f.r.alert)}</span></span>
+      <span class="otile-ring"><span class="bigbang"><span class="gravity-spot">${miniRings(id)}</span></span>
         <span class="otile-glyph">${icon(f.ch.glyph, 24)}</span></span>
       <span class="otile-label outward-y"><span class="tile-title">${SYS[id].title}</span>
       <span class="tile-big">${esc(f.big)}</span></span>
@@ -636,7 +667,7 @@ function board(ctx: ViewContext) {
   let listIds: string[] = [];
   const listItem = (id: string): ListItem => {
     const f = front(id);
-    return { id, title: SYS[id].title, ring: ring(f.key, f.r, MINI_LANES, false, !f.r.alert), glyph: f.ch.glyph, big: f.big,
+    return { id, title: SYS[id].title, ring: miniRings(id), glyph: f.ch.glyph, big: f.big,
       label: f.a ? f.a.why : `${f.ch.name.toLowerCase()} · ${f.label}`, level: worst(id) };
   };
   const paintList = (ids: string[]) => {
@@ -807,9 +838,9 @@ function board(ctx: ViewContext) {
       } else if (field === 'layers') {
         const n = Number(data.get('layers')) || undefined;
         setSettings({ layers: n === frame.layers ? undefined : n });
-      } else if (field === 'dial' || field === 'day') {
+      } else if (field === 'dial' || field === 'day' || field === 'theme') {
         const next: Look = { ...local.look, [field]: String(data.get(field)) };
-        for (const k of ['dial', 'day'] as const) if (next[k] === (frame.look?.[k] ?? (k === 'dial' ? 'full' : 'plain'))) delete next[k];
+        for (const k of ['dial', 'day', 'theme'] as const) if (next[k] === (frame.look?.[k] ?? LOOK_DEFAULT[k])) delete next[k];
         setSettings({ look: Object.keys(next).length ? next : undefined });
       }
     });
@@ -857,6 +888,8 @@ function settingsPanel() {
         <select name="layers" aria-describedby="pulse-settings-layers"></select>
         <p class="hint" id="pulse-settings-layers">${t.layersHint}</p></fieldset>
       <fieldset><legend>${t.lookField}</legend>
+        <div class="settings-row" role="group" aria-label="${t.themeField}"><span class="settings-group-title">${t.themeField}</span>${THEMES.filter((x) => x !== 'ha' || canvas.getRootNode() instanceof ShadowRoot).map((x) =>
+          `<label><input type="radio" name="theme" value="${x}"> ${t.themes[x]}</label>`).join('')}</div>
         <div class="settings-row" role="group" aria-label="${t.dialField}"><span class="settings-group-title">${t.dialField}</span>${DIALS.map((d) =>
           `<label><input type="radio" name="dial" value="${d}"> ${t.dialLook[d]}</label>`).join('')}</div>
         <div class="settings-row" role="group" aria-label="${t.dayField}"><span class="settings-group-title">${t.dayField}</span>${DAYS.map((d) =>
@@ -920,10 +953,11 @@ function syncSettings(form: HTMLFormElement) {
   setHTML(select, `<option value="">${t.theBoard}</option>${IDS.map((id) => `<option value="${id}">${SYS[id].title}</option>`).join('')}`);
   select.value = startId() ?? '';
   const layersSel = form.querySelector<HTMLSelectElement>('select[name="layers"]')!;
-  setHTML(layersSel, `<option value="">${t.allSystems}</option>${Array.from({ length: Math.max(0, IDS.length - 1) }, (_, i) =>
-    `<option value="${i + 2}">${i + 2}</option>`).join('')}`);
+  setHTML(layersSel, `<option value="">${t.layersDefault(Math.min(LAYERS_DEFAULT, IDS.length))}</option>${Array.from({ length: Math.max(0, IDS.length - 1) }, (_, i) =>
+    `<option value="${i + 2}">${i + 2 === IDS.length ? t.allSystems : i + 2}</option>`).join('')}`);
   const cap = local.layers ?? frame.layers;
-  layersSel.value = cap && cap < IDS.length ? String(cap) : '';
+  layersSel.value = cap && cap <= IDS.length ? String(cap) : '';
+  for (const radio of form.querySelectorAll<HTMLInputElement>('input[name="theme"]')) radio.checked = radio.value === lk.theme;
 }
 
 // ─── Dials: the value moves in place, the command goes out on release ──
@@ -1052,11 +1086,22 @@ function system(ctx: ViewContext, id: string) {
   };
 
   let last = '';
+  // With three alerts or more (rule 4), "N alerts" goes in front, one segment
+  // per alert; from it you open one (it comes in front, the summary waits
+  // behind), resolve it and come back.
+  const summaryOf = () => {
+    const u = ui[id], calling = live(id);
+    const summary = calling.length >= 3;
+    const inside = summary && u.inside && calling.includes(u.inside) ? u.inside : null;
+    if (u.inside && !inside) u.inside = null;
+    return { summary, inside, calling };
+  };
   const paint = () => {
     if (dragging) return;              // repainting would cut the dial drag
     const ord = order(id), u = ui[id], map = readings[id];
+    const { summary, inside, calling } = summaryOf();
     // Repaint only if something of this system changed.
-    const now = JSON.stringify([ord, ord.map((k) => [map.get(k)!.r, isPending(map.get(k)!.r)]), [...u.seen], [...failed.keys()], flat, toast,
+    const now = JSON.stringify([ord, ord.map((k) => [map.get(k)!.r, isPending(map.get(k)!.r)]), [...u.seen], [...u.muted], inside, [...failed.keys()], flat, toast,
       PHONE ? IDS.map((o) => [order(o)[0], worst(o)]) : 0]);
     if (now === last) return;
     last = now;
@@ -1065,7 +1110,7 @@ function system(ctx: ViewContext, id: string) {
     const focusSel = focus && el.contains(focus) ? focusKey(focus) : null;
 
     // A new alert opens the 3D view; after that the toggle decides.
-    const alert = live(id).length > 0;
+    const alert = calling.length > 0;
     if (alert && !alertWas) flat = false;
     alertWas = alert;
     stage.dataset.zoom = alert ? 'alert' : 'calm';
@@ -1074,26 +1119,41 @@ function system(ctx: ViewContext, id: string) {
     depth.classList.toggle('is-flat', flat);
     setViewToggle(el.querySelector<HTMLElement>('[data-act="view"]')!, flat);
 
-    for (const [key, layer] of layers) if (!map.has(key)) { layer.remove(); layers.delete(key); }
-    const waiting = live(id).filter((k) => k !== ord[0]);
-    ord.forEach((key, i) => {
-      const layer = layerOf(key), { ch, r } = map.get(key)!;
-      const seen = u.seen.has(key);
-      const d = Math.min(i, SIZE.length - 1);
+    // The layers front to back: the summary (or the alert opened from it, with the summary right behind), then the channels.
+    const keys = summary ? (inside ? [inside, SUMMARY, ...ord.filter((k) => k !== inside)] : [SUMMARY, ...ord]) : ord;
+    for (const [key, layer] of layers) if (!keys.includes(key)) { layer.remove(); layers.delete(key); }
+    // The alerts that wait (rule 3): satellites on the front ring, their own layers behind in gray.
+    const waiting = calling.filter((k) => k !== keys[0]);
+    const worstLevel = Math.max(0, ...calling.map((k) => map.get(k)!.r.alert!.level)) as 0 | 1 | 2;
+    keys.forEach((key, i) => {
+      const layer = layerOf(key);
+      const d = Math.min(i, SIZE.length - 1), grow = SIZE[d];
       layer.hidden = i >= SIZE.length;
       layer.dataset.depth = String(d);
       layer.classList.toggle('layer-front', i === 0);
-      layer.classList.toggle('is-alert', !!r.alert);
-      layer.classList.toggle('is-seen', seen);
-      layer.dataset.level = String(r.alert?.level ?? 0);
-      const grow = SIZE[d];
       layer.style.setProperty('--halo', (d * 0.8 / (grow * (1 + d * 110 / 900))).toFixed(2));
+      if (key === SUMMARY) {
+        layer.classList.add('is-alert');
+        layer.classList.remove('is-seen', 'is-muted');
+        layer.dataset.level = String(worstLevel);
+        const names = calling.map((k) => map.get(k)!.ch.name);
+        layer.innerHTML = summaryRing(calling.map((k) => ({ key: k, name: map.get(k)!.ch.name, level: map.get(k)!.r.alert!.level })), STROKE[d] / grow / LANE, i === 0) + (i === 0
+          ? face({ glyph: 'M4 6h16 M4 12h16 M4 18h10', name: t.alerts, big: t.nAlerts(calling.length), label: listOf(names), act: 'open-worst', aria: t.openWorst })
+          : backLayer({ text: t.nAlerts(calling.length), at: labelAt(i), grow, stroke: STROKE[d], hit: 12, pick: { attr: 'data-pick', value: SUMMARY, aria: t.backToAlerts } }));
+        return;
+      }
+      const { ch, r } = map.get(key)!;
+      const seen = u.seen.has(key), muted = u.muted.has(key), waits = waiting.includes(key) && i > 0;
+      layer.classList.toggle('is-alert', !!r.alert && !waits);
+      layer.classList.toggle('is-seen', seen);
+      layer.classList.toggle('is-muted', muted);
+      layer.dataset.level = String(r.alert?.level ?? 0);
       const shown = r.alert && !seen ? r.alert : r;
-      // The alerts that wait are their layers behind, in their color and named; the strip counts them.
-      layer.innerHTML = ring(key, r, STROKE[d] / grow / LANE, i === 0, false, i === 0 && !!r.alert && !seen, ch.name) + (i === 0
+      const sats = i === 0 ? alertSatellites(waiting.map((k) => ({ key: k, glyph: map.get(k)!.ch.glyph, level: map.get(k)!.r.alert!.level, aria: t.bringToFront(map.get(k)!.ch.name) }))) : '';
+      layer.innerHTML = ring(key, r, STROKE[d] / grow / LANE, i === 0, waits, i === 0 && !!r.alert && !seen && !muted, ch.name) + (i === 0
         ? face({ glyph: ch.glyph, name: ch.name, big: shown.big, label: shown.label, to: 'detail',
           props: { system: id, channel: key }, aria: t.details(ch.name), image: imageOf(r),
-          extra: (isPending(r) ? `<span class="face-wait">${t.sending}</span>` : '') + visualFor(id, key) })
+          extra: (isPending(r) ? `<span class="face-wait">${t.sending}</span>` : '') + visualFor(id, key) }) + sats
         : backLayer({ text: `${ch.name} · ${shown.big}`, at: labelAt(i), grow, stroke: STROKE[d], hit: 12,
           pick: { attr: 'data-pick', value: key, aria: t.bringToFront(ch.name) } }));
     });
@@ -1102,28 +1162,40 @@ function system(ctx: ViewContext, id: string) {
 
     const frontItem = map.get(ord[0]);
     if (!frontItem) { strip.textContent = t.noEntities; return; }
-    const hidden = ord.slice(SIZE.length).map((k) => ({ key: k, name: map.get(k)!.ch.name }));
-    const fa = frontItem.r.alert && !u.seen.has(ord[0]) ? frontItem.r.alert : null;
+    const hidden = keys.slice(SIZE.length).filter((k) => k !== SUMMARY).map((k) => ({ key: k, name: map.get(k)!.ch.name }));
     if (dotsEl) {
       dotsEl.innerHTML = dots(IDS.filter((other) => order(other).length).map((other) => {
         const k = order(other)[0];
         return { id: other, title: SYS[other].title, level: worst(other), ring: ring(k, readings[other].get(k)!.r, DOT_LANES) };
       }), id);
     }
-    strip.innerHTML = failuresOf(frontItem.r).length ? retryCard(frontItem.r)
+    // The strip: what did not go through, an error, the front alert with its
+    // actions (the verb; Later sends it behind and lets the next through;
+    // Mute stops the wave), or the calm line.
+    const frontKey = keys[0] === SUMMARY ? null : keys[0];
+    const fi = frontKey ? map.get(frontKey)! : null;
+    const fa = fi?.r.alert && !u.seen.has(frontKey!) ? fi.r.alert : null;
+    strip.innerHTML = fi && failuresOf(fi.r).length ? retryCard(fi.r)
       : toast ? `<span class="error">${esc(toast)}</span>`
-      : fa ? `<strong>${frontItem.ch.name}:</strong> ${esc(fa.why)}.
-          ${fa.busy ? `<span class="face-wait">${t.inProgress}</span>` : `<button class="primary level-${fa.level}" data-resolve="${ord[0]}">${esc(fa.verb)}</button>
-          ${fa.calls.length ? `<button class="plain" data-seen="${ord[0]}">${t.mute}</button>` : ''}`}
+      : keys[0] === SUMMARY ? `<strong>${t.nAlerts(calling.length)}:</strong> ${esc(listOf(calling.map((k) => map.get(k)!.ch.name)))}.`
+      : fa && fi ? `<strong>${esc(fi.ch.name)}:</strong> ${esc(fa.why)}.
+          ${fa.busy ? `<span class="face-wait">${t.inProgress}</span>` : `<button class="primary level-${fa.level}" data-resolve="${frontKey}">${esc(fa.verb)}</button>
+          ${fa.calls.length ? `<button class="plain" data-seen="${frontKey}">${t.later}</button>` : ''}
+          ${u.muted.has(frontKey!) ? '' : `<button class="plain" data-mute="${frontKey}">${t.mute}</button>`}`}
           ${waiting.length ? `<span class="how">${t.moreWaiting(waiting.length)}</span>` : ''}`
-      : calmStrip(sys.title, frontItem.ch.name, hidden);
+      : calmStrip(sys.title, fi!.ch.name, hidden);
 
     if (focusSel) el.querySelector<HTMLElement>(focusSel)?.focus({ preventScroll: true });
   };
+  // The summary's ring: one segment per alert, in its level's color; in front, each one opens that alert.
+  const summaryRing = (list: { key: string; name: string; level: 1 | 2 }[], lanes: number, front: boolean) =>
+    `<div class="orbit-12" style="--o-size-ratio:${lanes.toFixed(3)}; --o-gap:24">${list.map((x) => front
+      ? `<o-arc class="toggle" style="--o-fill:${levelColor(x.level)}" interactive hit-width="10" role="button" tabindex="0" data-pick="${esc(x.key)}" aria-label="${esc(t.bringToFront(x.name))}"></o-arc>`
+      : `<o-arc style="--o-fill:${levelColor(x.level)}"></o-arc>`).join('')}</div>`;
 
   const focusKey = (target: HTMLElement) => {
     const layer = target.closest<HTMLElement>('.layer')?.dataset.ch;
-    for (const a of ['data-seg', 'data-dial', 'data-pick', 'data-resolve', 'data-act']) {
+    for (const a of ['data-seg', 'data-dial', 'data-pick', 'data-resolve', 'data-seen', 'data-mute', 'data-act']) {
       const v = target.getAttribute(a);
       if (v === null) continue;
       const handle = target.getAttribute('data-handle');
@@ -1139,7 +1211,7 @@ function system(ctx: ViewContext, id: string) {
   });
   ctx.onCleanup(dialControls(el, {
     locked: () => locked,
-    ringOf: (key) => layers.get(key)?.querySelector('.orbit-12') ?? null,
+    ringOf: (key) => layers.get(key)?.querySelector('.orbit-12:has([data-dial])') ?? null,
     current: d.fraction,
     stepOf: d.stepOf,
     set: (key, v, handle) => d.setDial(key, d.snap(key, v), Infinity, handle),
@@ -1171,6 +1243,7 @@ function system(ctx: ViewContext, id: string) {
     const pick = target.closest<HTMLElement>('[data-pick]')?.dataset.pick;
     const resolve = target.closest<HTMLElement>('[data-resolve]')?.dataset.resolve;
     const seenKey = target.closest<HTMLElement>('[data-seen]')?.dataset.seen;
+    const muteKey = target.closest<HTMLElement>('[data-mute]')?.dataset.mute;
     const act = target.closest<HTMLElement>('[data-act]')?.dataset.act;
     const go = target.closest<HTMLElement>('[data-go]')?.dataset.go;
     const again = target.closest<HTMLElement>('[data-retry]')?.dataset.retry;
@@ -1183,14 +1256,21 @@ function system(ctx: ViewContext, id: string) {
       if (s.act && !pending.has(s.entity)) void send([s.act]);
       return;
     }
-    if (pick && !locked) { ui[id].pick = pick; lock(); }
-    else if (resolve) {
+    const u = ui[id], { summary, calling } = summaryOf();
+    if (pick === SUMMARY && !locked) { u.inside = null; lock(); }
+    else if (pick && !locked) {
+      // With the summary in front, a segment or a satellite opens that alert; otherwise the tap brings the channel.
+      if (summary && calling.includes(pick)) u.inside = pick; else u.pick = pick;
+      lock();
+    } else if (resolve) {
       const a = readings[id].get(resolve)?.r.alert;
       if (!a) return;
       if (a.calls.length) void send(a.calls);
-      else ui[id].seen.add(resolve);
+      else u.seen.add(resolve);
       lock();
-    } else if (seenKey) { ui[id].seen.add(seenKey); lock(); }
+    } else if (seenKey) { u.seen.add(seenKey); u.inside = null; lock(); }
+    else if (muteKey) { u.muted.add(muteKey); }
+    else if (act === 'open-worst' && !locked) { u.inside = calling[0] ?? null; lock(); }
     else if (act === 'view') flat = !flat;
     else return;
     repaint();
@@ -1233,8 +1313,19 @@ function detail(ctx: ViewContext) {
   const id = String(ctx.props.system), key = String(ctx.props.channel);
   const el = ctx.target;
   el.dataset.title = readings[id]?.get(key)?.ch.name ?? key;
+  // The channel as one radial object: where you are and its entities at the
+  // top, the object in the room left, what goes under it, the chips.
+  el.innerHTML = detailShell([SYS[id].title, el.dataset.title], t.entities(readings[id]?.get(key)?.r.entities.length ?? 0));
+  const stage = el.querySelector<HTMLElement>('.detail-stage')!, objEl = el.querySelector<HTMLElement>('.detail-obj')!;
+  const below = el.querySelector<HTMLElement>('.detail-below')!, more = el.querySelector<HTMLElement>('.detail-more')!;
+  const entPanel = el.querySelector<HTMLElement>('.entities-panel')!, entSummary = el.querySelector<HTMLElement>('.entities summary')!;
+  ctx.onCleanup(detailFit(stage));
   let last = '';
-  let square = false, live = false, dragging = false;
+  let live = false, dragging = false;
+  // A detail with two objects (the day and the month of an energy meter) shows one at a time.
+  let tab: 'day' | 'month' = 'day';
+  // The stage's side, for what fits in the center (the alert's cause and actions).
+  const side = () => Math.max(200, Math.min(stage.clientWidth, stage.clientHeight) - 44);
   const paint = () => {
     if (dragging) return;              // repainting would cut the drag
     const item = readings[id]?.get(key);
@@ -1244,107 +1335,132 @@ function detail(ctx: ViewContext) {
     const trackIds = r.tracks?.length && ha.changes ? r.tracks.map((x) => x.entity).join(' ') : '';
     const changes = trackIds ? changesOf.get(trackIds) : undefined;
     const monthOf = r.month ? months.get(r.month) : undefined;
-    const now = JSON.stringify([r, [...pending.keys()], [...failed.keys()], toast, square, live, history?.values?.length ?? history?.error,
-      changes?.at ?? changes?.error, monthOf?.at, ha.states.get(r.events?.[0]?.entity ?? '')?.last_changed, look()]);
+    const now = JSON.stringify([r, [...pending.keys()], [...failed.keys()], toast, live, tab, history?.values?.length ?? history?.error,
+      changes?.at ?? changes?.error, monthOf?.at, ha.states.get(r.events?.[0]?.entity ?? '')?.last_changed, look(), ui[id].seen.has(key), side()]);
     if (now === last) return;
     last = now;
     // Focus returns to the same control after repainting.
     const focus = activeElement();
-    const focusSel = focus && el.contains(focus) && focus.matches('[data-dial]')
-      ? `[data-dial="${focus.dataset.dial}"]${focus.dataset.handle ? `[data-handle="${focus.dataset.handle}"]` : ''}` : null;
+    const focusSel = focus && el.contains(focus) && focus.matches('[data-dial], [data-seg], [data-tab]')
+      ? focus.matches('[data-dial]') ? `[data-dial="${focus.dataset.dial}"]${focus.dataset.handle ? `[data-handle="${focus.dataset.handle}"]` : ''}`
+      : focus.matches('[data-seg]') ? `[data-seg="${focus.dataset.seg}"]` : `[data-tab="${focus.dataset.tab}"]` : null;
     const a = r.alert && !ui[id].seen.has(key) ? r.alert : null;
-    // The dial, big, operated like the system's front ring (a knob at each
-    // end of a range), what is now in its center; a light's hue and
-    // saturation as curved sliders inside it, the center washed with the color.
-    let control = '';
-    if (r.dial) {
+    el.dataset.title = ch.name;
+    el.querySelector<HTMLElement>('.crumb span:last-child')!.textContent = ch.name;
+    entSummary.textContent = t.entities(r.entities.length);
+
+    // The alert's actions: the verb, and Later (the alert goes behind) when the verb does something.
+    const acts = a ? (a.busy ? `<span class="face-wait">${t.inProgress}</span>`
+      : `<button class="primary pill level-${a.level}" data-resolve>${esc(a.verb)}</button>${a.calls.length ? `<button class="plain pill" data-seen>${t.later}</button>` : ''}`) : '';
+    // The rings of the day, when there are: fewer around a dial, so the dial keeps its room.
+    const tracks = trackIds ? Math.min(r.tracks!.length, r.dial ? 4 : MAX_TRACKS) : 0;
+    const rings = !!trackIds && !!changes?.changes;
+    // How big the center is, as a share of the object; the cause and the
+    // actions go inside only when it has the room, else under the object.
+    const centerShare = rings ? (2 * (11.5 - tracks) - 0.8) / 24 * (r.dial ? (r.color ? 13 : 18) / 24 : 1)
+      : r.history && ha.history ? 9 / 24 : r.list ? 9 / 24 : r.dial ? (r.color ? 13 : 18) / 24 : 19 / 24;
+    const inFace = !!a && !PHONE && a.level !== 2 && centerShare * side() >= 250;
+    const faceExtra = (inFace ? `<span class="face-why">${esc(a!.why)}</span><span class="face-acts">${acts}</span>` : '') + visualFor(id, key);
+    const image = r.image ? (() => {
+      const stream = r.image!.entity.startsWith('camera.') ? ha.stream?.(r.image!.entity) : undefined;
+      const img = imageOf(r)!;
+      return { src: live && stream ? stream : img.src, alt: img.alt, key: img.key && !live ? img.key : undefined };
+    })() : undefined;
+    const faceOf = (big: string, label: string) => detailFace({ name: ch.name, big, label, level: a?.level, image, extra: faceExtra });
+    const face = faceOf(a ? a.big : r.big, a ? a.label : r.label);
+
+    // The dial, big, operated like the system's front ring (its knob says the
+    // value, the measurement is marked, a scale inside), what is now in its
+    // center; a light's hue and saturation as curved sliders inside it, the
+    // center washed with the color. A universe of its own: alone, or in the
+    // center of the day's rings.
+    let object: string;
+    const dialUniverse = () => {
       const color = r.color?.hs ? hsCss(r.color.hs[0], r.color.hs[1]) : undefined;
-      const value = r.range ? `${num(r.range.lo)}–${num(r.range.hi)}${r.dial.unit}` : `${num(r.dial.value)}${r.dial.unit}`;
-      control = `<div class="bigbang detail-ring"><div class="gravity-spot">${ring(key, r, DETAIL_LANES, true, false, false, ch.name)}${
+      const value = r.range ? `${num(r.range.lo)}–${num(r.range.hi)}${r.dial!.unit}` : `${num(r.dial!.value)}${r.dial!.unit}`;
+      return `<div class="bigbang detail-ring"><div class="gravity-spot">${ring(key, r, DETAIL_LANES, true, false, false, ch.name, { knobText: true, nowText: true, ticks: !r.color })}${
         r.color ? colorArcs(key, r.color.hs, { open: look().dial === 'open', name: ch.name }) : ''}${
-        ringCenter(value, r.dial.label, r.color ? 13 : 18, color)}</div></div>`;
-    } else if (r.list) {
-      // A long choice: its options scrolled in a circle; the list opens at the one that is on.
+        ringCenter(value, a ? a.label : r.dial!.label, r.color ? 13 : 18, color, { name: ch.name, level: a?.level, extra: faceExtra })}</div></div>`;
+    };
+    const center = r.dial ? `<div class="capsule dial-center">${dialUniverse()}</div>` : face;
+    if (r.list) {
+      // A long choice: its options scrolled in a circle, what is chosen in the center; the list opens at the one that is on.
       const sk = `${id}/${key}`, st = scrollState(sk), on = r.list.findIndex((x) => x.on);
       if (!scrollOpened.has(sk) && on >= 0) { st.focus = on; st.offset = Math.max(0, Math.min(r.list.length - SCROLL_VISIBLE, on - 3)); scrollOpened.add(sk); }
-      control = scrollList(r.list.map((x) => ({ label: x.label, on: x.on, act: !!x.act })), st, { key: sk, name: r.name ?? ch.name });
-      if (r.entities.some((e) => pending.has(e))) control = control.replace('class="bigbang detail-ring scroll-list"', 'class="bigbang detail-ring scroll-list is-pending"');
-    } else if (r.segs) {
-      // Switches, or the options of a choice (radios: the one that is on has no action).
-      const type = r.kind === 'c' ? 'radio' : 'checkbox';
-      control = `<ul class="switches${r.kind === 'c' ? ' choice' : ''}">${r.segs.map((s, i) => `<li><label class="${pending.has(s.entity) ? 'is-pending' : ''}${
-        r.alert?.fail?.includes(i) ? ` fail level-${r.alert.level}` : ''}">
-        <input type="${type}" name="seg" data-seg="${i}"${s.on ? ' checked' : ''}${s.act ? '' : ' disabled'}> ${esc(s.label)}
-        <span class="state">${esc(r.kind === 'c' ? '' : stateText(ha.states.get(s.entity)!))}</span></label></li>`).join('')}</ul>`;
-    }
-    // The picture, round like the face or square on request; a camera can go live.
-    let figure = '';
-    if (r.image) {
-      const stream = r.image.entity.startsWith('camera.') ? ha.stream?.(r.image.entity) : undefined;
-      const img = imageOf(r)!;
-      figure = `<figure class="detail-image${square ? ' is-square' : ''}">
-        <img src="${esc(live && stream ? stream : img.src)}" alt="${esc(img.alt)}"${img.key && !live ? ` data-image="${esc(img.key)}"` : ''}>
-        <figcaption><button class="plain" data-shape>${square ? t.showRound : t.showSquare}</button>
-          ${stream ? `<button class="plain" data-live aria-pressed="${live}">${live ? t.snapshot : t.live}</button>` : ''}</figcaption></figure>`;
-    }
-    // The last 24 hours: a ring per entity (what was on, when), with what is
-    // now in the center, or a numeric entity's values as one ring.
-    let day = '';
-    let rings = false;
-    if (trackIds) {
+      object = scrollList(r.list.map((x) => ({ label: x.label, on: x.on, act: !!x.act })), st, { key: sk, name: r.name ?? ch.name, center: face });
+      if (r.entities.some((e) => pending.has(e))) object = object.replace('class="bigbang detail-ring scroll-list"', 'class="bigbang detail-ring scroll-list is-pending"');
+    } else if (trackIds) {
+      // The last 24 hours: a ring per entity (what was on, when), named in a
+      // wedge after now, with what is now (or the dial) in the center. Until
+      // the day arrives, the channel's own ring.
       if (!changes || (Date.now() - changes.at > HISTORY_MS && changes.changes)) void loadChanges(trackIds, r.tracks!.map((x) => x.entity));
-      rings = !!changes?.changes;
       const list = changes?.changes;
-      day = `<div class="history">${list ? timeline({
-        hours: 24,
+      object = list ? timeline({
+        hours: 24, maxTracks: tracks,
         tracks: r.tracks!.map((x) => ({ key: x.entity, name: nameOf(ha.states, x.entity), spans: spansOf(list[x.entity] ?? [], x.on),
           on: x.on(ha.states.get(x.entity)?.state ?? ''), tone: x.tone, act: !!x.act, pending: pending.has(x.entity), failed: failed.has(x.entity) })),
         events: (r.events ?? []).map((ev) => ({ ago: (Date.now() - Date.parse(ha.states.get(ev.entity)?.last_changed ?? '')) / 3_600_000, text: ev.text, tone: ev.tone }))
           .filter((ev) => Number.isFinite(ev.ago)),
-        big: a ? a.big : r.big, label: a ? a.label : r.label, marks: true, names: true, aria: t.dayOf(ch.name),
-      }) : `<p class="hint">${changes?.error ? t.historyNone : t.historyLoading}</p>`}</div>`;
-    } else if (r.history && ha.history) {
+        big: a ? a.big : r.big, label: a ? a.label : r.label, marks: true, names: true, aria: t.dayOf(ch.name), center,
+      }) : r.dial ? dialUniverse() : ownRing(key, r, ch.name, !!a, face);
+    } else if (r.history && ha.history && (tab === 'day' || !r.month)) {
+      // A numeric entity's day as one ring of bars, the face in the center.
       if (!history || (Date.now() - history.at > HISTORY_MS && history.values)) void loadHistory(r.history);
       const u = String(ha.states.get(r.history)?.attributes.unit_of_measurement ?? '');
-      day = `<div class="history">${history?.values ? timeRing({ values: history.values, label: t.last24h, unit: u === '%' || !u ? u : ` ${u}`, marks: look().day === 'marks' })
-        : `<p class="hint">${history?.error ? t.historyNone : t.historyLoading}</p>`}</div>`;
-    }
-    // This month, a day per sector around: an energy meter's calendar.
-    if (r.month && ha.statistics) {
+      object = history?.values ? timeRing({ values: history.values, label: t.last24h, unit: u === '%' || !u ? u : ` ${u}`, marks: look().day === 'marks',
+        center: (range) => faceOf(a ? a.big : r.big, a ? a.label : `${range} · ${t.last24h}`) })
+        : ownRing(key, r, ch.name, !!a, face);
+    } else if (r.month && ha.statistics && tab === 'month') {
+      // This month, a day per sector around: an energy meter's calendar.
       if (!monthOf || (Date.now() - monthOf.at > MONTH_MS)) void loadMonth(r.month);
       const nowD = new Date(), days = new Date(nowD.getFullYear(), nowD.getMonth() + 1, 0).getDate(), today = nowD.getDate();
       const values = monthOf?.values.length === days ? monthOf.values : Array.from({ length: days }, () => null);
       const title = nowD.toLocaleDateString('en', { month: 'long', year: 'numeric' }), v = values[today - 1], name = nameOf(ha.states, r.month);
-      day += `<div class="history">${monthOf?.error ? `<p class="hint">${t.monthNone}</p>` : monthRing({ days, today, values, unit: ' kWh', title, aria: t.monthAria(name, title),
-        big: v != null ? `${num(v)} kWh` : monthOf ? '—' : t.loadingMonth, label: `${t.today} · ${name}` })}</div>`;
+      object = monthOf?.error ? ownRing(key, r, ch.name, !!a, face) : monthRing({ days, today, values, unit: ' kWh', title, aria: t.monthAria(name, title),
+        big: v != null ? `${num(v)} kWh` : monthOf ? '—' : t.loadingMonth, label: `${t.today} · ${name}` });
+    } else if (r.dial) {
+      object = dialUniverse();
+    } else {
+      object = ownRing(key, r, ch.name, !!a, face);
     }
-    // What is now is said once: in the center of the rings, or as the headline.
-    const inRing = rings || !!r.dial;
-    el.innerHTML = `<div class="detail">
-      <p class="eyebrow">${SYS[id].title}</p>
-      <h1>${icon(ch.glyph, 30)} ${ch.name}</h1>
-      ${inRing ? '' : `<p class="detail-big${a ? ` level-${a.level}` : ''}">${esc(a ? a.big : r.big)}</p>
-      <p class="detail-label">${esc(a ? a.label : r.label)}</p>`}
-      ${a ? `<p class="detail-why level-${a.level}">${esc(a.why)}. ${a.busy ? `<span class="face-wait">${t.inProgress}</span>`
-        : `<button class="primary" data-resolve>${esc(a.verb)}</button>`}</p>` : ''}
-      ${failuresOf(r).length ? `<p class="detail-fail">${retryCard(r)}</p>` : toast ? `<p class="error">${esc(toast)}</p>` : ''}
-      ${figure}
-      ${day}
-      ${rings && r.segs ? `<p class="hint rings-order">${t.outsideIn(r.tracks!.length > MAX_TRACKS ? MAX_TRACKS : 0)}</p>` : ''}
-      ${control}
-      <details class="entities"><summary>${t.entitiesInHA}</summary><ul>${r.entities.map((e) => {
-        const s = ha.states.get(e);
-        return s ? `<li><code>${e}</code> <span>${esc(nameOf(ha.states, e))}</span> <strong>${esc(stateText(s))}</strong></li>` : '';
-      }).join('')}</ul></details>
-    </div>`;
+    setHTML(objEl, object);
+
+    // Under the object: a critical alert, or one that did not fit in the
+    // face; a refused command with its Retry; an error.
+    const alertBelow = a && !inFace ? `<p class="alert-t level-${a.level}">${esc(a.big)}</p><p class="why2">${esc(a.why)}.</p><div class="row">${acts}</div>` : '';
+    setHTML(below, alertBelow + (failuresOf(r).length ? `<p class="detail-fail">${retryCard(r)}</p>` : toast ? `<p class="error">${esc(toast)}</p>` : ''));
+
+    // Further down: the day and the month as tabs when there are both; the
+    // segments as chips (switches, or the options of a choice as radios);
+    // a camera's live stream.
+    const tabs = r.history && r.month && ha.statistics ? `<div class="detail-tabs" role="group" aria-label="${t.period}">${(['day', 'month'] as const).map((x) =>
+      `<button type="button" data-tab="${x}" aria-pressed="${tab === x}">${t.periods[x]}</button>`).join('')}</div>` : '';
+    const stream = r.image?.entity.startsWith('camera.') ? ha.stream?.(r.image.entity) : undefined;
+    const liveBtn = stream ? `<button class="plain pill" data-live aria-pressed="${live}">${live ? t.snapshot : t.live}</button>` : '';
+    const chips = r.segs && !r.list ? `<ul class="chips${r.kind === 'c' ? ' choice' : ''}" role="${r.kind === 'c' ? 'radiogroup' : 'group'}" aria-label="${esc(ch.name)}">${r.segs.map((s, i) => {
+      const isPend = pending.has(s.entity), isFail = failed.has(s.entity);
+      const state = isPend ? t.sending : isFail ? t.noAnswer : r.kind === 'c' ? '' : stateText(ha.states.get(s.entity)!);
+      const cls = ['chip', s.on ? 'on' : 'off', isPend && 'is-pending', isFail && 'is-failed', !s.act && 'is-still', r.alert?.fail?.includes(i) && `fail level-${r.alert.level}`].filter(Boolean).join(' ');
+      return `<li><button type="button" class="${cls}" role="${r.kind === 'c' ? 'radio' : 'switch'}" aria-checked="${s.on}" data-seg="${i}"${s.act ? '' : ' aria-disabled="true"'}>
+        <span class="cn">${esc(s.label)}</span>${state ? `<span class="cs">${esc(state)}</span>` : ''}</button></li>`;
+    }).join('')}</ul>` : '';
+    setHTML(more, tabs + liveBtn + chips);
+    setHTML(entPanel, `<ul>${r.entities.map((e) => {
+      const s = ha.states.get(e);
+      return s ? `<li><code>${e}</code> <span>${esc(nameOf(ha.states, e))}</span> <strong>${esc(stateText(s))}</strong></li>` : '';
+    }).join('')}</ul>`);
     if (focusSel) el.querySelector<HTMLElement>(focusSel)?.focus({ preventScroll: true });
   };
-  const loadChanges = (key: string, entities: string[]) => {
-    const was = changesOf.get(key);
-    changesOf.set(key, { at: Date.now(), changes: was?.changes ?? null });
+  // The channel's own ring, big, operated like the front layer's: the same disc, closer.
+  const ownRing = (k: string, r: Reading, name: string, call: boolean, face: string) =>
+    `<div class="bigbang detail-ring"><div class="gravity-spot">${ring(k, r, DETAIL_LANES, true, false, call, name)}
+      <div class="orbit-0" style="--o-size-ratio:19"><div class="satellite at-center">${face}</div></div></div></div>`;
+  const loadChanges = (k: string, entities: string[]) => {
+    const was = changesOf.get(k);
+    changesOf.set(k, { at: Date.now(), changes: was?.changes ?? null });
     return ha.changes!(entities, 24).then(
-      (changes) => { changesOf.set(key, { at: Date.now(), changes }); paint(); },
-      () => { changesOf.set(key, { at: Date.now(), changes: null, error: true }); paint(); });
+      (changes) => { changesOf.set(k, { at: Date.now(), changes }); paint(); },
+      () => { changesOf.set(k, { at: Date.now(), changes: null, error: true }); paint(); });
   };
   const loadHistory = (entity: string) => {
     const was = histories.get(entity);
@@ -1355,18 +1471,28 @@ function detail(ctx: ViewContext) {
   };
   // A camera's snapshot, refreshed like the face's.
   const refresh = window.setInterval(() => {
-    const img = el.querySelector<HTMLImageElement>('.detail-image img[data-image]');
+    const img = el.querySelector<HTMLImageElement>('.detail-face img[data-image]');
     const r = readings[id]?.get(key)?.r, next = r && imageOf(r);
     if (img && next && img.src !== next.src) img.src = next.src;
   }, 8000);
   ctx.onCleanup(() => clearInterval(refresh));
+  // The stage was measured after the first paint: what fits in the center may change.
+  const refit = new ResizeObserver(() => paint());
+  refit.observe(stage);
+  ctx.onCleanup(() => refit.disconnect());
+  const visuals = new Map<HTMLCanvasElement, () => void>();
+  ctx.onCleanup(() => { for (const stop of visuals.values()) stop(); });
   paint();
-  whenCurrent(ctx, paint);
+  startVisuals(el, visuals);
+  whenCurrent(ctx, () => { paint(); startVisuals(el, visuals); });
 
   // ─── The dial and the color arcs: they move in place; the command goes out on release ───
   const d = dialBinding(id, () => el.querySelector<HTMLElement>('.detail-ring'), (_key, v) => {
     const big = el.querySelector('.detail-ring .ring-big');
     if (big) big.textContent = v.big;
+    const knob = el.querySelector('.detail-ring .knob.has-text:not([data-handle]) .knob-text');
+    if (knob) knob.textContent = v.big;
+    for (const h of el.querySelectorAll<HTMLElement>('.detail-ring .knob[data-handle] .knob-text')) h.textContent = h.closest('.knob')!.getAttribute('aria-valuetext') ?? '';
   });
   const isHue = (k: string) => k.endsWith(':hue'), isSat = (k: string) => k.endsWith(':sat'), isColor = (k: string) => isHue(k) || isSat(k);
   const hsOf = (): [number, number] => {
@@ -1415,6 +1541,7 @@ function detail(ctx: ViewContext) {
     onStart: () => { dragging = true; },
     onEnd: (k) => { dragging = false; if (isColor(k)) sendColor(); else d.commit(k); },
     onInput: (k) => { if (isColor(k)) { clearTimeout(colorTimer); colorTimer = window.setTimeout(sendColor, 500); } else d.commitSoon(k); },
+    activate: 'o-arc[data-seg]',
   }));
 
   ctx.onCleanup(scrollControls(el, {
@@ -1423,26 +1550,31 @@ function detail(ctx: ViewContext) {
     pick: (_, i) => { const x = readings[id].get(key)?.r.list?.[i]; if (x?.act && !pending.has(x.entity)) void send([x.act]); },
   }));
 
-  el.addEventListener('change', (e) => {
-    const input = e.target as HTMLInputElement, r = readings[id].get(key)!.r;
-    if (input.dataset.seg === undefined) return;
-    const s = r.segs![Number(input.dataset.seg)];
-    if (s.act) void send([s.act]);
-  });
   el.addEventListener('click', (e) => {
     const target = e.target as HTMLElement;
-    if (target.closest('[data-shape]')) { square = !square; paint(); return; }
+    const r = readings[id]?.get(key)?.r;
+    if (!r) return;
+    const tabBtn = target.closest<HTMLElement>('[data-tab]')?.dataset.tab as 'day' | 'month' | undefined;
+    if (tabBtn) { tab = tabBtn; paint(); return; }
     if (target.closest('[data-live]')) { live = !live; paint(); return; }
     const again = target.closest<HTMLElement>('[data-retry]')?.dataset.retry;
     if (again) { retry(again); return; }
+    // A segment: a chip under the object, or the arc on the channel's own ring.
+    const seg = target.closest<HTMLElement>('[data-seg]');
+    if (seg) {
+      const s = r.segs?.[Number(seg.dataset.seg)];
+      if (s?.act && !pending.has(s.entity)) void send([s.act]);
+      return;
+    }
     const track = target.closest<HTMLElement>('[data-track]')?.dataset.track;
     if (track) {
-      const x = readings[id].get(key)?.r.tracks?.find((y) => y.entity === track);
+      const x = r.tracks?.find((y) => y.entity === track);
       if (x?.act && !pending.has(track)) void send([x.act]);
       return;
     }
+    if (target.closest('[data-seen]')) { ui[id].seen.add(key); repaint(); return; }
     if (!target.closest('[data-resolve]')) return;
-    const a = readings[id].get(key)?.r.alert;
+    const a = r.alert;
     if (!a) return;
     if (a.calls.length) void send(a.calls);
     else { ui[id].seen.add(key); repaint(); }

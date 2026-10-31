@@ -106,9 +106,15 @@ test('a simulated alert ripples from the failing segment, not from the disc', as
 test('the disc opens the detail and the value changed there shows on the way back', async ({ page }) => {
   await page.locator('.tile[data-system="home"]').click();
   await current(page).locator('.layer-front .disc').click();
-  await expect(current(page).locator('.detail h1')).toContainText('Climate');
+  await expect(current(page).locator('.detail .crumb')).toHaveText(/Home.*Climate/);
   await expect(backTitle(page)).toHaveText('Home');
-  await current(page).locator('input[type="range"]').fill('25');
+  // The same dial, closer: its knob says the value; the arrows move it by its step.
+  const dial = current(page).locator('.detail-ring o-progress[data-dial="climate"]');
+  await expect(current(page).locator('.detail-ring .knob .knob-text')).toHaveText('23°');
+  await dial.focus();
+  for (let i = 0; i < 4; i++) await page.keyboard.press('ArrowRight');
+  await expect(dial).toHaveAttribute('aria-valuenow', '25');
+  await expect(current(page).locator('.detail-ring .knob .knob-text')).toHaveText('25°');
   await page.locator('.z-nav-back').click();
   await expect(current(page).locator('.system')).toBeVisible();
   await expect(current(page).locator('.layer-front o-progress[data-dial]')).toHaveAttribute('aria-valuenow', '25');

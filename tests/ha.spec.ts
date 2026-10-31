@@ -157,13 +157,13 @@ test('the gear lets the viewer choose what this screen shows, kept in the browse
   // Remembered by this browser.
   await page.reload();
   await expect(page.locator('.board')).toHaveClass(/mode-layers/);
-  // Every system is a layer; capped at three, the other three are named under the object, each a button.
-  await expect(page.locator('.board .layer[data-depth]')).toHaveCount(6);
-  await expect(page.locator('.board-strip .more')).toHaveCount(0);
-  await gear.click();
-  await panel.locator('select[name="layers"]').selectOption('3');
+  // Three layers by default (the rest are named under the object, each a button); the gear can stack all six.
   await expect(page.locator('.board .layer[data-depth]')).toHaveCount(3);
   await expect(page.locator('.board-strip .more')).toHaveCount(3);
+  await gear.click();
+  await panel.locator('select[name="layers"]').selectOption('6');
+  await expect(page.locator('.board .layer[data-depth]')).toHaveCount(6);
+  await expect(page.locator('.board-strip .more')).toHaveCount(0);
   await panel.locator('[data-settings-reset]').click();
   await expect(page.locator('.board')).toHaveClass(/mode-grid/);
   await expect(page.locator('.tile[data-system]')).toHaveCount(7);
@@ -229,7 +229,7 @@ const bring = async (page: Page, key: string) => {
   await expect(view.locator('.stage')).not.toHaveClass(/is-locked/);
 };
 
-test('a camera fills the face of its layer, and the detail shows it round or square', async ({ page }) => {
+test('a camera fills the face of its layer, and the face of its detail', async ({ page }) => {
   await page.goto(`${HA}?demo=arsaboo`);
   await page.locator('.tile[data-system="security"]').click();
   await bring(page, 'cameras');
@@ -238,14 +238,13 @@ test('a camera fills the face of its layer, and the detail shows it round or squ
   await expect(front.locator('.face-big')).toHaveText('Live');
   await expect(front.locator('.face-label')).toHaveText('4 cameras');
   await front.locator('.disc').click();
-  const figure = current(page).locator('.detail-image');
-  await expect(figure.locator('img')).toHaveAttribute('alt', 'Backyard');
-  await expect(figure).not.toHaveClass(/is-square/);
-  await figure.locator('[data-shape]').click();
-  await expect(figure).toHaveClass(/is-square/);
-  await expect(figure.locator('[data-shape]')).toHaveText('Show round');
+  // The same disc, closer: the camera is the face of the detail's object, the channel's ring around it.
+  const face = current(page).locator('.detail-obj .detail-face.has-image');
+  await expect(face.locator('img')).toHaveAttribute('alt', 'Backyard');
+  await expect(face.locator('.face-big')).toHaveText('Live');
+  await expect(current(page).locator('.crumb')).toHaveText(/Security.*Backyard/);
   // The demo cannot stream: no live button.
-  await expect(figure.locator('[data-live]')).toHaveCount(0);
+  await expect(current(page).locator('[data-live]')).toHaveCount(0);
 });
 
 test('a choice on the ring: the thermostat mode is a radio group, and tapping an option sets it', async ({ page }) => {
@@ -266,8 +265,10 @@ test('a choice on the ring: the thermostat mode is a radio group, and tapping an
   await expect(front.locator('o-arc[role="radio"][aria-checked="true"]')).toHaveAttribute('aria-label', 'Auto');
   // In the detail the options are radios too.
   await front.locator('.disc').click();
-  await expect(current(page).locator('.switches.choice input[type="radio"]')).toHaveCount(3);
-  await expect(current(page).locator('.switches.choice input:checked + *, .switches.choice label:has(input:checked)').first()).toContainText('Auto');
+  await expect(current(page).locator('.chips.choice [role="radio"]')).toHaveCount(3);
+  await expect(current(page).locator('.chips.choice [role="radio"][aria-checked="true"]')).toContainText('Auto');
+  // And on the detail's own ring, the choice with its names.
+  await expect(current(page).locator('.detail-ring o-arc[role="radio"]')).toHaveCount(3);
 });
 
 test('a thermostat with a range has two knobs, and one end never crosses the other', async ({ page }) => {
@@ -303,14 +304,14 @@ test("a numeric channel's detail draws its last 24 hours as a ring", async ({ pa
   await bring(page, 'humidity');
   await current(page).locator('.layer-front .disc').click();
   const ring = current(page).locator('.time-ring');
-  // Sectors from a baseline, the current hour at the top; the center says now and the day's range.
+  // Sectors from a baseline, the current hour at the top; the face in the center says now and the day's range.
   await expect(ring).toHaveAttribute('aria-label', /^last 24 hours: 5\d–6\d%$/);
   // Two sectors an hour, the half hours interpolated; the current one is the last, at the top.
   await expect(ring.locator('.time-bar')).toHaveCount(47);
   await expect(ring.locator('.time-bar.is-now')).toHaveAttribute('title', /^now: 52%/);
   await expect(ring.locator('.time-bar[title]')).toHaveCount(24);
-  await expect(ring.locator('.time-big')).toHaveText('52%');
-  await expect(ring.locator('.time-range')).toHaveText(/^5\d–6\d%$/);
+  await expect(ring.locator('.detail-face .face-big')).toHaveText('52%');
+  await expect(ring.locator('.detail-face .face-label')).toHaveText(/^5\d–6\d% · last 24 hours$/);
   // Bare by default; the gear can add the hour marks.
   await expect(ring.locator('.time-tick')).toHaveCount(0);
 });
@@ -332,10 +333,13 @@ test("a switched channel's detail draws a day per entity as rings, outside in, n
   await expect(rings.locator('.time-hour')).toHaveCount(3);
   const spans = await rings.locator('.track-span').count();
   expect(spans).toBeGreaterThan(0);
-  // What is now sits in the center; the header's big number moved there.
-  await expect(rings.locator('.time-big')).toHaveText('4 of 9');
+  // What is now sits in the center, as the face of the object; nothing is said twice above it.
+  await expect(rings.locator('.detail-face .face-big')).toHaveText('4 of 9');
   await expect(current(page).locator('.detail-big')).toHaveCount(0);
-  await expect(current(page).locator('.rings-order')).toHaveText('The rings, outside in (the first 8):');
+  await expect(current(page).locator('.detail h1')).toHaveCount(0);
+  // The names share one angle, a wedge after now, outside in.
+  const froms = await rings.locator('.track-name-orbit').evaluateAll((l) => l.map((x) => (x as HTMLElement).style.getPropertyValue('--o-from')));
+  expect(new Set(froms).size).toBe(1);
   // The rings that are on now reach the top; three of the eight (the ninth light is on too).
   await expect(rings.locator('.track.is-on')).toHaveCount(3);
   // A tap on a ring (its faint track or a span) toggles that light.
@@ -343,8 +347,13 @@ test("a switched channel's detail draws a day per entity as rings, outside in, n
   const entity = await first.locator('.track-back').getAttribute('data-track');
   await first.locator('.track-back').evaluate((e) => (e as HTMLElement).click());
   await expect(rings.locator('.track.is-on')).toHaveCount(2);
-  await expect(rings.locator('.time-big')).toHaveText('3 of 9');
-  await expect(current(page).locator(`.switches input[data-seg]`).nth(await rings.locator('.track').evaluateAll((l, id) => l.findIndex((x) => x.querySelector('[data-track]')?.getAttribute('data-track') === id), entity))).not.toBeChecked();
+  await expect(rings.locator('.detail-face .face-big')).toHaveText('3 of 9');
+  // The chips under the object say so too, and they switch as well.
+  const chips = current(page).locator('.chips [data-seg]');
+  await expect(chips).toHaveCount(9);
+  await expect(chips.nth(await rings.locator('.track').evaluateAll((l, id) => l.findIndex((x) => x.querySelector('[data-track]')?.getAttribute('data-track') === id), entity))).toHaveAttribute('aria-checked', 'false');
+  await chips.first().click();
+  await expect(chips.first()).toHaveAttribute('aria-checked', (await chips.first().getAttribute('aria-checked')) === 'true' ? 'false' : 'true');
 });
 
 test("the heating's detail puts the windows under the thermostat's ring and names the open ones at their hour", async ({ page }) => {
@@ -355,14 +364,16 @@ test("the heating's detail puts the windows under the thermostat's ring and name
   // The thermostat, then the two windows in the alert's color.
   await expect(rings.locator('.track')).toHaveCount(3);
   await expect(rings.locator('.track.warn')).toHaveCount(2);
-  await expect(rings.locator('.time-big')).toHaveText('21.5°C');
-  // The two open windows are named at their hour (the demo gives each a random
-  // one): two words, or one for both when they fall within the same half hour.
-  await expect(rings.locator('.time-event').first()).toHaveText(/open$/);
-  expect(await rings.locator('.time-event').count()).toBeLessThanOrEqual(2);
-  await expect(rings.locator('.time-event.warn')).toHaveCount(await rings.locator('.time-event').count());
-  // The dial stays under the rings: the band itself, with its knob, the target in its center.
-  const dial = current(page).locator('.detail-ring');
+  // The two open windows are dots at their hour (the demo gives each a random
+  // one); the most recent is named, the other only on hover (two words would overlap).
+  await expect(rings.locator('.time-event-dot.warn')).toHaveCount(await rings.locator('.time-event-dot').count());
+  expect(await rings.locator('.time-event-dot').count()).toBeLessThanOrEqual(2);
+  await expect(rings.locator('.time-event')).toHaveCount(1);
+  await expect(rings.locator('.time-event').first()).toHaveText(/open( \+1)?$/);
+  // The dial sits in the center of the rings: the band itself, its knob saying the target, the measurement marked.
+  const dial = current(page).locator('.timeline .detail-ring');
+  await expect(dial.locator('.knob .knob-text')).toHaveText('21°');
+  await expect(dial.locator('.now-text')).toHaveText('now · 21.5°');
   await expect(dial.locator('o-progress[data-dial="heating"]')).toHaveCount(1);
   await expect(dial.locator('.ring-big')).toHaveText('21°');
   await expect(dial.locator('.ring-label')).toHaveText('target');
@@ -370,6 +381,7 @@ test("the heating's detail puts the windows under the thermostat's ring and name
   await dial.locator('[data-dial="heating"]').focus();
   await page.keyboard.press('ArrowLeft');
   await expect(dial.locator('.ring-big')).toHaveText('20°');
+  await expect(dial.locator('.knob .knob-text')).toHaveText('20°');
   await expect(dial.locator('o-progress[data-dial="heating"]')).toHaveAttribute('aria-valuenow', '20');
 });
 
@@ -554,13 +566,17 @@ test("a long choice scrolls in a circle: the sources along the ring, a curved sc
   await expect(list.locator('.scroll-item.is-focus .sl-text')).toHaveText('Retro 70s and 80s');
   await page.keyboard.press('Enter');
   await expect(list.locator('.scroll-item.is-on .sl-text')).toHaveText('Retro 70s and 80s');
-  await expect(current(page).locator('.detail-big')).toHaveText('Retro 70s and 80s');
+  await expect(current(page).locator('.scroll-list .detail-face .face-big')).toHaveText('Retro 70s and 80s');
 });
 
 test("the Power detail puts this month under the day: a sector per day of the energy meter, today in the center", async ({ page }) => {
   await page.goto(`${HA}?demo=home&mode=grid`);
   await page.locator('.tile[data-system="energy"]').click();
   await current(page).locator('.layer-front .disc').click();
+  // One object at a time: the day first, the month behind its tab.
+  await expect(current(page).locator('.time-ring')).toHaveCount(1);
+  await current(page).locator('[data-tab="month"]').click();
+  await expect(current(page).locator('.time-ring')).toHaveCount(0);
   const month = current(page).locator('.month-ring');
   const now = new Date(), days = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
   await expect(month.locator('.day')).toHaveCount(days);
@@ -568,4 +584,69 @@ test("the Power detail puts this month under the day: a sector per day of the en
   await expect(month.locator('.month-bar')).toHaveCount(now.getDate());
   await expect(month.locator('.time-big')).toHaveText(/kWh$/);
   await expect(month.locator('.time-range')).toHaveText(now.toLocaleDateString('en', { month: 'long', year: 'numeric' }));
+});
+
+// ─── Several alerts: satellites, the summary, Later and Mute; the styles ───
+
+test('with three alerts the summary goes in front; one opens from it while the others wait as satellites; Later and Mute', async ({ page }) => {
+  await page.goto(`${HA}?demo=home`);
+  await expect(page.locator('.tile[data-system]')).toHaveCount(7);
+  // Three things at once in Security: the lock jams, the alarm goes off, a sensor turns into a wet one.
+  await page.evaluate(() => {
+    const demo = (window as unknown as { pulseHA: { demo: { entities: Map<string, { update(c: { state?: string; attributes?: Record<string, unknown> }): void }> } } }).pulseHA.demo;
+    demo.entities.get('lock.front_door')!.update({ state: 'jammed' });
+    demo.entities.get('alarm_control_panel.home_alarm')!.update({ state: 'triggered' });
+    demo.entities.get('binary_sensor.kitchen_motion')!.update({ state: 'on', attributes: { device_class: 'moisture' } });
+  });
+  // A critical alert opens its system on its own.
+  const view = current(page);
+  await expect(view.locator('.system')).toBeVisible();
+  await expect(view.locator('.sys-title')).toHaveText('Security');
+  // Rule 4: "3 alerts" in front, one segment per alert, each a button to that alert.
+  const summary = view.locator('.layer-front[data-ch="summary"]');
+  await expect(summary.locator('.face-big')).toHaveText('3 alerts');
+  await expect(summary.locator('o-arc[data-pick]')).toHaveCount(3);
+  await expect(view.locator('.strip')).toContainText('3 alerts');
+  // The disc opens the most serious one: it comes in front, the summary waits right behind, the other two orbit the ring (rule 3).
+  await summary.locator('.disc').click();
+  await expect(view.locator('.layer-front')).toHaveAttribute('data-ch', 'alarm');
+  await expect(view.locator('.layer[data-ch="summary"]:not(.layer-front)')).toHaveCount(1);
+  await expect(view.locator('.layer-front .alert-sat')).toHaveCount(2);
+  await expect(view.locator('.layer-front .sat-btn').first()).toHaveAttribute('aria-label', /^Bring .* to the front$/);
+  await expect(view.locator('.strip')).toContainText('The alarm went off');
+  // Mute: the wave stops, the alert stays in front in its color.
+  await view.locator('.strip [data-mute]').click();
+  await expect(view.locator('.layer-front')).toHaveClass(/is-muted/);
+  await expect(view.locator('.strip [data-mute]')).toHaveCount(0);
+  // A satellite brings its alert to the front.
+  await view.locator('.layer-front .sat-btn').first().click();
+  await expect(view.locator('.stage')).not.toHaveClass(/is-locked/);
+  await expect(view.locator('.layer-front')).toHaveAttribute('data-ch', 'locks');
+  // Later: the lock goes behind and lets the next one through; two alerts left, no summary.
+  await view.locator('.strip [data-seen]').click();
+  await expect(view.locator('.layer[data-ch="summary"]')).toHaveCount(0);
+  await expect(view.locator('.layer-front')).not.toHaveAttribute('data-ch', 'locks');
+  await expect(view.locator('.layer-front .alert-sat')).toHaveCount(1);
+});
+
+test('the tiles draw the system as an icon: the front ring on the edge, the next channels inside', async ({ page }) => {
+  await page.goto(`${HA}?demo=home&mode=grid`);
+  const tile = page.locator('.tile[data-system="lights"] .mini-ring');
+  await expect(tile.locator('.orbit-12')).toHaveCount(1);
+  await expect(tile.locator('.orbit-10')).toHaveCount(1);
+  await expect(tile.locator('.orbit-8')).toHaveCount(1);
+});
+
+test('the gear picks a style: tokens only, kept in the browser', async ({ page }) => {
+  await page.goto(`${HA}?demo=home`);
+  await page.locator('.gear').click();
+  await page.locator('.settings input[name="theme"][value="ivory"]').check();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'ivory');
+  await expect(page.locator('.settings input[name="theme"][value="ha"]')).toHaveCount(0);
+  await page.keyboard.press('Escape');
+  await page.reload();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'ivory');
+  await page.locator('.gear').click();
+  await page.locator('[data-settings-reset]').click();
+  await expect(page.locator('html')).not.toHaveAttribute('data-theme', /./);
 });

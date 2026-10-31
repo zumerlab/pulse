@@ -43,31 +43,8 @@
 .strip .plain { min-height: 36px; padding: 6px 12px; }
 
 
-/* Detail */
-.detail { overflow-y: auto; align-content: start; padding-top: 48px; grid-template-columns: minmax(0, 1fr); }
-.detail-big { font-size: clamp(36px, 14vw, 64px); overflow-wrap: anywhere; }
-.detail-big.level-1, .detail-why.level-1 { color: var(--minor); }
-.detail-big.level-2, .detail-why.level-2 { color: var(--critical); }
-.detail-why { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.detail-why .primary { margin-left: 0; }
-.switches label .state { margin-left: auto; font-size: 12px; color: var(--muted); }
-.switches label.fail.level-1 { border-color: var(--minor); }
-.switches label.fail.level-2 { border-color: var(--critical); }
-.switches input:disabled + * { opacity: .6; }
-/* A picture in the detail: round like the face, or square when asked. */
-.detail-image { display: grid; justify-items: center; gap: 10px; margin: 0; }
-.detail-image img { width: min(100%, 320px); aspect-ratio: 1; object-fit: cover; border-radius: 50%; border: 1px solid var(--line); background: #000; transition: border-radius .4s, width .4s; }
-.detail-image.is-square img { width: 100%; aspect-ratio: auto; border-radius: 10px; }
-.detail-image figcaption { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
-.history { display: grid; gap: 6px; justify-items: center; min-height: 200px; padding: 6px 0; container-type: inline-size; }
-.history .hint { font-size: 13px; }
-.ranges { display: grid; gap: 10px; }
-.entities { font-size: 12px; color: var(--muted); }
-.entities summary { cursor: pointer; }
-.entities ul { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 4px; }
-.entities li { display: flex; gap: 8px; flex-wrap: wrap; }
-.entities code { color: var(--ink); opacity: .7; }
-.entities strong { margin-left: auto; color: var(--ink); font-weight: 500; }
+/* Detail: the core draws it (detailShell); here only what Home Assistant adds. */
+.detail-fail { margin: 0; }
 
 @media (max-width: 600px) {
   .tiles { flex-wrap: wrap; gap: 12px 4px; }
@@ -294,3 +271,16 @@
 .list-center .face-big { font-size: clamp(18px, 12cqw, 30px); }
 .list-center .face-label { max-width: 86cqw; white-space: normal; max-height: 2.6em; }
 @media (prefers-reduced-motion: reduce) { .radial-list .list-orbit > .satellite { transition: none; } }
+
+/* ─── The Home Assistant theme as Pulse's style ────────── */
+/* In a card, `theme: ha` takes the colors of the theme in force (per user since 2026.2). */
+:host([data-theme="ha"]) {
+  --bg: var(--card-background-color, var(--primary-background-color, #0e1013));
+  --ink: var(--primary-text-color, #f2f3f5);
+  --muted: var(--secondary-text-color, #9aa0a8);
+  --dim: var(--disabled-text-color, #3a3f47);
+  --line: var(--divider-color, #262a31);
+  --minor: var(--warning-color, #ffb020);
+  --critical: var(--error-color, #ff5a4f);
+  --plate: color-mix(in srgb, var(--primary-text-color, #fff) 6%, transparent);
+}

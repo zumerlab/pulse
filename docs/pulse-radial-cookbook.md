@@ -299,6 +299,13 @@ original list:
 
 ## 14. Open
 
+> State of the repo (31/10/2026): rules 1 to 4 are in the Home Assistant app
+> (satellites with the channel's icon, the summary layer, Later and Mute in the
+> strip); rule 5 waits for a system that declares `groups`. The detail is one
+> radial object: the channel's ring (or its day as rings, the dial in the
+> center) with the face in the middle, the chips under it. Styles: the four
+> below as `data-theme`, plus the Home Assistant theme in the card.
+
 - **Radial actions.** Clearer with two taps and the arc, but still not settled.
   Options left to try: action satellites, gestures (dragging the disc outward to
   snooze), and whether the 3 s window should be longer.

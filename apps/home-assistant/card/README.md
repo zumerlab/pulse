@@ -147,9 +147,10 @@ strategy alike.
 | `mode` | `grid`, `orbit`, `layers`, `list` | the view the viewer picked last | The board's view when the card opens. With it set, the switch at the top still works, but the choice is not remembered. |
 | `start` | one of the system ids | the board (on a phone, the system that calls the most) | Open the card zoomed into that system. The board stays one step back ("Board" at the bottom left). Must be one of `systems` if both are given. |
 | `settings` | `true`, `false` | `true` | The gear at the top right of the board (see below). `false` hides it: the options above are final. |
-| `layers` | a whole number | all of them | How many systems the Layers view stacks, front to back; the rest are named under the object, each a button that brings it to the front. |
+| `layers` | a whole number | 3 | How many systems the Layers view stacks, front to back; the rest are named under the object, each a button that brings it to the front. |
 | `dial` | `full`, `open` | `full` | How a band (a thermostat, brightness, volume) is drawn: a full ring, or three quarters open at the bottom, its ends named (min and max) and a mark where the measurement is when the band is a target. |
 | `day` | `plain`, `marks` | `plain` | The ring of the last 24 hours in a detail (humidity, power, carbon monoxide): bars only, or with a tick per hour and "6 h ago", "12 h ago", "18 h ago" around it. |
+| `theme` | `graphite`, `ivory`, `paper`, `contrast`, `ha` | `graphite` | The style: dark Graphite, light Ivory, Paper (stroke only), High contrast, or `ha`, the colors of the Home Assistant theme in force (background, text, warning and error colors). Only the tokens change, never the grammar of layers. |
 
 A card with a wrong value refuses to render and says why ("Unknown system
 "climat". One of: lights, climate, …").
@@ -168,7 +169,7 @@ phone in a pocket can show different things from the same card. "Back to
 defaults" returns to what the card's options say.
 
 The options you set in the card or the strategy are the frame: the gear only
-offers the systems and areas you allowed, and `mode`, `start`, `layers`, `dial` and
+offers the systems and areas you allowed, and `mode`, `start`, `layers`, `dial`, `day`, `theme` and
 `day` are its defaults. At least one system, one area and one channel per system stay
 ticked. If you want the card to show exactly what you configured, everywhere,
 set `settings: false`.
