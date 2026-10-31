@@ -294,11 +294,12 @@ test("a numeric channel's detail draws its last 24 hours as a ring", async ({ pa
   await bring(page, 'humidity');
   await current(page).locator('.layer-front .disc').click();
   const ring = current(page).locator('.time-ring');
-  await expect(ring).toHaveAttribute('aria-label', /last 24 hours: 52%/);
-  await expect(ring.locator('.time-dot')).toHaveCount(24);
-  await expect(ring.locator('.time-heat')).toHaveCount(24);
-  await expect(ring.locator('.time-dot.is-now')).toHaveAttribute('title', /^now: 52%/);
-  await expect(ring.locator('.time-big')).toHaveText('52%');
+  // One bar per hour, the current one at the top; the center gives the day's range.
+  await expect(ring).toHaveAttribute('aria-label', /^last 24 hours: 5\d(\.\d)?–6\d(\.\d)?%$/);
+  await expect(ring.locator('.time-bar')).toHaveCount(24);
+  await expect(ring.locator('.time-bar.is-now')).toHaveAttribute('title', /^now: 52%/);
+  await expect(ring.locator('.time-mark')).toHaveText(['now', '−6 h', '−12 h', '−18 h']);
+  await expect(ring.locator('.time-big')).toHaveText(/^5\d(\.\d)?–6\d(\.\d)?%$/);
 });
 
 test('a color light takes its hue and saturation from a wheel in the detail', async ({ page }) => {

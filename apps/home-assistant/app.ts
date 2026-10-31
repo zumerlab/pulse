@@ -1088,7 +1088,7 @@ function detail(ctx: ViewContext) {
     if (r.history && ha.history) {
       if (!history || (Date.now() - history.at > HISTORY_MS && history.values)) void loadHistory(r.history);
       const u = String(ha.states.get(r.history)?.attributes.unit_of_measurement ?? '');
-      day = `<div class="history">${history?.values ? timeRing({ values: history.values, big: r.big, label: t.last24h, unit: u === '%' || !u ? u : ` ${u}` })
+      day = `<div class="history">${history?.values ? timeRing({ values: history.values, label: t.last24h, unit: u === '%' || !u ? u : ` ${u}` })
         : `<p class="hint">${history?.error ? t.historyNone : t.historyLoading}</p>`}</div>`;
     }
     el.innerHTML = `<div class="detail">

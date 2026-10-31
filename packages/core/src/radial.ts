@@ -315,43 +315,45 @@ export function dialControls(el: HTMLElement, c: DialControls) {
 
 export type TimeRing = {
   values: (number | null)[];           // one per hour, oldest first; the last one is the current hour
-  big: string; label: string;          // the center
-  unit?: string;                       // for the hour dots' titles
-  min?: number; max?: number;          // the scale (default: the values' own)
+  label: string;                       // under the day's range, in the center
+  unit?: string;                       // after the numbers
+  min?: number; max?: number;          // the scale; by default from zero (or the lowest value, when some are negative) to the highest
 };
 
-// The last 24 hours around a clock: the hour is the angle (the current hour
-// at the top, so the past reads clockwise behind it), the value is how far
-// out each dot sits (--o-alignment moves it inward from the ring), and a
-// faint segment per hour darkens with the value. Its own universe; the
-// width comes from CSS (.time-ring).
+// The last 24 hours as radial bars around a clock: time runs clockwise and
+// ends at the top, where the current hour is; each bar grows outward from a
+// baseline at half the radius, its length the value; marks outside say how
+// long ago. The center gives the day's range. Its own universe; the width
+// comes from CSS (.time-ring).
 export function timeRing(tr: TimeRing) {
   const n = tr.values.length || 1;
   const nums = tr.values.filter((v): v is number => v != null);
-  const lo = tr.min ?? Math.min(...nums), hi = tr.max ?? Math.max(...nums);
+  const dataLo = Math.min(...nums), dataHi = Math.max(...nums);
+  const lo = tr.min ?? (dataLo >= 0 ? 0 : dataLo), hi = tr.max ?? Math.max(dataHi, lo + 1e-9);
   const span = hi - lo || 1;
   const norm = (v: number) => Math.min(1, Math.max(0, (v - lo) / span));
-  // The ring is 12 lanes out; the dots travel the 6 inner ones (--o-alignment in lanes × LANE px of this universe).
-  const lane = TIME_RING / 2 / 12;
-  const dots = tr.values.map((v, i) => {
+  // Lanes of this universe: the baseline sits at 6, the bars reach out to 12.
+  const lane = TIME_RING / 2 / 12, BASE = 6, REACH = 6;
+  const bars = tr.values.map((v, i) => {
     const hour = i === n - 1 ? t.now : t.hoursAgo(n - 1 - i);
-    if (v == null) return `<div class="satellite time-dot is-empty" title="${esc(hour)}"></div>`;
-    return `<div class="satellite time-dot${i === n - 1 ? ' is-now' : ''}" style="--o-alignment:${((1 - norm(v)) * 6 * lane).toFixed(1)}px"
+    if (v == null) return `<div class="vector time-bar is-empty" title="${esc(hour)}"></div>`;
+    const len = Math.max(0.25, REACH * norm(v));
+    // A vector is centered where it sits: pull it in so it starts at the baseline.
+    return `<div class="vector time-bar${i === n - 1 ? ' is-now' : ''}" style="--o-size-ratio:${len.toFixed(3)}; --o-alignment:${((12 - BASE - len / 2) * lane).toFixed(1)}px"
       title="${esc(`${hour}: ${num(v)}${tr.unit ?? ''}`)}"></div>`;
   }).join('');
-  const heat = tr.values.map((v) => `<o-arc class="time-heat" style="--o-fill:var(--ink); opacity:${v == null ? 0 : (0.08 + norm(v) * 0.5).toFixed(2)}"></o-arc>`).join('');
-  // Orbit seats the first child at --o-from and the arcs split the range from
-  // there: half a step in, the last hour's segment is centered at the top, and
-  // the dots (a further half step) sit over the middle of their segments.
   const step = 360 / n;
-  return `<div class="bigbang time-ring" role="img" aria-label="${esc(t.last24h)}: ${esc(tr.big)}"><div class="gravity-spot">
-    <div class="orbit-12 time-track" style="--o-from:${(step / 2).toFixed(3)}deg; --o-gap:6">${heat}</div>
-    <div class="orbit-12 time-dots" style="--o-from:${step.toFixed(3)}deg">${dots}</div>
-    <div class="orbit-0" style="--o-size-ratio:15"><div class="satellite at-center"><div class="capsule time-center">
-      <span class="time-big">${esc(tr.big)}</span><span class="time-label">${esc(tr.label)}</span></div></div></div>
+  const mark = (deg: number, text: string) => `<div class="orbit-13" style="--o-range:0deg; --o-from:${deg}deg"><div class="satellite time-mark"><div class="capsule">${esc(text)}</div></div></div>`;
+  const range = nums.length ? (dataLo === dataHi ? `${num(dataHi)}${tr.unit ?? ''}` : `${num(dataLo)}–${num(dataHi)}${tr.unit ?? ''}`) : '';
+  return `<div class="bigbang time-ring" role="img" aria-label="${esc(`${t.last24h}: ${range}`)}"><div class="gravity-spot">
+    <div class="orbit-6 time-base"><o-arc style="--o-fill:var(--line)"></o-arc></div>
+    <div class="orbit-12 time-bars" style="--o-from:${step.toFixed(3)}deg">${bars}</div>
+    ${mark(0, t.now)}${mark(270, t.hoursShort(6))}${mark(180, t.hoursShort(12))}${mark(90, t.hoursShort(18))}
+    <div class="orbit-0" style="--o-size-ratio:9"><div class="satellite at-center"><div class="capsule time-center">
+      <span class="time-big">${esc(range)}</span><span class="time-label">${esc(tr.label)}</span></div></div></div>
   </div></div>`;
 }
-export const TIME_RING = 200;        // px; the universe of the time ring (see .time-ring in the CSS)
+export const TIME_RING = 220;        // px; the universe of the time ring (see .time-ring in the CSS)
 
 // ─── Color wheel ────────────────────────────────────────────────────
 

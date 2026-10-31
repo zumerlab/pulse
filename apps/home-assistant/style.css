@@ -62,7 +62,7 @@
 .detail-image img { width: min(100%, 320px); aspect-ratio: 1; object-fit: cover; border-radius: 50%; border: 1px solid var(--line); background: #000; transition: border-radius .4s, width .4s; }
 .detail-image.is-square img { width: 100%; aspect-ratio: auto; border-radius: 10px; }
 .detail-image figcaption { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
-.history { display: grid; gap: 6px; justify-items: center; min-height: 200px; }
+.history { display: grid; gap: 6px; justify-items: center; min-height: 200px; padding: 6px 0; }
 .history .hint { font-size: 13px; }
 .ranges { display: grid; gap: 10px; }
 .entities { font-size: 12px; color: var(--muted); }
