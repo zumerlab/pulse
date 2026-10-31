@@ -7,6 +7,5 @@ export const t = {
   simulateCritical: (system: string) => `Simulate a critical alert in ${system}`,
   simulateAlert: 'Simulate alert',
   resolveAlerts: 'Resolve alerts',
-  howLights: 'Tap a light to switch it on or off',
   allOff: 'all off',
 };

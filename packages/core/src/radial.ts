@@ -193,10 +193,12 @@ export const MINI_LANES = 6 / 3.5;
 
 // The channels that do not fit as rings (past SIZE) are named in the strip,
 // each a button that brings it to the front, like tapping its ring would.
-export function calmStrip(title: string, frontName: string, hidden: { key: string; name: string }[], how: string) {
-  const more = hidden.length ? ` · ${t.behind(hidden.length)}: ${hidden.map((h) =>
-    `<button class="more" data-pick="${esc(h.key)}" aria-label="${esc(t.bringToFront(h.name))}">${esc(h.name)}</button>`).join(', ')}` : '';
-  return `<strong>${esc(title)}</strong> · ${t.inFront(frontName)}${more}${how ? `<span class="how">${how}</span>` : ''}`;
+// No instructions here: the handle, the names on the ring and the hover say
+// what can be done.
+export function calmStrip(title: string, frontName: string, hidden: { key: string; name: string }[]) {
+  const more = hidden.length ? ` · <span class="behind">${t.behind(hidden.length)}: ${hidden.map((h) =>
+    `<button class="more" data-pick="${esc(h.key)}" aria-label="${esc(t.bringToFront(h.name))}">${esc(h.name)}</button>`).join(', ')}</span>` : '';
+  return `<strong>${esc(title)}</strong> · ${t.inFront(frontName)}${more}`;
 }
 
 // ─── Dial gestures ──────────────────────────────────────────────────

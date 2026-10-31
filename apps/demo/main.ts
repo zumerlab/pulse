@@ -185,7 +185,6 @@ function system(ctx: ViewContext, id: string) {
 
     const front = sys.ch[ord[0]], fr = reading(id, ord[0], front);
     const hidden = ord.slice(SIZE.length).map((k) => ({ key: k, name: sys.ch[k].name }));
-    const how = front.dial ? t.howDial : front.toggles ? t.howLights : '';
     if (dotsEl) {
       dotsEl.innerHTML = dots(IDS.map((other) => ({
         id: other, title: systems[other].title,
@@ -195,7 +194,7 @@ function system(ctx: ViewContext, id: string) {
     }
     strip.innerHTML = fr.alert
       ? `<strong>${front.name}:</strong> ${fr.alert.why}. <button class="primary" data-resolve="${ord[0]}">${fr.alert.verb}</button>`
-      : calmStrip(sys.title, front.name, hidden, how);
+      : calmStrip(sys.title, front.name, hidden);
   };
 
   // ─── Direct controls ───

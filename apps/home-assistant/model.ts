@@ -115,7 +115,15 @@ const short: Record<string, string> = {
 
 export const nameOf = (s: States, id: string) => {
   const floor = /^vacuum\.demo_vacuum_(\d+)_/.exec(id)?.[1];
-  return short[id] ?? (floor ? `Floor ${floor} vacuum` : s.get(id)?.attributes.friendly_name ?? id);
+  return short[id] ?? (floor ? `Floor ${floor} vacuum` : s.get(id)?.attributes.friendly_name ?? humanize(id));
+};
+// An entity with no name reads as its id made into words: "sensor.power_grid" → "Power grid".
+const humanize = (id: string) => cap(id.slice(id.indexOf('.') + 1).replace(/_/g, ' '));
+// The names of a group, each told apart by its place when two share a name
+// ("Ceiling light · Kitchen", "Ceiling light · Hall").
+const labelsOf = (s: States, ids: string[]) => {
+  const names = ids.map((id) => nameOf(s, id));
+  return ids.map((id, i) => names.indexOf(names[i]) !== names.lastIndexOf(names[i]) ? whereIs(s, id) : names[i]);
 };
 const clamp = (v: number) => Math.min(1, Math.max(0, v));
 const attr = (e: HassState, k: string) => e.attributes[k] as number | undefined;
@@ -230,7 +238,8 @@ const thermoLabel = (e: HassState) =>
 
 // Segments of entities switched on and off with a tap.
 function switches(ids: string[], s: States, isOn: (e: HassState) => boolean, act: (e: HassState) => Call | undefined): Seg[] {
-  return ids.map((id) => { const e = s.get(id)!; return { label: nameOf(s, id), on: isOn(e), entity: id, act: act(e) }; });
+  const labels = labelsOf(s, ids);
+  return ids.map((id, i) => { const e = s.get(id)!; return { label: labels[i], on: isOn(e), entity: id, act: act(e) }; });
 }
 
 const openWindows = (s: States) => ofDomain(s, 'cover')
@@ -325,7 +334,7 @@ const SYSTEMS: PulseSystem[] = [
         act: e.state === m ? undefined : call('climate', 'set_hvac_mode', id, { hvac_mode: m }) }));
       const action = hvacAction[String(e.attributes.hvac_action)];
       return { kind: 'c', segs, entities: [id], big: cap(hvacMode[e.state] ?? e.state), name: ownName(s, id) && `${nameOf(s, id)} mode`,
-        label: action && action !== hvacMode[e.state] ? action : 'tap a mode' };
+        label: action && action !== hvacMode[e.state] ? action : nameOf(s, id).toLowerCase() };
     } },
     { key: 'ac', name: 'Air conditioning', glyph: g.fan, read: thermostat((s) => thermostat_(s, 1), 'climate', thermoLabel) },
     { key: 'fan', name: 'Fan', glyph: g.fan, read: (s) => {
@@ -377,7 +386,7 @@ const SYSTEMS: PulseSystem[] = [
         act: e.state === st ? undefined : call('alarm_control_panel', service, id, { code: ALARM_CODE }) }));
       const fired = e.state === 'triggered' || e.state === 'pending';
       return { kind: 'c', segs, entities: [id], big: alarmState[e.state] ?? e.state,
-        label: e.state === 'arming' ? `switching to ${alarmState[next]?.toLowerCase() ?? 'armed'}` : 'tap a mode',
+        label: e.state === 'arming' ? `switching to ${alarmState[next]?.toLowerCase() ?? 'armed'}` : nameOf(s, id).toLowerCase(),
         alert: fired ? { level: 2, big: alarmState[e.state], label: 'alarm', fail: [0, 1, 2],
           why: e.state === 'triggered' ? 'The alarm went off' : 'The alarm is about to sound', verb: 'Disarm',
           calls: [call('alarm_control_panel', 'alarm_disarm', id, { code: ALARM_CODE })] } : undefined };
@@ -388,7 +397,8 @@ const SYSTEMS: PulseSystem[] = [
       const e = id ? s.get(id) : undefined;
       if (!id || !e) return null;
       const all = ofDomain(s, 'camera').slice(0, 8);
-      const segs = all.map((c) => ({ label: nameOf(s, c), on: c === id, entity: c }));
+      const names = labelsOf(s, all);
+      const segs = all.map((c, i) => ({ label: names[i], on: c === id, entity: c }));
       const src = picture(e), state = cameraState[e.state] ?? cap(e.state);
       return { kind: 's', segs, entities: all.includes(id) ? all : [id, ...all], big: state, name: ownName(s, id) && nameOf(s, id),
         label: placeOf(id)?.toLowerCase() ?? (all.length > 1 ? `${all.length} cameras` : 'camera'),
@@ -434,7 +444,8 @@ const SYSTEMS: PulseSystem[] = [
       const cls = (id: string) => String(s.get(id)!.attributes.device_class);
       const ids = [...all.filter(on), ...all.filter((id) => !on(id))].slice(0, 8);
       // On = the sensor works; the one that detects something is the one painted.
-      const segs = ids.map((id) => ({ label: nameOf(s, id), on: s.get(id)!.state !== 'unavailable', entity: id }));
+      const names = labelsOf(s, ids);
+      const segs = ids.map((id, i) => ({ label: names[i], on: s.get(id)!.state !== 'unavailable', entity: id }));
       const detecting = (classes: string[]) => all.filter((id) => on(id) && classes.includes(cls(id)));
       const where = (found: string[]) => list(found.map((id) => whereIs(s, id)));
       const fail = (found: string[]) => found.map((id) => ids.indexOf(id)).filter((i) => i >= 0);

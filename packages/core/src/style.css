@@ -76,10 +76,13 @@ button { font: inherit; color: inherit; }
   display: grid; place-content: center; justify-items: center; gap: 4px;
   background: rgba(255,255,255,.06); backdrop-filter: blur(6px); border: 0;
   color: var(--ink); text-align: center;
+  container-type: size;                /* the face sizes its lines from the disc (cqw) */
 }
-.face-name { font-size: 15px; color: var(--muted); }
-.face-big { font-size: 34px; font-weight: 600; letter-spacing: -1px; }
-.face-label { font-size: 13px; color: var(--muted); }
+/* Each line of the face is one line, sized from the disc, and never past it. */
+.face-name, .face-big, .face-label { max-width: 78cqw; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.face-name { font-size: clamp(11px, 6.5cqw, 15px); color: var(--muted); }
+.face-big { font-size: clamp(18px, 14.5cqw, 34px); font-weight: 600; letter-spacing: -1px; line-height: 1.1; }
+.face-label { font-size: clamp(10px, 5.5cqw, 13px); color: var(--muted); }
 .layer.is-alert[data-level="2"] .face-big { color: var(--critical); }
 .layer.is-alert[data-level="1"] .face-big { color: var(--minor); }
 
@@ -92,10 +95,10 @@ button { font: inherit; color: inherit; }
 }
 .disc.has-image .face-big, .disc.has-image .face-name, .disc.has-image .face-label, .disc.has-image .glyph { text-shadow: 0 1px 3px rgba(0,0,0,.7); }
 .disc.has-image .face-name, .disc.has-image .face-label { color: rgba(255,255,255,.85); }
-.disc.has-image .face-big { font-size: 26px; }
+.disc.has-image .face-big { font-size: clamp(16px, 11cqw, 26px); }
 
 /* The names of a choice, along the inside of the ring. */
-.choice-label { --o-fill: transparent; --o-color: var(--muted); font-size: 10px; letter-spacing: .3px; text-transform: uppercase; }
+.choice-label { --o-fill: transparent; --o-color: var(--muted); font-size: 12px; }
 .choice-label.is-on { --o-color: var(--ink); }
 .layer:not(.layer-front) .choice-labels { display: none; }
 

@@ -843,8 +843,6 @@ function system(ctx: ViewContext, id: string) {
     if (!frontItem) { strip.textContent = t.noEntities; return; }
     const hidden = ord.slice(SIZE.length).map((k) => ({ key: k, name: map.get(k)!.ch.name }));
     const fa = frontItem.r.alert && !u.seen.has(ord[0]) ? frontItem.r.alert : null;
-    const how = frontItem.r.range ? t.howRange : frontItem.r.dial ? t.howDial
-      : frontItem.r.kind === 'c' && frontItem.r.segs?.some((s) => s.act) ? t.howChoice : frontItem.r.segs?.some((s) => s.act) ? t.howSegments : '';
     if (dotsEl) {
       dotsEl.innerHTML = dots(IDS.filter((other) => order(other).length).map((other) => {
         const k = order(other)[0];
@@ -856,7 +854,7 @@ function system(ctx: ViewContext, id: string) {
           ${fa.busy ? `<span class="face-wait">${t.inProgress}</span>` : `<button class="primary" data-resolve="${ord[0]}">${esc(fa.verb)}</button>
           ${fa.calls.length ? `<button class="plain" data-seen="${ord[0]}">${t.mute}</button>` : ''}`}
           ${waiting.length ? `<span class="how">${t.moreWaiting(waiting.length)}</span>` : ''}`
-      : calmStrip(sys.title, frontItem.ch.name, hidden, how);
+      : calmStrip(sys.title, frontItem.ch.name, hidden);
 
     if (focusSel) el.querySelector<HTMLElement>(focusSel)?.focus({ preventScroll: true });
   };

@@ -128,7 +128,7 @@
   display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
 }
 .slide-go { min-height: 0; padding: 1.6cqw 4cqw; margin: 1cqw 0 0; font-size: clamp(10px, 3.8cqw, 13px); border-radius: 999px; }
-.hub-rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 1.2cqw; min-width: 76cqw; max-width: 100%; font-size: clamp(9px, 4cqw, 14px); color: var(--muted); }
+.hub-rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 1.2cqw; width: 56cqw; max-width: 100%; font-size: clamp(9px, 4cqw, 14px); color: var(--muted); }
 .hub-rows li { display: flex; gap: 8px; justify-content: space-between; white-space: nowrap; min-width: 0; }
 .hub-rows li span { overflow: hidden; text-overflow: ellipsis; }
 .hub-rows li:first-child { color: var(--ink); }

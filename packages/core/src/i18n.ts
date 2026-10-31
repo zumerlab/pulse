@@ -25,10 +25,6 @@ export const t = {
   // Strip under the object
   inFront: (channel: string) => `${channel} in front`,
   behind: (n: number) => `+${n} behind`,
-  howDial: 'Drag the ring · tap the center for more',
-  howRange: 'Drag either end of the band · tap the center for more',
-  howSegments: 'Tap a segment to change it',
-  howChoice: 'Tap an option to choose it',
   moreWaiting: (n: number) => `${count(n, 'more alert')} waiting`,
   mute: 'Mute',
   inProgress: 'in progress…',
