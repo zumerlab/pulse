@@ -41,5 +41,6 @@ export const t = {
   now: 'now',
   hoursAgo: (n: number) => n === 1 ? '1 hour ago' : `${n} hours ago`,
   hAgo: (n: number) => `${n} h ago`,
+  sinceTime: (at: string) => `since ${at}`,
   hueSat: (h: number, s: number) => `hue ${h}°, saturation ${s}%`,
 };

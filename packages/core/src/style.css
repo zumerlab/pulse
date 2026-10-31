@@ -143,7 +143,9 @@ o-arc.is-failed { --o-stroke: var(--critical); --o-stroke-width: 2; }
 .primary.level-2 { background: var(--critical); border-color: var(--critical); color: #fff; }
 
 /* ─── Detail ──────────────────────────────────────────── */
-.detail { height: 100%; max-width: 520px; margin: 0 auto; display: grid; align-content: center; gap: 14px; padding: 24px 16px; }
+/* Rows at their content's size: a scroll container's auto rows stop at their
+   minimum once the content overflows, and the timeline would overlap what follows. */
+.detail { height: 100%; max-width: 520px; margin: 0 auto; display: grid; grid-auto-rows: max-content; align-content: center; gap: 14px; padding: 24px 16px; }
 .detail h1 { display: flex; align-items: center; gap: 12px; font-size: 30px; font-weight: 550; }
 .detail-big { font-size: 64px; font-weight: 600; letter-spacing: -2px; }
 .detail-label, .hint { color: var(--muted); }
@@ -173,7 +175,7 @@ o-arc.is-failed { --o-stroke: var(--critical); --o-stroke-width: 2; }
 .range-track { cursor: grab; }
 
 /* ─── Time ring ───────────────────────────────────────── */
-.time-ring { width: 220px; margin: 10px auto; }
+.time-ring { width: 220px; aspect-ratio: 1; margin: 10px auto; }
 .time-bar { --o-fill: var(--ink); --o-stroke: transparent; cursor: default; }
 .time-bar.is-now { opacity: 1 !important; filter: drop-shadow(0 0 4px var(--ink)); }
 .time-center { display: grid; justify-items: center; text-align: center; gap: 1px; }
@@ -184,6 +186,31 @@ o-arc.is-failed { --o-stroke: var(--critical); --o-stroke-width: 2; }
 .time-hour { --o-fill: transparent; --o-color: var(--muted); font-size: 10px; }
 .time-big { font-size: 13px; font-weight: 600; letter-spacing: -.3px; white-space: nowrap; }
 .time-label { font-size: 10px; color: var(--muted); white-space: nowrap; }
+
+/* ─── Timeline: a day per entity ──────────────────────── */
+/* Sized in container units: a percentage width with an aspect ratio gives the
+   row above it nothing to measure, and the rings would overlap what follows. */
+.timeline { --tl: min(320px, 100cqi); width: var(--tl); height: var(--tl); margin: 10px auto; }
+.timeline.has-marks { --tl: min(320px, 100cqi - 40px); margin: 26px auto; }
+.track-back { --o-fill: var(--line); --o-stroke: transparent; cursor: default; }
+.track-span { --o-fill: var(--ink); --o-stroke: transparent; cursor: default; }
+.track.warn .track-span { --o-fill: var(--minor); }
+.track.critical .track-span { --o-fill: var(--critical); }
+.track.has-act o-arc { cursor: pointer; }
+.track.is-on .track-span:last-of-type { filter: drop-shadow(0 0 3px var(--ink)); }
+.track.warn.is-on .track-span:last-of-type { filter: drop-shadow(0 0 3px var(--minor)); }
+.track.critical.is-on .track-span:last-of-type { filter: drop-shadow(0 0 3px var(--critical)); }
+.track.is-pending { animation: track-beat 1.2s ease-in-out infinite; }
+.capsule.time-event { width: max-content; height: auto; }
+@keyframes track-beat { 50% { opacity: .35; } }
+.time-event { position: relative; padding-left: 10px; font-size: 10px; color: var(--muted); white-space: nowrap; }
+.time-event::before { content: ''; position: absolute; left: 0; top: 50%; width: 6px; height: 6px; margin-top: -3px; border-radius: 50%; background: var(--ink); }
+.time-event.warn::before { background: var(--minor); }
+.time-event.critical::before { background: var(--critical); }
+.timeline .time-center { width: 100%; padding: 0 8px; box-sizing: border-box; }
+.timeline .time-big, .timeline .time-label { max-width: 100%; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.timeline .time-big { font-size: 22px; }
+.timeline .time-label { font-size: 11px; }
 
 /* ─── Color wheel ─────────────────────────────────────── */
 .color-wheel {
@@ -232,4 +259,4 @@ o-arc.is-failed { --o-stroke: var(--critical); --o-stroke-width: 2; }
   /* With two layers and less growth, 1.1× lets the ring behind fit. */
   .obj { --zoom: 1.1; }
 }
-@media (prefers-reduced-motion: reduce) { .dot.has-alert { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .dot.has-alert, .track.is-pending { animation: none; } }

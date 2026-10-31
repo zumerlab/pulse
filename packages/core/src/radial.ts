@@ -5,7 +5,7 @@
 
 import type { ZumlyOptions } from 'zumly';
 import type Zumly from 'zumly';
-import { num, t } from './i18n.ts';
+import { num, t, time } from './i18n.ts';
 
 // ─── What a ring needs to know about a channel ──────────────────────
 
@@ -432,20 +432,86 @@ export function timeRing(tr: TimeRing) {
   const last = [...tr.values].reverse().find((v): v is number => v != null);
   const range = nums.length ? (r(dataLo) === r(dataHi) ? `${r(dataHi)}${tr.unit ?? ''}` : `${r(dataLo)}–${r(dataHi)}${tr.unit ?? ''}`) : '';
   const big = last != null ? `${num(last)}${tr.unit ?? ''}` : range;
-  // Hour marks, on request: a tick per hour on the rim, longer every six, and
-  // "6 h ago", "12 h ago", "18 h ago" along the outside; now is the top.
-  const marks = tr.marks ? `<div class="orbit-13 time-ticks">${Array.from({ length: 24 }, (_, k) =>
-      `<div class="vector time-tick${k % 6 === 0 ? ' is-major' : ''}" style="--o-size-ratio:${k % 6 === 0 ? 1 : 0.5}"></div>`).join('')}</div>
-    <div class="orbit-14 time-hours" style="--o-max:24">${[6, 12, 18].map((h) =>
-      `<o-arc range="auto" text-anchor="middle" start="${24 - h}"${h === 12 ? ' flip' : ''} class="time-hour">${esc(t.hAgo(h))}</o-arc>`).join('')}</div>` : '';
   return `<div class="bigbang time-ring${tr.marks ? ' has-marks' : ''}" role="img" aria-label="${esc(`${t.last24h}: ${range}`)}"><div class="gravity-spot">
     <div class="orbit-6 time-bars" style="--o-max:${slots}; --o-gap:1; --o-stroke-width:0">${bars}</div>
-    ${marks}
+    ${tr.marks ? hourMarks() : ''}
     <div class="orbit-0" style="--o-size-ratio:8"><div class="satellite at-center"><div class="capsule time-center">
       <span class="time-big">${esc(big)}</span><span class="time-range">${esc(range)}</span><span class="time-label">${esc(tr.label)}</span></div></div></div>
   </div></div>`;
 }
 export const TIME_RING = 220;        // px; the universe of the time ring (see .time-ring in the CSS)
+
+// Hour marks, on request: a tick per hour on the rim, longer every six, and
+// "6 h ago", "12 h ago", "18 h ago" along the outside; now is the top.
+const hourMarks = () => `<div class="orbit-13 time-ticks">${Array.from({ length: 24 }, (_, k) =>
+    `<div class="vector time-tick${k % 6 === 0 ? ' is-major' : ''}" style="--o-size-ratio:${k % 6 === 0 ? 1 : 0.5}"></div>`).join('')}</div>
+  <div class="orbit-14 time-hours" style="--o-max:24">${[6, 12, 18].map((h) =>
+    `<o-arc range="auto" text-anchor="middle" start="${24 - h}"${h === 12 ? ' flip' : ''} class="time-hour">${esc(t.hAgo(h))}</o-arc>`).join('')}</div>`;
+
+// ─── Timeline: a day per entity ─────────────────────────────────────
+
+export type Tone = 'warn' | 'critical';
+export type Track = {
+  key: string;                       // data-track on its arcs: what a tap on this ring means
+  name: string;                      // names its spans
+  spans: [number, number][];         // when it was on, as [from, to] in hours ago (to = 0 while it still is)
+  on?: boolean;                      // on right now: the ring reaches the top and glows there
+  tone?: Tone;                       // the spans in an alert's color instead of ink
+  act?: boolean;                     // a tap does something
+  pending?: boolean;                 // a command sent and not confirmed: the ring beats
+  failed?: boolean;                  // the command was refused: red outline
+};
+export type TimeEvent = { ago: number; text: string; tone?: Tone };   // a moment worth a word, placed at its hour
+export type Timeline = {
+  hours: number;                     // the window; 24 is a day
+  tracks: Track[];                   // outermost first; the first MAX_TRACKS are drawn
+  events?: TimeEvent[];
+  big: string; label: string;        // the center: what is now
+  marks?: boolean;                   // hour ticks and "6 h ago"… (24 h only)
+  aria: string;
+};
+export const MAX_TRACKS = 8;
+
+// The last hours of several entities as concentric rings, one per entity,
+// outermost first: time runs clockwise and ends at the top, where a ring that
+// is on right now arrives and glows; what was on is drawn, what was off is
+// the faint track under it. The seam after "now" is the same as the time
+// ring's. Events sit outside the rings at their hour. Its own universe; the
+// width comes from CSS (.timeline).
+export function timeline(tl: Timeline) {
+  // The scale is in minutes: a window of W minutes plus a seam of one 48th.
+  const W = tl.hours * 60, seam = W / 48, S = W + seam, half = seam / 2;
+  const at = (agoH: number) => (((S + half - agoH * 60) % S) + S) % S;
+  const when = (agoH: number) => time(new Date(Date.now() - agoH * 3_600_000)).slice(0, 5);
+  const tracks = tl.tracks.slice(0, MAX_TRACKS);
+  const rings = tracks.map((tr, i) => {
+    const cls = ['track', tr.on && 'is-on', tr.tone, tr.act && 'has-act', tr.pending && 'is-pending'].filter(Boolean).join(' ');
+    const spans = tr.spans.map(([from, to]) => {
+      const f = Math.min(from, tl.hours), len = (f - to) * 60;
+      if (len <= 0) return '';
+      const title = `${tr.name}: ${to <= 0 ? t.sinceTime(when(f)) : `${when(f)}–${when(to)}`}`;
+      return `<o-arc class="track-span${tr.failed ? ' is-failed' : ''}" start="${at(f).toFixed(1)}" value="${Math.max(len, 3).toFixed(1)}" interactive data-track="${esc(tr.key)}" title="${esc(title)}"></o-arc>`;
+    }).join('');
+    return `<div class="orbit-${12 - i} ${cls}" style="--o-max:${S}; --o-gap:0; --o-stroke-width:0; --o-size-ratio:.3">
+      <o-arc class="track-back" start="${at(tl.hours).toFixed(1)}" value="${W}" interactive data-track="${esc(tr.key)}" title="${esc(tr.name)}"></o-arc>${spans}</div>`;
+  }).join('');
+  // Events within the same half hour share a word.
+  const grouped: TimeEvent[] = [];
+  for (const e of [...(tl.events ?? [])].filter((e) => e.ago >= 0 && e.ago <= tl.hours).sort((a, b) => a.ago - b.ago)) {
+    const near = grouped.find((g) => Math.abs(g.ago - e.ago) * 60 < seam);
+    if (near) { near.text = `${near.text}, ${e.text}`; near.tone = near.tone === 'critical' ? near.tone : e.tone ?? near.tone; }
+    else grouped.push({ ...e });
+  }
+  const events = grouped.map((e) =>
+    `<div class="orbit-13 time-events" style="--o-from:${(at(e.ago) / S * 360).toFixed(1)}deg"><div class="satellite"><div class="capsule time-event${e.tone ? ` ${e.tone}` : ''}">${esc(e.text)}</div></div></div>`).join('');
+  // The center fills what the rings leave (a unit of size is one orbit step).
+  const inner = (2 * (11.5 - tracks.length) - 0.8).toFixed(1);
+  return `<div class="bigbang timeline${tl.marks ? ' has-marks' : ''}" role="group" aria-label="${esc(tl.aria)}"><div class="gravity-spot">
+    ${rings}${events}${tl.marks ? hourMarks() : ''}
+    <div class="orbit-0" style="--o-size-ratio:${inner}"><div class="satellite at-center"><div class="capsule time-center">
+      <span class="time-big">${esc(tl.big)}</span><span class="time-label">${esc(tl.label)}</span></div></div></div>
+  </div></div>`;
+}
 
 // ─── Color wheel ────────────────────────────────────────────────────
 

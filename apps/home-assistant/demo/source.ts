@@ -4,11 +4,23 @@
 // WebSocket: `states` in, `call` out.
 
 import type { HassEntity } from 'home-assistant-js-websocket';
-import { emptyRegistry, type Call, type HassState, type PulseSource, type Registry, type States, type Status } from '../source.ts';
+import { emptyRegistry, type Call, type Change, type HassState, type PulseSource, type Registry, type States, type Status } from '../source.ts';
 import { t } from '../strings.ts';
 import { getEntity, type Area, type Floor, type MockEntity } from './entities.ts';
 import { energy } from './homes/energy.ts';
 import { DEFAULT_HOME, homeById, type Home } from './homes/index.ts';
+
+// The same numbers every time for the same entity: a hash of its id seeds them.
+function seeded(key: string) {
+  let seed = 0;
+  for (const c of key) seed = (seed * 31 + c.charCodeAt(0)) >>> 0;
+  return () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 2 ** 32; };
+}
+// What a state flips to in a made-up history.
+const OTHER_STATE: Record<string, string> = {
+  on: 'off', off: 'on', open: 'closed', closed: 'open', locked: 'unlocked', unlocked: 'locked',
+  playing: 'paused', paused: 'playing', idle: 'playing', heat: 'off', cool: 'off', heat_cool: 'off', auto: 'off', dry: 'off', fan_only: 'off',
+};
 
 // A command takes a moment to come back, as it would from a real Home
 // Assistant: the UI shows "sending" meanwhile.
@@ -103,9 +115,7 @@ export class DemoSource implements PulseSource {
   async history(entity: string, hours: number) {
     const e = this.states.get(entity), v = Number(e?.state);
     if (!e || !Number.isFinite(v)) return Array.from({ length: hours }, () => null);
-    let seed = 0;
-    for (const c of entity) seed = (seed * 31 + c.charCodeAt(0)) >>> 0;
-    const rand = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 2 ** 32; };
+    const rand = seeded(entity);
     const phase = rand() * Math.PI * 2, swing = 0.1 + rand() * 0.2, noise = rand() * 0.06;
     const base = v || 1;
     return Array.from({ length: hours }, (_, i) => {
@@ -114,6 +124,25 @@ export class DemoSource implements PulseSource {
       const value = base * (1 + swing * wave * (1 - x) + (rand() - 0.5) * noise);
       return Math.round((i === hours - 1 ? v : value) * 100) / 100;
     });
+  }
+
+  // A day of changes made up the same way: a few flips between the current
+  // state and its opposite, ending in the current one.
+  async changes(entities: string[], hours: number) {
+    const out: Record<string, Change[]> = {};
+    for (const id of entities) {
+      const e = this.states.get(id);
+      if (!e) { out[id] = []; continue; }
+      const rand = seeded(`${id}/changes`);
+      const other = OTHER_STATE[e.state] ?? (id.startsWith('climate.') ? 'heat' : 'off');
+      const flips = Math.floor(rand() * 5);
+      const times = Array.from({ length: flips }, () => 0.3 + rand() * (hours - 1)).sort((a, b) => b - a);
+      let state = flips % 2 === 0 ? e.state : other;
+      const list: Change[] = [{ state, ago: hours }];
+      for (const ago of times) { state = state === e.state ? other : e.state; list.push({ state, ago }); }
+      out[id] = list;
+    }
+    return out;
   }
 
   async call({ domain, service, data }: Call) {

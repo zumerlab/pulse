@@ -1,10 +1,10 @@
 import Zumly, { type ViewContext } from 'zumly';
-import type { Call, HassState, PulseSource, Status } from './source.ts';
-import { nameOf, placeOf, systems, type Alert, type Channel, type Dial, type Reading } from './model.ts';
+import type { Call, Change, HassState, PulseSource, Status } from './source.ts';
+import { nameOf, placeOf, spansOf, systems, type Alert, type Channel, type Dial, type Reading } from './model.ts';
 import { tune } from './tune.ts';
 import {
-  DOT_LANES, LANE, LOCK_MS, MINI_LANES, PHONE, SIZE, STROKE, backLayer, calmStrip, colorWheel, dialControls, dots, esc, face,
-  fitFor, icon, labelAt, levelColor, num, parallax, ring as drawRing, setViewToggle, startInside, systemShell, time, timeRing, viewToggle, wheelControls, zumlyOptions,
+  DOT_LANES, LANE, LOCK_MS, MAX_TRACKS, MINI_LANES, PHONE, SIZE, STROKE, backLayer, calmStrip, colorWheel, dialControls, dots, esc, face,
+  fitFor, icon, labelAt, levelColor, num, parallax, ring as drawRing, setViewToggle, startInside, systemShell, time, timeRing, timeline, viewToggle, wheelControls, zumlyOptions,
   type RingReading,
 } from '@zumer/pulse';
 import { t } from './strings.ts';
@@ -1084,6 +1084,8 @@ function stateText(e: HassState) {
 // A day of an entity, once per visit (and again after five minutes).
 const histories = new Map<string, { at: number; values: (number | null)[] | null; error?: boolean }>();
 const HISTORY_MS = 5 * 60_000;
+// A day of changes of a set of entities (the rings of a detail), likewise; keyed by the set.
+const changesOf = new Map<string, { at: number; changes: Record<string, Change[]> | null; error?: boolean }>();
 
 function detail(ctx: ViewContext) {
   const id = String(ctx.props.system), key = String(ctx.props.channel);
@@ -1096,7 +1098,10 @@ function detail(ctx: ViewContext) {
     if (!item) return;
     const { ch, r } = item;
     const history = r.history ? histories.get(r.history) : undefined;
-    const now = JSON.stringify([r, [...pending.keys()], [...failed.keys()], toast, square, live, history?.values?.length ?? history?.error]);
+    const trackIds = r.tracks?.length && ha.changes ? r.tracks.map((x) => x.entity).join(' ') : '';
+    const changes = trackIds ? changesOf.get(trackIds) : undefined;
+    const now = JSON.stringify([r, [...pending.keys()], [...failed.keys()], toast, square, live, history?.values?.length ?? history?.error,
+      changes?.at ?? changes?.error, ha.states.get(r.events?.[0]?.entity ?? '')?.last_changed]);
     if (now === last) return;
     last = now;
     const active = activeElement() as HTMLElement | null;
@@ -1130,9 +1135,23 @@ function detail(ctx: ViewContext) {
         <figcaption><button class="plain" data-shape>${square ? t.showRound : t.showSquare}</button>
           ${stream ? `<button class="plain" data-live aria-pressed="${live}">${live ? t.snapshot : t.live}</button>` : ''}</figcaption></figure>`;
     }
-    // The last 24 hours of a numeric entity, as a ring.
+    // The last 24 hours: a ring per entity (what was on, when), with what is
+    // now in the center, or a numeric entity's values as one ring.
     let day = '';
-    if (r.history && ha.history) {
+    let rings = false;
+    if (trackIds) {
+      if (!changes || (Date.now() - changes.at > HISTORY_MS && changes.changes)) void loadChanges(trackIds, r.tracks!.map((x) => x.entity));
+      rings = !!changes?.changes;
+      const list = changes?.changes;
+      day = `<div class="history">${list ? timeline({
+        hours: 24,
+        tracks: r.tracks!.map((x) => ({ key: x.entity, name: nameOf(ha.states, x.entity), spans: spansOf(list[x.entity] ?? [], x.on),
+          on: x.on(ha.states.get(x.entity)?.state ?? ''), tone: x.tone, act: !!x.act, pending: pending.has(x.entity), failed: failed.has(x.entity) })),
+        events: (r.events ?? []).map((ev) => ({ ago: (Date.now() - Date.parse(ha.states.get(ev.entity)?.last_changed ?? '')) / 3_600_000, text: ev.text, tone: ev.tone }))
+          .filter((ev) => Number.isFinite(ev.ago)),
+        big: a ? a.big : r.big, label: a ? a.label : r.label, marks: look().day === 'marks', aria: t.dayOf(ch.name),
+      }) : `<p class="hint">${changes?.error ? t.historyNone : t.historyLoading}</p>`}</div>`;
+    } else if (r.history && ha.history) {
       if (!history || (Date.now() - history.at > HISTORY_MS && history.values)) void loadHistory(r.history);
       const u = String(ha.states.get(r.history)?.attributes.unit_of_measurement ?? '');
       day = `<div class="history">${history?.values ? timeRing({ values: history.values, label: t.last24h, unit: u === '%' || !u ? u : ` ${u}`, marks: look().day === 'marks' })
@@ -1141,19 +1160,27 @@ function detail(ctx: ViewContext) {
     el.innerHTML = `<div class="detail">
       <p class="eyebrow">${SYS[id].title}</p>
       <h1>${icon(ch.glyph, 30)} ${ch.name}</h1>
-      <p class="detail-big${a ? ` level-${a.level}` : ''}">${esc(a ? a.big : r.big)}</p>
-      <p class="detail-label">${esc(a ? a.label : r.label)}</p>
+      ${rings ? '' : `<p class="detail-big${a ? ` level-${a.level}` : ''}">${esc(a ? a.big : r.big)}</p>
+      <p class="detail-label">${esc(a ? a.label : r.label)}</p>`}
       ${a ? `<p class="detail-why level-${a.level}">${esc(a.why)}. ${a.busy ? `<span class="face-wait">${t.inProgress}</span>`
         : `<button class="primary" data-resolve>${esc(a.verb)}</button>`}</p>` : ''}
       ${failuresOf(r).length ? `<p class="detail-fail">${retryCard(r)}</p>` : toast ? `<p class="error">${esc(toast)}</p>` : ''}
       ${figure}
       ${day}
+      ${rings && r.segs ? `<p class="hint rings-order">${t.outsideIn(r.tracks!.length > MAX_TRACKS ? MAX_TRACKS : 0)}</p>` : ''}
       ${control}
       <details class="entities"><summary>${t.entitiesInHA}</summary><ul>${r.entities.map((e) => {
         const s = ha.states.get(e);
         return s ? `<li><code>${e}</code> <span>${esc(nameOf(ha.states, e))}</span> <strong>${esc(stateText(s))}</strong></li>` : '';
       }).join('')}</ul></details>
     </div>`;
+  };
+  const loadChanges = (key: string, entities: string[]) => {
+    const was = changesOf.get(key);
+    changesOf.set(key, { at: Date.now(), changes: was?.changes ?? null });
+    return ha.changes!(entities, 24).then(
+      (changes) => { changesOf.set(key, { at: Date.now(), changes }); paint(); },
+      () => { changesOf.set(key, { at: Date.now(), changes: null, error: true }); paint(); });
   };
   const loadHistory = (entity: string) => {
     const was = histories.get(entity);
@@ -1239,6 +1266,12 @@ function detail(ctx: ViewContext) {
     if (target.closest('[data-live]')) { live = !live; paint(); return; }
     const again = target.closest<HTMLElement>('[data-retry]')?.dataset.retry;
     if (again) { retry(again); return; }
+    const track = target.closest<HTMLElement>('[data-track]')?.dataset.track;
+    if (track) {
+      const x = readings[id].get(key)?.r.tracks?.find((y) => y.entity === track);
+      if (x?.act && !pending.has(track)) void send([x.act]);
+      return;
+    }
     if (!target.closest('[data-resolve]')) return;
     const a = readings[id].get(key)?.r.alert;
     if (!a) return;

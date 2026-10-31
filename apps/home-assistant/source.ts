@@ -57,6 +57,9 @@ export interface PulseSource {
   // A numeric entity's last `hours` hours as one value per hour, oldest
   // first, the current hour last; null where nothing is known.
   history?(entity: string, hours: number): Promise<(number | null)[]>;
+  // The last `hours` hours of these entities as the moments their state
+  // changed (see Change), one list per entity.
+  changes?(entities: string[], hours: number): Promise<Record<string, Change[]>>;
 }
 
 // What `history/history_during_period` returns with minimal_response and
@@ -83,6 +86,18 @@ export function hourly(rows: HistoryRow[], hours: number, now = Date.now()): (nu
     if (current != null) { sum += current * (t1 - at); weight += t1 - at; }
     out.push(weight > 0 ? sum / weight : null);
     last = current;
+  }
+  return out;
+}
+// A state history as the moments it changed: the state in force when the
+// window began (ago = hours), then each change, oldest first, `ago` in hours.
+export type Change = { state: string; ago: number };
+export function changesOf(rows: HistoryRow[], hours: number, now = Date.now()): Change[] {
+  const end = now / 1000, start = end - hours * 3600;
+  const out: Change[] = [];
+  for (const r of rows) {
+    if (r.lu <= start) { out.length = 0; out.push({ state: r.s, ago: hours }); }
+    else out.push({ state: r.s, ago: (end - r.lu) / 3600 });
   }
   return out;
 }
@@ -291,5 +306,15 @@ export class WebSocketSource implements PulseSource {
       start_time: new Date(now - hours * 3600_000).toISOString(), end_time: new Date(now).toISOString(),
     });
     return hourly(rows[entity] ?? [], hours, now);
+  }
+
+  async changes(entities: string[], hours: number) {
+    if (!this.conn) throw new Error(t.errNoConnection);
+    const now = Date.now();
+    const rows = await this.conn.sendMessagePromise<Record<string, HistoryRow[]>>({
+      type: 'history/history_during_period', entity_ids: entities, minimal_response: true, no_attributes: true,
+      start_time: new Date(now - hours * 3600_000).toISOString(), end_time: new Date(now).toISOString(),
+    });
+    return Object.fromEntries(entities.map((e) => [e, changesOf(rows[e] ?? [], hours, now)]));
   }
 }

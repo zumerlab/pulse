@@ -308,6 +308,49 @@ test("a numeric channel's detail draws its last 24 hours as a ring", async ({ pa
   await expect(ring.locator('.time-tick')).toHaveCount(0);
 });
 
+test("a switched channel's detail draws a day per entity as rings, outside in, and a tap on a ring toggles it", async ({ page }) => {
+  await page.goto(`${HA}?demo=home`);
+  await page.locator('.tile[data-system="lights"]').click();
+  await current(page).locator('.layer-front .disc').click();
+  const rings = current(page).locator('.timeline');
+  await expect(rings).toHaveAttribute('aria-label', 'The last 24 hours of Lights');
+  // The home has nine lights: eight rings (the outermost is the first light), each on its own orbit.
+  await expect(rings.locator('.track')).toHaveCount(8);
+  await expect(rings.locator('.track').first()).toHaveClass(/orbit-12/);
+  await expect(rings.locator('.track').last()).toHaveClass(/orbit-5/);
+  const spans = await rings.locator('.track-span').count();
+  expect(spans).toBeGreaterThan(0);
+  // What is now sits in the center; the header's big number moved there.
+  await expect(rings.locator('.time-big')).toHaveText('4 of 9');
+  await expect(current(page).locator('.detail-big')).toHaveCount(0);
+  await expect(current(page).locator('.rings-order')).toHaveText('The rings, outside in (the first 8):');
+  // The rings that are on now reach the top; three of the eight (the ninth light is on too).
+  await expect(rings.locator('.track.is-on')).toHaveCount(3);
+  // A tap on a ring (its faint track or a span) toggles that light.
+  const first = rings.locator('.track.is-on').first();
+  const entity = await first.locator('.track-back').getAttribute('data-track');
+  await first.locator('.track-back').evaluate((e) => (e as HTMLElement).click());
+  await expect(rings.locator('.track.is-on')).toHaveCount(2);
+  await expect(rings.locator('.time-big')).toHaveText('3 of 9');
+  await expect(current(page).locator(`.switches input[data-seg]`).nth(await rings.locator('.track').evaluateAll((l, id) => l.findIndex((x) => x.querySelector('[data-track]')?.getAttribute('data-track') === id), entity))).not.toBeChecked();
+});
+
+test("the heating's detail puts the windows under the thermostat's ring and names the open ones at their hour", async ({ page }) => {
+  await page.goto(`${HA}?demo=home`);
+  await page.locator('.tile[data-system="climate"]').click();
+  await current(page).locator('.layer-front .disc').click();
+  const rings = current(page).locator('.timeline');
+  // The thermostat, then the two windows in the alert's color.
+  await expect(rings.locator('.track')).toHaveCount(3);
+  await expect(rings.locator('.track.warn')).toHaveCount(2);
+  await expect(rings.locator('.time-big')).toHaveText('21.5°C');
+  // Both windows opened when the demo loaded: one word for both, at "now".
+  await expect(rings.locator('.time-event')).toHaveCount(1);
+  await expect(rings.locator('.time-event')).toHaveText(/open, .* open$/);
+  // The dial stays under the rings.
+  await expect(current(page).locator('.slider input[type="range"]')).toHaveCount(1);
+});
+
 test('the gear can open the dial at the bottom and put hour marks on the day ring', async ({ page }) => {
   await page.goto(`${HA}?demo=home`);
   await page.locator('.gear').click();

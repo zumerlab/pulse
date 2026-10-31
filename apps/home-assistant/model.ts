@@ -1,4 +1,4 @@
-import { emptyRegistry, type Call, type HassState, type Registry, type States } from './source.ts';
+import { emptyRegistry, type Call, type Change, type HassState, type Registry, type States } from './source.ts';
 import { listOf, num } from '@zumer/pulse';
 
 // Every channel is read from Home Assistant's live state: there are no
@@ -24,6 +24,9 @@ export type Alert = {
 export type Range = { lo: number; hi: number; set: (lo: number, hi: number) => Call };
 // A light's hue and saturation (null when it is off or white), and how to set them.
 export type Color = { hs: [number, number] | null; entity: string; set: (h: number, s: number) => Call };
+// A ring of the detail's timeline: when the entity's state counted as on.
+export type TrackSpec = { entity: string; on: (state: string) => boolean; tone?: 'warn' | 'critical'; act?: Call };
+export type EventSpec = { entity: string; text: string; tone?: 'warn' | 'critical' };
 export type Reading = {
   kind: 'p' | 's' | 'c';            // the object's primitives: a band, switches, a choice (see @zumer/pulse)
   v?: number;                       // progress 0..1
@@ -39,6 +42,8 @@ export type Reading = {
   tint?: string;                    // CSS color of what is on (a light's color)
   color?: Color;
   history?: string;                 // a numeric entity worth a day's ring in the detail
+  tracks?: TrackSpec[];             // entities worth a day each in the detail, as rings (outermost first)
+  events?: EventSpec[];             // moments to name on those rings: since each entity last changed
   choice?: string;                  // a channel that follows one entity: the one it follows…
   choices?: string[];               // …and the others it could (the gear offers them)
 };
@@ -200,18 +205,22 @@ const picture = (e: HassState | undefined) => (e?.attributes.entity_picture as s
 // Temperature dial of a thermostat or water heater. It shows the measurement;
 // the ring is the target, which is what changes.
 function thermostat(pick: (s: States) => string | undefined, domain: 'climate' | 'water_heater', label: (e: HassState) => string,
-  alert?: (s: States, e: HassState) => Alert | undefined) {
+  alert?: (s: States, e: HassState) => Alert | undefined, more?: (s: States) => Pick<Reading, 'tracks' | 'events'>) {
   return (s: States, u: Context): Reading | null => {
     const id = pick(s), e = id ? s.get(id) : undefined;
     if (!id || !e || attr(e, 'temperature') == null) return null;
     const min = attr(e, 'min_temp') ?? 7, max = attr(e, 'max_temp') ?? 35, t = attr(e, 'temperature')!;
     const cur = attr(e, 'current_temperature');
+    const extra = more?.(s);
     return {
       kind: 'p', v: clamp((t - min) / (max - min)), entities: [id],
       dial: { min, max, step: attr(e, 'target_temp_step') ?? 1, unit: '°', label: 'target', value: t, entity: id,
         set: (x) => call(domain, 'set_temperature', id, { temperature: x }) },
       now: cur ?? undefined, big: cur != null ? `${num(cur)}${u.temp}` : `${num(t)}°`, label: label(e), alert: alert?.(s, e),
       name: ownName(s, id),
+      // Its day: when it was running (its mode, not off), then whatever the channel adds.
+      tracks: [{ entity: id, on: (st) => !['off', 'unavailable', 'unknown'].includes(st) }, ...(extra?.tracks ?? [])],
+      events: extra?.events,
     };
   };
 }
@@ -237,15 +246,19 @@ const thermostat_ = (s: States, n: number) => nth(s, 'climate', ['climate.heatpu
 const thermoLabel = (e: HassState) =>
   `target ${num(attr(e, 'temperature')!)}° · ${hvacAction[String(e.attributes.hvac_action)] ?? hvacMode[e.state] ?? e.state}`;
 
+// The day of each switched entity, for the detail's rings: on is on.
+const isOn = (state: string) => state === 'on';
+const tracksOf = (segs: Seg[]): TrackSpec[] => segs.map((x) => ({ entity: x.entity, on: isOn, act: x.act }));
+
 // Segments of entities switched on and off with a tap.
 function switches(ids: string[], s: States, isOn: (e: HassState) => boolean, act: (e: HassState) => Call | undefined): Seg[] {
   const labels = labelsOf(s, ids);
   return ids.map((id, i) => { const e = s.get(id)!; return { label: labels[i], on: isOn(e), entity: id, act: act(e) }; });
 }
 
-const openWindows = (s: States) => ofDomain(s, 'cover')
-  .filter((id) => s.get(id)!.attributes.device_class !== 'garage' && ['open', 'opening', 'closing'].includes(s.get(id)!.state)
-    && id !== 'cover.pergola_roof');
+const windows = (s: States) => ofDomain(s, 'cover')
+  .filter((id) => s.get(id)!.attributes.device_class !== 'garage' && id !== 'cover.pergola_roof');
+const openWindows = (s: States) => windows(s).filter((id) => ['open', 'opening', 'closing'].includes(s.get(id)!.state));
 
 // Covers with a position that are not the garage: the demo's two windows first.
 const positional = (s: States, n: number) => nth(s, 'cover', ['cover.living_room_window', 'cover.hall_window'],
@@ -274,6 +287,19 @@ const SAFETY_WORDS: Record<string, string> = {
 };
 const LOW_BATTERY = 20;
 
+// A day of changes as the spans an entity was on, [from, to] in hours ago,
+// oldest first; the last one reaches 0 while it still is.
+export function spansOf(changes: Change[], on: (state: string) => boolean): [number, number][] {
+  const spans: [number, number][] = [];
+  let from: number | null = null;
+  for (const c of changes) {
+    if (on(c.state)) { if (from == null) from = c.ago; }
+    else if (from != null) { spans.push([from, c.ago]); from = null; }
+  }
+  if (from != null) spans.push([from, 0]);
+  return spans;
+}
+
 const SYSTEMS: PulseSystem[] = [
   { id: 'lights', title: 'Lights', channels: [
     { key: 'lights', name: 'Lights', glyph: g.bulb, read: (s) => {
@@ -282,7 +308,7 @@ const SYSTEMS: PulseSystem[] = [
       const segs = switches(ids, s, (e) => e.state === 'on', (e) => call('light', 'toggle', e.entity_id));
       const on = segs.filter((x) => x.on);
       return { kind: 's', segs, entities: ids, big: `${on.length} of ${segs.length}`,
-        label: on.length ? list(on.map((x) => x.label)) : 'all off' };
+        label: on.length ? list(on.map((x) => x.label)) : 'all off', tracks: tracksOf(segs) };
     } },
     { key: 'brightness', name: 'Living room brightness', glyph: g.sun, read: (s) => {
       const id = first(s, 'light', ['light.living_room_rgbww_lights'],
@@ -305,7 +331,7 @@ const SYSTEMS: PulseSystem[] = [
       const segs = switches(ids, s, (e) => e.state === 'on', (e) => call('switch', 'toggle', e.entity_id));
       const on = segs.filter((x) => x.on);
       return { kind: 's', segs, entities: ids, big: `${on.length} of ${segs.length}`,
-        label: on.length ? list(on.map((x) => x.label)) : 'all off' };
+        label: on.length ? list(on.map((x) => x.label)) : 'all off', tracks: tracksOf(segs) };
     } },
   ] },
 
@@ -323,6 +349,15 @@ const SYSTEMS: PulseSystem[] = [
           return { level: 1, big: 'Windows', label: `${open.length} open`,
             why: `Heating with ${list(open.map((id) => nameOf(s, id)))} open`, verb: 'Close windows',
             calls: [call('cover', 'close_cover', open)] };
+        },
+        // The windows under the heating: each a ring of when it was open; the
+        // ones open now are named at the moment they opened.
+        (s) => {
+          const ws = windows(s), open = openWindows(s);
+          return {
+            tracks: ws.map((id) => ({ entity: id, on: (st) => ['open', 'opening', 'closing'].includes(st), tone: 'warn' as const })),
+            events: open.map((id) => ({ entity: id, text: `${nameOf(s, id)} open`, tone: 'warn' as const })),
+          };
         }) },
     { key: 'mode', name: 'Mode', glyph: g.thermo, read: (s) => {
       // The thermostat's mode: one of its hvac_modes, chosen on the ring.
@@ -464,7 +499,9 @@ const SYSTEMS: PulseSystem[] = [
       const active = [...danger, ...moving, ...opened];
       return { kind: 's', segs, entities: all,
         big: danger.length ? SAFETY_WORDS[cls(danger[0])] : moving.length ? 'Motion' : opened.length ? `${opened.length} open` : 'Still',
-        label: active.length ? where(active.slice(0, 3)) : `${all.length} sensors`, alert };
+        label: active.length ? where(active.slice(0, 3)) : `${all.length} sensors`, alert,
+        // Each sensor's day: when it detected something.
+        tracks: ids.map((id) => ({ entity: id, on: isOn, tone: SAFETY.includes(cls(id)) ? 'critical' as const : 'warn' as const })) };
     } },
   ] },
 

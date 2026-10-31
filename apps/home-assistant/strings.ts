@@ -25,6 +25,8 @@ export const t = {
   snapshot: 'Snapshot',
   historyLoading: 'Loading the last 24 hours…',
   historyNone: 'No history for the last 24 hours.',
+  outsideIn: (first: number) => first ? `The rings, outside in (the first ${first}):` : 'The rings, outside in:',
+  dayOf: (channel: string) => `The last 24 hours of ${channel}`,
   colorOf: (name: string) => `Color of ${name}`,
   lowOf: (label: string) => `Low ${label}`,
   highOf: (label: string) => `High ${label}`,
