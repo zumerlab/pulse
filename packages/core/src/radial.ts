@@ -318,49 +318,46 @@ export type TimeRing = {
   label: string;                       // under the day's range, in the center
   unit?: string;                       // after the numbers
   min?: number; max?: number;          // the scale; by default from zero (or the lowest value, when some are negative) to the highest
-  at?: Date;                           // the current time (default: now)
 };
 
-// The last 24 hours on a 24-hour clock face: midnight at the top, each hour
-// at its own place around the dial, a bar growing out from a baseline at
-// half the radius with the value, ticks at the edge, numerals outside and a
-// hand from the center to the current hour. The center gives the day's
-// range; the hand is short (from four lanes out to the baseline) so it never
-// crosses the text. Its own universe; the width comes from CSS (.time-ring).
+// The last 24 hours as a ring of radial bars, the way a voice visualizer
+// draws sound: time runs clockwise and ends at the top with the current hour
+// (the one bar in ink; the older, the fainter), each bar grows out from a
+// baseline with the value, two bars an hour (the half hours interpolated) so
+// the ring reads as a shape. The center gives the day's range. Its own
+// universe; the width comes from CSS (.time-ring).
 export function timeRing(tr: TimeRing) {
-  const at = tr.at ?? new Date();
   const nums = tr.values.filter((v): v is number => v != null);
   const dataLo = Math.min(...nums), dataHi = Math.max(...nums);
-  const lo = tr.min ?? (dataLo >= 0 ? 0 : dataLo), hi = tr.max ?? Math.max(dataHi, lo + 1e-9);
-  const span = hi - lo || 1;
-  const norm = (v: number) => Math.min(1, Math.max(0, (v - lo) / span));
-  // Lanes of this universe: the baseline sits at 6, the bars reach out to 12.
-  const lane = TIME_RING / 2 / 12, BASE = 6, REACH = 6;
-  // Each value at its hour of the day: the last one is the current hour, the one before it the hour before.
-  const H = at.getHours();
-  const slots: { v: number | null; ago: number }[] = Array.from({ length: 24 }, () => ({ v: null, ago: -1 }));
-  tr.values.slice(-24).forEach((v, i, arr) => { const ago = arr.length - 1 - i; slots[((H - ago) % 24 + 24) % 24] = { v, ago }; });
-  const hh = (h: number) => `${String(h).padStart(2, '0')}:00`;
-  const bars = slots.map(({ v, ago }, h) => {
-    const when = ago === 0 ? `${hh(h)} · ${t.now}` : `${hh(h)} · ${t.hoursAgo(ago)}`;
-    if (v == null) return `<div class="vector time-bar is-empty" title="${esc(when)}"></div>`;
-    const len = Math.max(0.25, REACH * norm(v));
-    // A vector is centered where it sits: pull it in so it starts at the baseline.
-    return `<div class="vector time-bar${ago === 0 ? ' is-now' : ''}" style="--o-size-ratio:${len.toFixed(3)}; --o-alignment:${((12 - BASE - len / 2) * lane).toFixed(1)}px"
-      title="${esc(`${when}: ${num(v)}${tr.unit ?? ''}`)}"></div>`;
+  // The scale shows the day's shape without lying about it: the floor sits
+  // half the day's swing under its lowest value (never below zero for a
+  // magnitude), so a flat day stays flat and a swing is visible; the numbers
+  // in the center say what the swing was.
+  const swing = dataHi - dataLo;
+  const lo = tr.min ?? (dataLo >= 0 ? Math.max(0, dataLo - swing / 2) : dataLo - swing / 2), hi = tr.max ?? dataHi;
+  const span = hi - lo;
+  const norm = (v: number) => span > 0 ? Math.min(1, Math.max(0, (v - lo) / span)) : 0.6;
+  // Two bars an hour: the hour itself, then the midpoint to the next.
+  const points: { v: number | null; ago: number; real: boolean }[] = [];
+  tr.values.forEach((v, i, arr) => {
+    const ago = arr.length - 1 - i;
+    if (i > 0) { const prev = arr[i - 1]; points.push({ v: prev != null && v != null ? (prev + v) / 2 : null, ago: ago + 0.5, real: false }); }
+    points.push({ v, ago, real: true });
+  });
+  const n = points.length || 1;
+  // Lanes of this universe: the baseline sits at 5.5, the bars reach out to 12.
+  const lane = TIME_RING / 2 / 12, BASE = 5.5, REACH = 6.5;
+  const bars = points.map(({ v, ago, real }) => {
+    if (v == null) return '<div class="vector time-bar is-empty"></div>';
+    const len = Math.max(0.3, REACH * norm(v));
+    const title = real ? ` title="${esc(`${ago === 0 ? t.now : t.hoursAgo(ago)}: ${num(v)}${tr.unit ?? ''}`)}"` : '';
+    // A vector is centered where it sits: pull it in so it starts at the baseline. The older, the fainter.
+    return `<div class="vector time-bar${ago === 0 ? ' is-now' : ''}" style="--o-size-ratio:${len.toFixed(3)}; --o-alignment:${((12 - BASE - len / 2) * lane).toFixed(1)}px; opacity:${(1 - 0.6 * ago / (n / 2)).toFixed(2)}"${title}></div>`;
   }).join('');
-  // Ticks just outside the bars, the four cardinal hours longer; numerals beyond them.
-  const ticks = slots.map((_, h) => `<div class="vector time-tick${h % 6 === 0 ? ' is-main' : ''}"></div>`).join('');
-  const numeral = (h: number) => `<div class="orbit-13" style="--o-range:0deg; --o-from:${h * 15}deg"><div class="satellite time-mark"><div class="capsule">${String(h).padStart(2, '0')}</div></div></div>`;
-  const hand = ((H + at.getMinutes() / 60) * 15).toFixed(2);
   const range = nums.length ? (dataLo === dataHi ? `${num(dataHi)}${tr.unit ?? ''}` : `${num(dataLo)}–${num(dataHi)}${tr.unit ?? ''}`) : '';
   return `<div class="bigbang time-ring" role="img" aria-label="${esc(`${t.last24h}: ${range}`)}"><div class="gravity-spot">
-    <div class="orbit-6 time-base"><o-arc style="--o-fill:var(--line)"></o-arc></div>
-    <div class="orbit-12 time-ticks">${ticks}</div>
-    <div class="orbit-12 time-bars">${bars}</div>
-    ${[0, 6, 12, 18].map(numeral).join('')}
-    <div class="orbit-9 time-hand" style="--o-range:0deg; --o-from:${hand}deg; --o-size-ratio:2; --o-alignment:${(4 * lane).toFixed(1)}px"><div class="vector"></div></div>
-    <div class="orbit-0" style="--o-size-ratio:9"><div class="satellite at-center"><div class="capsule time-center">
+    <div class="orbit-12 time-bars" style="--o-from:${(360 / n).toFixed(3)}deg">${bars}</div>
+    <div class="orbit-0" style="--o-size-ratio:8"><div class="satellite at-center"><div class="capsule time-center">
       <span class="time-big">${esc(range)}</span><span class="time-label">${esc(tr.label)}</span></div></div></div>
   </div></div>`;
 }

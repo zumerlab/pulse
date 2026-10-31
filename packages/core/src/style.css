@@ -144,18 +144,12 @@ button { font: inherit; color: inherit; }
 .range-track { cursor: grab; }
 
 /* ─── Time ring ───────────────────────────────────────── */
-.time-ring { width: 220px; margin: 22px auto; overflow: visible; }
-.time-ring .time-base { --o-size-ratio: .4; }
-.time-bar { height: 3px; border-radius: 2px; background: var(--muted); opacity: .8; }
-.time-bar.is-now { background: var(--ink); height: 4px; opacity: 1; }
+.time-ring { width: 220px; margin: 10px auto; }
+.time-bar { height: 4px; border-radius: 2px; background: var(--ink); }
+.time-bar.is-now { opacity: 1 !important; height: 5px; box-shadow: 0 0 6px var(--ink); }
 .time-bar.is-empty { visibility: hidden; }
-.time-tick { height: 1px; background: var(--muted); opacity: .5; --o-size-ratio: .4; --o-alignment: -7px; }
-.time-tick.is-main { height: 2px; opacity: .9; --o-size-ratio: .7; --o-alignment: -9px; }
-.time-hand .vector { height: 3px; border-radius: 2px; background: var(--ink); }
-.time-mark { --o-size-ratio: 6.5; }
-.time-mark .capsule { font-size: 10px; color: var(--muted); white-space: nowrap; }
 .time-center { display: grid; justify-items: center; text-align: center; gap: 2px; }
-.time-big { font-size: 15px; font-weight: 600; letter-spacing: -.3px; white-space: nowrap; }
+.time-big { font-size: 13px; font-weight: 600; letter-spacing: -.3px; white-space: nowrap; }
 .time-label { font-size: 10px; color: var(--muted); white-space: nowrap; }
 
 /* ─── Color wheel ─────────────────────────────────────── */

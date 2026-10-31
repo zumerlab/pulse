@@ -44,6 +44,5 @@ export const t = {
   last24h: 'last 24 hours',
   now: 'now',
   hoursAgo: (n: number) => n === 1 ? '1 hour ago' : `${n} hours ago`,
-  hoursShort: (n: number) => `−${n} h`,
   hueSat: (h: number, s: number) => `hue ${h}°, saturation ${s}%`,
 };

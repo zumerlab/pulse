@@ -296,11 +296,10 @@ test("a numeric channel's detail draws its last 24 hours as a ring", async ({ pa
   const ring = current(page).locator('.time-ring');
   // One bar per hour, the current one at the top; the center gives the day's range.
   await expect(ring).toHaveAttribute('aria-label', /^last 24 hours: 5\d(\.\d)?–6\d(\.\d)?%$/);
-  await expect(ring.locator('.time-bar')).toHaveCount(24);
-  await expect(ring.locator('.time-bar.is-now')).toHaveAttribute('title', /^\d\d:00 · now: 52%/);
-  await expect(ring.locator('.time-mark')).toHaveText(['00', '06', '12', '18']);
-  await expect(ring.locator('.time-tick')).toHaveCount(24);
-  await expect(ring.locator('.time-hand')).toHaveCount(1);
+  // Two bars an hour, the half hours interpolated; the current one is the last, at the top.
+  await expect(ring.locator('.time-bar')).toHaveCount(47);
+  await expect(ring.locator('.time-bar.is-now')).toHaveAttribute('title', /^now: 52%/);
+  await expect(ring.locator('.time-bar[title]')).toHaveCount(24);
   await expect(ring.locator('.time-big')).toHaveText(/^5\d(\.\d)?–6\d(\.\d)?%$/);
 });
 
