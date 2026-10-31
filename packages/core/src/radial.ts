@@ -66,22 +66,39 @@ export type RingOptions = {
   pending?: (entity?: string) => boolean;   // a command sent and not yet confirmed
   open?: boolean;                      // a band as a three-quarter dial, open at the bottom, with its ends named
   failed?: (entity?: string) => boolean;    // a command refused: a red outline until it goes through
+  orbit?: number;                      // the orbit the ring sits on (12, the edge of the universe, by default)
+  // The detail's dial: the knob says its value, the measurement is a dot with
+  // its value outside it, and a scale of ticks runs just inside the band.
+  knobText?: boolean;
+  nowText?: boolean;
+  ticks?: boolean;
 };
 
 // The open dial: from 225° to 135° through the top, the gap at the bottom.
 export const OPEN = { from: 225, range: 270 };
 const openStyle = (o: RingOptions) => o.open ? `; --o-from:${OPEN.from}deg; --o-range:${OPEN.range}deg` : '';
+const spanStyle = (o: RingOptions) => o.open ? `--o-from:${OPEN.from}deg; --o-range:${OPEN.range}deg; ` : '';
+const spanOf = (o: RingOptions) => o.open ? OPEN : { from: 0, range: 360 };
 // The ends of the open dial (min and max) and, when the band is a target, a
 // mark where the measurement is: the eye reads how far it is from its goal.
+// A full ring keeps the measurement too when it is asked by name (nowText).
 function openMarks(r: RingReading, o: RingOptions) {
-  if (!o.open || !o.controls) return '';   // only on the ring that is operated: not on tiles, dots or layers behind
-  const dial = r.dial;
-  const ends = dial ? `<div class="orbit-13 dial-ends" style="--o-from:${OPEN.from}deg; --o-range:${OPEN.range}deg; --o-fit-range:1">
+  if (!o.controls) return '';   // only on the ring that is operated: not on tiles, dots or layers behind
+  const ob = o.orbit ?? 12, dial = r.dial, span = spanOf(o);
+  const ends = o.open && dial ? `<div class="orbit-${ob + 1} dial-ends" style="--o-from:${OPEN.from}deg; --o-range:${OPEN.range}deg; --o-fit-range:1">
       <div class="satellite" style="--o-size-ratio:3"><div class="capsule dial-end">${esc(`${num(dial.min)}${dial.unit}`)}</div></div>
       <div class="satellite" style="--o-size-ratio:3"><div class="capsule dial-end">${esc(`${num(dial.max)}${dial.unit}`)}</div></div></div>` : '';
-  const now = r.now != null ? `<div class="orbit-12 now-orbit" style="--o-range:0deg; --o-from:${(OPEN.from + Math.min(1, Math.max(0, r.now)) * OPEN.range).toFixed(2)}deg">
-      <div class="vector now-mark" style="--o-size-ratio:1.6"></div></div>` : '';
-  return ends + now;
+  const ticks = o.ticks ? `<div class="orbit-${ob - 1} dial-ticks fit-range" style="${spanStyle(o)}--o-size-ratio:.5">${
+    Array.from({ length: o.open ? 10 : 12 }, () => '<div class="vector dial-tick"></div>').join('')}</div>` : '';
+  const at = r.now != null ? (span.from + Math.min(1, Math.max(0, r.now)) * span.range).toFixed(2) : null;
+  let now = '';
+  if (at != null && (o.open || o.nowText)) {
+    now = o.nowText && dial
+      ? `<div class="orbit-${ob} now-orbit" style="--o-range:0deg; --o-from:${at}deg"><div class="satellite now-dot" style="--o-size-ratio:1.1">
+          <div class="capsule"><span class="outward now-text">${esc(`${t.now} · ${num(dial.min + Math.min(1, Math.max(0, r.now!)) * (dial.max - dial.min))}${dial.unit}`)}</span></div></div></div>`
+      : `<div class="orbit-${ob} now-orbit" style="--o-range:0deg; --o-from:${at}deg"><div class="vector now-mark" style="--o-size-ratio:1.6"></div></div>`;
+  }
+  return ends + ticks + now;
 }
 
 // A channel's ring on orbit-12, which touches the edge of the universe (.bigbang).
@@ -93,6 +110,7 @@ export function ring(key: string, r: RingReading, lanes: number, o: RingOptions 
   const on = (!o.muted && !r.alert && r.tint) || 'var(--ink)';
   const fill = o.muted ? 'var(--muted)' : r.alert ? levelColor(r.alert.level) : on;
   const size = `--o-size-ratio:${lanes.toFixed(3)}`;
+  const ob = o.orbit ?? 12;
   const isPending = o.pending ?? (() => false), isFailed = o.failed ?? (() => false);
   if (r.kind === 'p' && r.range) return rangeRing(key, r, fill, size, isPending(undefined), o);
   if (r.kind === 'p') {
@@ -100,14 +118,17 @@ export function ring(key: string, r: RingReading, lanes: number, o: RingOptions 
     const busy = (r.segs?.some((s) => isPending(s.entity)) || isPending(undefined) ? ' is-pending' : '') + (isFailed(undefined) ? ' is-failed' : '');
     const dial = o.controls && r.dial;
     if (!dial) {
-      return `<div class="orbit-12${busy}" style="${size}${openStyle(o)}"><o-progress value="${pct}"
+      return `<div class="orbit-${ob}${busy}" style="${size}${openStyle(o)}"><o-progress value="${pct}"
         style="--o-fill:${fill}; --o-back-fill:var(--line)"></o-progress></div>${openMarks(r, o)}`;
     }
-    return `<div class="orbit-12${busy}" style="${size}${openStyle(o)}"><o-progress value="${pct}" class="dial" data-dial="${key}"
+    // The knob can say the value (the detail's dial): a bigger satellite with the number inside.
+    const knob = o.knobText ? `<div class="satellite knob at-value has-text" style="--o-size-ratio:2.6"><span class="knob-text">${esc(`${num(dial.value)}${dial.unit}`)}</span></div>`
+      : '<div class="satellite knob at-value" style="--o-size-ratio:1.4"></div>';
+    return `<div class="orbit-${ob}${busy}" style="${size}${openStyle(o)}"><o-progress value="${pct}" class="dial" data-dial="${key}"
         interactive hit-width="12" role="slider" tabindex="0" aria-label="${esc(o.name ? t.dialOf(dial.label, o.name) : dial.label)}"
         aria-valuemin="${dial.min}" aria-valuemax="${dial.max}" aria-valuenow="${dial.value}"
         aria-valuetext="${num(dial.value)}${dial.unit}" style="--o-fill:${fill}; --o-back-fill:var(--line)"></o-progress>
-      <div class="satellite knob at-value" style="--o-size-ratio:1.4"></div></div>${openMarks(r, o)}`;
+      ${knob}</div>${openMarks(r, o)}`;
   }
   // A choice is a radio group: the one that is on has no action, the others switch to themselves.
   const role = r.kind === 'c' ? 'radio' : 'switch';
@@ -126,28 +147,29 @@ export function ring(key: string, r: RingReading, lanes: number, o: RingOptions 
   const group = r.kind === 'c' && o.controls ? ` role="radiogroup"${o.name ? ` aria-label="${esc(o.name)}"` : ''}` : '';
   // The names of a choice run along the inside of the ring, each over its
   // segment; the ones in the lower half are flipped so they read upright.
-  const labels = r.kind === 'c' && o.controls ? `<div class="orbit-10 choice-labels" style="--o-gap:${gap}">${
+  const labels = r.kind === 'c' && o.controls ? `<div class="orbit-${ob - 2} choice-labels" style="--o-gap:${gap}">${
     (r.segs ?? []).map((s, i) => { const mid = (i + 0.5) * 360 / n; return `<o-arc text-anchor="middle"${mid > 90 && mid < 270 ? ' flip' : ''} class="choice-label${s.on ? ' is-on' : ''}" data-label="${esc(s.label)}">${esc(s.label)}</o-arc>`; }).join('')}</div>` : '';
-  return `<div class="orbit-12" style="${size}; --o-gap:${gap}"${group}>${segs}</div>${labels}`;
+  return `<div class="orbit-${ob}" style="${size}; --o-gap:${gap}"${group}>${segs}</div>${labels}`;
 }
 
 // A band from lo to hi over a faint track, with a knob at each end. With
 // `controls`, the knobs are sliders (data-handle lo|hi) and the track takes the
 // drag: whichever knob is nearer follows the pointer.
 function rangeRing(key: string, r: RingReading, fill: string, size: string, pending: boolean, o: RingOptions) {
-  const { lo, hi } = r.range!, dial = r.dial;
+  const { lo, hi } = r.range!, dial = r.dial, ob = o.orbit ?? 12;
   const knob = (handle: 'lo' | 'hi', v: number) => {
     const value = dial ? dial.min + v * (dial.max - dial.min) : v;
     const a = o.controls && dial ? ` data-dial="${key}" data-handle="${handle}" role="slider" tabindex="0"
       aria-label="${esc(t.handleOf(handle === 'lo' ? t.low : t.high, o.name ? t.dialOf(dial.label, o.name) : dial.label))}"
       aria-valuemin="${dial.min}" aria-valuemax="${dial.max}" aria-valuenow="${value}" aria-valuetext="${num(value)}${dial.unit}"` : '';
-    return `<div class="orbit-12 knob-orbit" style="--o-range:0deg; --o-from:${(v * 360).toFixed(2)}deg">
-      <div class="satellite knob ${handle}" style="--o-size-ratio:1.4"${a}></div></div>`;
+    const text = o.knobText && dial ? `<span class="knob-text">${esc(`${num(value)}${dial.unit}`)}</span>` : '';
+    return `<div class="orbit-${ob} knob-orbit" style="--o-range:0deg; --o-from:${(v * 360).toFixed(2)}deg">
+      <div class="satellite knob ${handle}${text ? ' has-text' : ''}" style="--o-size-ratio:${text ? 2.6 : 1.4}"${a}>${text}</div></div>`;
   };
   const track = o.controls && dial ? `<o-arc class="dial range-track" data-dial="${key}" interactive hit-width="12" style="--o-fill:var(--line)"></o-arc>`
     : `<o-arc style="--o-fill:var(--line)"></o-arc>`;
-  return `<div class="orbit-12${pending ? ' is-pending' : ''}" style="${size}">${track}</div>
-    <div class="orbit-12 range-band" style="${size}"><o-arc class="band" start="${(lo * 100).toFixed(1)}" value="${((hi - lo) * 100).toFixed(1)}" style="--o-fill:${fill}"></o-arc></div>
+  return `<div class="orbit-${ob}${pending ? ' is-pending' : ''}" style="${size}">${track}</div>
+    <div class="orbit-${ob} range-band" style="${size}"><o-arc class="band" start="${(lo * 100).toFixed(1)}" value="${((hi - lo) * 100).toFixed(1)}" style="--o-fill:${fill}"></o-arc></div>
     ${knob('lo', lo)}${knob('hi', hi)}`;
 }
 
@@ -155,7 +177,8 @@ function rangeRing(key: string, r: RingReading, fill: string, size: string, pend
 
 export type Face = {
   glyph: string; name: string; big: string; label: string;
-  to: string;                          // Zumly view the disc opens
+  to?: string;                         // Zumly view the disc opens; without it, the disc is a plain button (data-act)
+  act?: string;                        // what a tap on a disc without `to` means (data-act)
   props?: Record<string, string>;      // data-* for that view
   aria: string;
   extra?: string;                      // more markup inside the disc ("sending…")
@@ -168,10 +191,61 @@ export type Face = {
 export function face(f: Face) {
   const props = Object.entries(f.props ?? {}).map(([k, v]) => ` data-${k}="${esc(v)}"`).join('');
   const img = f.image ? `<img class="face-image" src="${esc(f.image.src)}" alt="${esc(f.image.alt)}"${f.image.key ? ` data-image="${esc(f.image.key)}"` : ''}>` : '';
+  const trigger = f.to ? ` zoom-me" data-to="${esc(f.to)}"` : `"${f.act ? ` data-act="${esc(f.act)}"` : ''}`;
   return `<div class="orbit-0" style="--o-size-ratio:21.2"><div class="satellite at-center">
-    <div class="capsule disc zoom-me${img ? ' has-image' : ''}" role="button" tabindex="0" data-to="${f.to}"${props} aria-label="${esc(f.aria)}">
+    <div class="capsule disc${img ? ' has-image' : ''}${trigger} role="button" tabindex="0"${props} aria-label="${esc(f.aria)}">
       ${img}${icon(f.glyph)}<span class="face-name">${esc(f.name)}</span>
       <span class="face-big">${esc(f.big)}</span><span class="face-label">${esc(f.label)}</span>${f.extra ?? ''}</div></div></div>`;
+}
+
+// ─── Detail: the channel as one radial object ───────────────────────
+
+// The detail's screen: where you are (system › channel) at the top left, the
+// entities behind the channel as a pill at the top right that opens their
+// list, the stage with the object (one universe sized from the stage, see
+// detailFit), what goes under the object (the alert's title and actions on
+// the phone, a refused command) and, further down, the segments as chips.
+export function detailShell(crumb: string[], entitiesLabel: string | null) {
+  return `<div class="detail">
+    <header class="detail-head">
+      <p class="crumb">${crumb.map((c, i) => `${i ? '<span class="crumb-sep" aria-hidden="true">›</span>' : ''}<span>${esc(c)}</span>`).join('')}</p>
+      ${entitiesLabel ? `<details class="entities"><summary class="plain pill">${esc(entitiesLabel)}</summary><div class="entities-panel"></div></details>` : ''}
+    </header>
+    <div class="detail-stage"><div class="detail-obj"></div></div>
+    <div class="detail-below"></div>
+    <div class="detail-more"></div>
+  </div>`;
+}
+
+// The object fills the stage: --D is the side of the largest square that fits,
+// less the room the marks outside the ring take. Returns the stop.
+export function detailFit(stage: HTMLElement, margin = 44) {
+  const ro = new ResizeObserver(([entry]) => {
+    const { width, height } = entry.contentRect;
+    stage.style.setProperty('--D', `${Math.max(200, Math.min(width, height) - margin)}px`);
+  });
+  ro.observe(stage);
+  return () => ro.disconnect();
+}
+
+export type DetailFace = { name: string; big: string; label: string; extra?: string; level?: number; image?: { src: string; alt: string; key?: string } };
+// The center of the detail's object: the channel's name, what is now and its
+// line, sized from the center (cqw); below them, when they fit, the alert's
+// cause and its actions (`extra`). With a picture (a camera), the picture is
+// the face and the text sits on a scrim, like the layer's disc.
+export function detailFace(f: DetailFace) {
+  const img = f.image ? `<img class="face-image" src="${esc(f.image.src)}" alt="${esc(f.image.alt)}"${f.image.key ? ` data-image="${esc(f.image.key)}"` : ''}>` : '';
+  return `<div class="capsule disc detail-face${img ? ' has-image' : ''}${f.level ? ` level-${f.level}` : ''}">${img}
+    <span class="face-name">${esc(f.name)}</span><span class="face-big">${esc(f.big)}</span><span class="face-label">${esc(f.label)}</span>${f.extra ?? ''}</div>`;
+}
+
+// The alerts that wait (rule 3): each a satellite on the front ring, in its
+// level's color with the icon of its channel; a tap brings it to the front.
+export type Waiting = { key: string; glyph: string; level: 1 | 2; aria: string };
+export function alertSatellites(list: Waiting[], pickAttr = 'data-pick') {
+  return list.slice(0, 6).map((w, i) => `<div class="orbit-12 sat-orbit" style="--o-range:0deg; --o-from:${36 + i * 34}deg">
+    <div class="satellite alert-sat level-${w.level}" style="--o-size-ratio:3"><div class="capsule">
+      <button class="sat-btn" ${pickAttr}="${esc(w.key)}" aria-label="${esc(w.aria)}">${icon(w.glyph, 15)}</button></div></div></div>`).join('');
 }
 
 export type BackLayer = {
@@ -387,6 +461,7 @@ export type TimeRing = {
   unit?: string;                       // after the numbers
   min?: number; max?: number;          // the scale; by default from zero (or the lowest value, when some are negative) to the highest
   marks?: boolean;                     // hour ticks on the rim and "6 h ago", "12 h ago", "18 h ago" outside
+  center?: (range: string) => string;  // the center's capsule (a detail's face, given the day's range) instead of the value and the range
 };
 
 // The last 24 hours as a ring of radial bars, the way a voice visualizer
@@ -433,11 +508,12 @@ export function timeRing(tr: TimeRing) {
   const last = [...tr.values].reverse().find((v): v is number => v != null);
   const range = nums.length ? (r(dataLo) === r(dataHi) ? `${r(dataHi)}${tr.unit ?? ''}` : `${r(dataLo)}–${r(dataHi)}${tr.unit ?? ''}`) : '';
   const big = last != null ? `${num(last)}${tr.unit ?? ''}` : range;
-  return `<div class="bigbang time-ring${tr.marks ? ' has-marks' : ''}" role="img" aria-label="${esc(`${t.last24h}: ${range}`)}"><div class="gravity-spot">
+  const center = tr.center ? tr.center(range) : `<div class="capsule time-center">
+      <span class="time-big">${esc(big)}</span><span class="time-range">${esc(range)}</span><span class="time-label">${esc(tr.label)}</span></div>`;
+  return `<div class="bigbang time-ring${tr.marks ? ' has-marks' : ''}" role="${tr.center ? 'group' : 'img'}" aria-label="${esc(`${t.last24h}: ${range}`)}"><div class="gravity-spot">
     <div class="orbit-6 time-bars" style="--o-max:${slots}; --o-gap:1; --o-stroke-width:0">${bars}</div>
     ${tr.marks ? hourMarks() : ''}
-    <div class="orbit-0" style="--o-size-ratio:8"><div class="satellite at-center"><div class="capsule time-center">
-      <span class="time-big">${esc(big)}</span><span class="time-range">${esc(range)}</span><span class="time-label">${esc(tr.label)}</span></div></div></div>
+    <div class="orbit-0" style="--o-size-ratio:${tr.center ? 9 : 8}"><div class="satellite at-center">${center}</div></div>
   </div></div>`;
 }
 export const TIME_RING = 220;        // px; the universe of the time ring (see .time-ring in the CSS)
@@ -469,7 +545,9 @@ export type Timeline = {
   events?: TimeEvent[];
   big: string; label: string;        // the center: what is now
   marks?: boolean;                   // hour ticks and "6 h ago"… (24 h only)
-  names?: boolean;                   // each ring named on itself, at its start
+  names?: boolean;                   // each ring named on itself, in a wedge after "now"
+  maxTracks?: number;                // how many rings are drawn (MAX_TRACKS by default); fewer leaves a bigger center
+  center?: string;                   // the center's capsule (a detail's face, or a dial as a universe of its own) instead of the value
   aria: string;
 };
 export const MAX_TRACKS = 8;
@@ -485,7 +563,9 @@ export function timeline(tl: Timeline) {
   const W = tl.hours * 60, seam = W / 48, S = W + seam, half = seam / 2;
   const at = (agoH: number) => (((S + half - agoH * 60) % S) + S) % S;
   const when = (agoH: number) => time(new Date(Date.now() - agoH * 3_600_000)).slice(0, 5);
-  const tracks = tl.tracks.slice(0, MAX_TRACKS);
+  const tracks = tl.tracks.slice(0, Math.min(MAX_TRACKS, tl.maxTracks ?? MAX_TRACKS));
+  // Fewer rings, thicker: the day reads the same whether two lights or eight.
+  const thick = tracks.length <= 4 ? 0.5 : 0.3;
   const rings = tracks.map((tr, i) => {
     const cls = ['track', tr.on && 'is-on', tr.tone, tr.act && 'has-act', tr.pending && 'is-pending'].filter(Boolean).join(' ');
     const spans = tr.spans.map(([from, to]) => {
@@ -494,28 +574,34 @@ export function timeline(tl: Timeline) {
       const title = `${tr.name}: ${to <= 0 ? t.sinceTime(when(f)) : `${when(f)}–${when(to)}`}`;
       return `<o-arc class="track-span${tr.failed ? ' is-failed' : ''}" start="${at(f).toFixed(1)}" value="${Math.max(len, 3).toFixed(1)}" interactive data-track="${esc(tr.key)}" title="${esc(title)}"></o-arc>`;
     }).join('');
-    // Each ring is named on itself, a step further round than the one outside
-    // it (the names would pile up at one angle), over whatever is there.
-    const name = tl.names ? `<div class="orbit-${12 - i} track-name-orbit" style="--o-from:${(half / S * 360 + 6 + i * 38).toFixed(1)}deg">
+    // Each ring is named on itself, all the names at the same angle just after
+    // "now": a wedge that reads outside in, over whatever is under it.
+    const name = tl.names ? `<div class="orbit-${12 - i} track-name-orbit" style="--o-from:${(half / S * 360 + 7).toFixed(1)}deg">
       <o-arc range="auto" class="arc-label track-name" style="font-size:${i ? 9.5 : 10.5}px">${esc(tr.name)}</o-arc></div>` : '';
-    return `<div class="orbit-${12 - i} ${cls}" style="--o-max:${S}; --o-gap:0; --o-stroke-width:0; --o-size-ratio:.3">
+    return `<div class="orbit-${12 - i} ${cls}" style="--o-max:${S}; --o-gap:0; --o-stroke-width:0; --o-size-ratio:${thick}">
       <o-arc class="track-back" start="${at(tl.hours).toFixed(1)}" value="${W}" interactive data-track="${esc(tr.key)}" title="${esc(tr.name)}"></o-arc>${spans}</div>${name}`;
   }).join('');
-  // Events within the same half hour share a word.
-  const grouped: TimeEvent[] = [];
+  // Events within the same hour share a dot. The most recent one is named
+  // (the first of its group, the rest counted); the others are dots whose
+  // title holds their words: two labels side by side would overlap.
+  const grouped: (TimeEvent & { all: string[] })[] = [];
   for (const e of [...(tl.events ?? [])].filter((e) => e.ago >= 0 && e.ago <= tl.hours).sort((a, b) => a.ago - b.ago)) {
-    const near = grouped.find((g) => Math.abs(g.ago - e.ago) * 60 < seam);
-    if (near) { near.text = `${near.text}, ${e.text}`; near.tone = near.tone === 'critical' ? near.tone : e.tone ?? near.tone; }
-    else grouped.push({ ...e });
+    const near = grouped.find((g) => Math.abs(g.ago - e.ago) < 1);
+    if (near) { near.all.push(e.text); near.tone = near.tone === 'critical' ? near.tone : e.tone ?? near.tone; }
+    else grouped.push({ ...e, all: [e.text] });
   }
-  const events = grouped.map((e) =>
-    `<div class="orbit-13 time-events" style="--o-from:${(at(e.ago) / S * 360).toFixed(1)}deg"><div class="satellite"><div class="capsule time-event${e.tone ? ` ${e.tone}` : ''}">${esc(e.text)}</div></div></div>`).join('');
+  const events = grouped.map((e, i) => {
+    const text = e.all.length > 1 ? `${e.all[0]} +${e.all.length - 1}` : e.all[0];
+    return `<div class="orbit-13 time-events" style="--o-from:${(at(e.ago) / S * 360).toFixed(1)}deg"><div class="satellite time-event-dot${e.tone ? ` ${e.tone}` : ''}" style="--o-size-ratio:.7" title="${esc(e.all.join(', '))}">
+      <div class="capsule">${i === 0 ? `<span class="outward time-event${e.tone ? ` ${e.tone}` : ''}">${esc(text)}</span>` : ''}</div></div></div>`;
+  }).join('');
   // The center fills what the rings leave (a unit of size is one orbit step).
   const inner = (2 * (11.5 - tracks.length) - 0.8).toFixed(1);
+  const center = tl.center ?? `<div class="capsule time-center">
+      <span class="time-big">${esc(tl.big)}</span><span class="time-label">${esc(tl.label)}</span></div>`;
   return `<div class="bigbang timeline${tl.marks ? ' has-marks' : ''}" role="group" aria-label="${esc(tl.aria)}"><div class="gravity-spot">
     ${rings}${events}${tl.marks ? hourMarks() : ''}
-    <div class="orbit-0" style="--o-size-ratio:${inner}"><div class="satellite at-center"><div class="capsule time-center">
-      <span class="time-big">${esc(tl.big)}</span><span class="time-label">${esc(tl.label)}</span></div></div></div>
+    <div class="orbit-0" style="--o-size-ratio:${inner}"><div class="satellite at-center">${center}</div></div>
   </div></div>`;
 }
 
@@ -562,10 +648,12 @@ export function colorArcs(key: string, hs: [number, number] | null, o: { open?: 
     + part('sat', s, 100, t.saturationOf(o.name), 1, sat, s / 100, hsCss(h, s));
 }
 
-// The center of a detail's ring: what is now, over a wash of the color when there is one.
-export function ringCenter(big: string, label: string, size: number, color?: string) {
-  return `<div class="orbit-0" style="--o-size-ratio:${size}"><div class="satellite at-center"><div class="capsule ring-center${color ? ' has-color' : ''}"${color ? ` style="--c:${color}"` : ''}>
-    <span class="ring-big">${esc(big)}</span><span class="ring-label">${esc(label)}</span></div></div></div>`;
+// The center of a detail's dial: what is now, over a wash of the color when
+// there is one; the channel's name above and, when there is room, the alert's
+// cause and actions below (`more`).
+export function ringCenter(big: string, label: string, size: number, color?: string, more: { name?: string; extra?: string; level?: number } = {}) {
+  return `<div class="orbit-0" style="--o-size-ratio:${size}"><div class="satellite at-center"><div class="capsule disc detail-face ring-center${color ? ' has-color' : ''}${more.level ? ` level-${more.level}` : ''}"${color ? ` style="--c:${color}"` : ''}>
+    ${more.name ? `<span class="face-name">${esc(more.name)}</span>` : ''}<span class="ring-big face-big">${esc(big)}</span><span class="ring-label face-label">${esc(label)}</span>${more.extra ?? ''}</div></div></div>`;
 }
 
 export type WheelControls = {
@@ -954,7 +1042,7 @@ function scrollThumb(n: number, offset: number) {
 // scrollbar whose thumb shows where the window is; it drags. The wheel, a
 // drag along the items and the arrows scroll; a tap picks. On the left,
 // what is chosen and how many there are.
-export function scrollList(items: ScrollItem[], st: ScrollState, o: { key: string; name: string }) {
+export function scrollList(items: ScrollItem[], st: ScrollState, o: { key: string; name: string; center?: string }) {
   const n = items.length;
   const slots = items.map((it, i) => {
     const { a, hidden, opacity } = scrollPlace(i, st.offset);
@@ -970,7 +1058,7 @@ export function scrollList(items: ScrollItem[], st: ScrollState, o: { key: strin
         aria-valuemin="0" aria-valuemax="${scrollMax(n)}" aria-valuenow="${Math.round(st.offset)}"></o-arc></div>` : '');
   return `<div class="bigbang detail-ring scroll-list" role="listbox" aria-label="${esc(o.name)}" tabindex="0" data-scroll="${esc(o.key)}"
       aria-activedescendant="${esc(o.key)}-opt-${st.focus}" aria-description="${esc(t.nOptions(n))}"><div class="gravity-spot">
-    ${bar}${slots}
+    ${bar}${slots}${o.center ? `<div class="orbit-0 scroll-center" style="--o-size-ratio:9"><div class="satellite at-center">${o.center}</div></div>` : ''}
   </div></div>`;
 }
 // Scrolls a drawn list in place: the items slide, the thumb moves, the focus changes hands.

@@ -1,4 +1,6 @@
-/* The Graphite style from the cookbook. On the page (:root) and inside a card's shadow root (:host). */
+/* The styles of the cookbook (§10): Graphite by default, Ivory, Paper and
+   Contrast by `data-theme`. Only tokens change, never the grammar of layers.
+   On the page (:root) and inside a card's shadow root (:host). */
 :root, :host {
   color-scheme: dark;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -9,9 +11,27 @@
   --line: #262a31;
   --minor: #ffb020;      /* level 1 alert */
   --critical: #ff5a4f;   /* level 2 alert */
+  --plate: rgba(255, 255, 255, .06);   /* the front disc */
+  --on-alert: #111;                    /* text over an alert's color */
   background: var(--bg);
   color: var(--ink);
 }
+:root[data-theme="ivory"], :host([data-theme="ivory"]) {
+  color-scheme: light;
+  --bg: #f1eee7; --ink: #1b1c1f; --muted: #6b6e75; --dim: #c9c4b8; --line: #e2ded6;
+  --minor: #9a5b00; --critical: #c42e14; --plate: rgba(255, 255, 255, .7); --on-alert: #fff;
+}
+:root[data-theme="paper"], :host([data-theme="paper"]) {
+  color-scheme: light;
+  --bg: #ffffff; --ink: #111111; --muted: #6b6b6b; --dim: #c8c8c8; --line: #e6e6e6;
+  --minor: #92400e; --critical: #b91c1c; --plate: #ffffff; --on-alert: #fff;
+}
+:root[data-theme="contrast"], :host([data-theme="contrast"]) {
+  --bg: #000000; --ink: #ffffff; --muted: #c4c4c4; --dim: #6a6a6a; --line: #3d3d3d;
+  --minor: #ffd400; --critical: #ff7070; --plate: #000000; --on-alert: #000;
+}
+/* Paper and Contrast: stroke only, the front disc outlined, nothing translucent. */
+:root:is([data-theme="paper"], [data-theme="contrast"]) .disc, :host(:is([data-theme="paper"], [data-theme="contrast"])) .disc { box-shadow: inset 0 0 0 1.5px var(--ink); }
 
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); }
@@ -28,6 +48,8 @@ button { font: inherit; color: inherit; }
 .plain, .primary { min-height: 44px; padding: 10px 16px; border-radius: 8px; border: 1px solid var(--dim); background: transparent; cursor: pointer; }
 .plain:hover { border-color: var(--muted); }
 .primary { background: var(--ink); color: var(--bg); border-color: var(--ink); font-weight: 650; margin-left: 10px; }
+/* The pills of the detail and the strip: round, one line. */
+.pill { border-radius: 999px; padding: 10px 18px; font-weight: 600; white-space: nowrap; margin-left: 0; }
 
 /* ─── Board ───────────────────────────────────────────── */
 .board { height: 100%; display: grid; align-content: center; justify-items: center; gap: 36px; padding: 24px 16px; }
@@ -94,7 +116,7 @@ o-arc.is-failed { --o-stroke: var(--critical); --o-stroke-width: 2; }
 .disc {
   position: relative; width: 100%; height: 100%; border-radius: 50%;
   display: grid; place-content: center; justify-items: center; gap: 4px;
-  background: rgba(255,255,255,.06); border: 0;   /* no backdrop-filter: inside a 3D tree it flickers black in Chrome and costs a frame */
+  background: var(--plate); border: 0;   /* no backdrop-filter: inside a 3D tree it flickers black in Chrome and costs a frame */
   color: var(--ink); text-align: center;
   container-type: size;                /* the face sizes its lines from the disc (cqw) */
 }
@@ -136,6 +158,19 @@ o-arc.is-failed { --o-stroke: var(--critical); --o-stroke-width: 2; }
 @keyframes wave { from { transform: scale(1); opacity: .8; } to { transform: scale(1.35); opacity: 0; } }
 /* When the failure is a segment, the wave comes out of it (Orbit's o-arc.ripple), not of the disc. */
 .layer-front.is-alert:has(o-arc.ripple) .disc::after { display: none; }
+/* Muted: no wave, the color stays. */
+.layer-front.is-alert.is-muted .disc::after { display: none; }
+
+/* The alerts that wait, as satellites on the front ring (rule 3): the icon of
+   their channel in their level's color; a tap brings that one to the front. */
+.alert-sat { border-radius: 50%; background: var(--minor); box-shadow: 0 0 0 3px var(--bg); }
+.alert-sat.level-2 { background: var(--critical); }
+.sat-btn { all: unset; box-sizing: border-box; display: grid; place-items: center; width: 100%; height: 100%; border-radius: 50%; color: var(--on-alert); cursor: pointer; }
+.sat-btn .glyph { stroke-width: 2.2; }
+.sat-btn:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+.layer:not(.layer-front) .sat-orbit { display: none; }
+/* The summary layer (rule 4): one segment per alert; the disc opens the most serious one. */
+.layer[data-ch="summary"] .face-big { font-weight: 600; }
 
 .strip { min-height: 44px; display: flex; align-items: center; flex-wrap: wrap; justify-content: center; gap: 6px; color: var(--muted); text-align: center; }
 .strip strong { color: var(--ink); }
@@ -147,20 +182,82 @@ o-arc.is-failed { --o-stroke: var(--critical); --o-stroke-width: 2; }
 .primary.level-1 { background: var(--minor); border-color: var(--minor); color: #111; }
 .primary.level-2 { background: var(--critical); border-color: var(--critical); color: #fff; }
 
-/* ─── Detail ──────────────────────────────────────────── */
-/* Rows at their content's size: a scroll container's auto rows stop at their
-   minimum once the content overflows, and the timeline would overlap what follows. */
-.detail { height: 100%; max-width: 520px; margin: 0 auto; display: grid; grid-auto-rows: max-content; align-content: center; gap: 14px; padding: 24px 16px; }
-.detail h1 { display: flex; align-items: center; gap: 12px; font-size: 30px; font-weight: 550; }
-.detail-big { font-size: 64px; font-weight: 600; letter-spacing: -2px; }
-.detail-label, .hint { color: var(--muted); }
-.detail-why { color: var(--critical); }
-.slider { display: grid; gap: 8px; color: var(--muted); }
-.slider input { width: 100%; accent-color: var(--ink); }
-.segments { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
-.segments li { padding: 10px 14px; border: 1px solid var(--dim); border-radius: 8px; color: var(--muted); }
-.segments li.on { color: var(--ink); border-color: var(--muted); }
-.segments li.fail { color: var(--critical); border-color: var(--critical); }
+/* ─── Detail: the channel as one radial object ────────── */
+/* Where you are at the top left, the entities at the top right, the object in
+   the room left (sized by --D, see detailFit), what goes under it, the chips.
+   Room at the bottom for Zumly's back button. */
+.detail { position: relative; height: 100%; display: grid; grid-template-rows: auto minmax(0, 1fr) auto auto; gap: 10px; padding: 16px 24px 84px; overflow-y: auto; }
+.detail-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 44px; }
+.crumb { font-size: 15px; color: var(--muted); display: flex; gap: 8px; align-items: center; min-width: 0; }
+.crumb span:last-child { color: var(--ink); }
+.crumb-sep { color: var(--dim); }
+.entities { position: relative; font-size: 13px; }
+.entities summary { list-style: none; display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 14px; font-size: 13px; color: var(--ink); }
+.entities summary::-webkit-details-marker { display: none; }
+.entities summary::before { content: ""; width: 14px; height: 10px; background: repeating-linear-gradient(to bottom, currentColor 0 1.5px, transparent 1.5px 4.25px); opacity: .7; }
+.entities-panel { position: absolute; right: 0; top: calc(100% + 8px); z-index: 10; min-width: min(360px, 80vw); max-height: 60vh; overflow: auto; padding: 10px 14px; border-radius: 14px; border: 1px solid var(--line); background: var(--bg); color: var(--muted); }
+.entities ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; }
+.entities li { display: flex; gap: 8px; flex-wrap: wrap; align-items: baseline; }
+.entities code { color: var(--ink); opacity: .7; font-size: 11px; }
+.entities strong { margin-left: auto; color: var(--ink); font-weight: 500; }
+.detail-stage { position: relative; min-height: 0; display: grid; place-items: center; container-type: size; --D: 240px; }
+.detail-obj { position: relative; display: grid; place-items: center; }
+/* In the stage every universe takes the side the stage allows. */
+.detail-stage .timeline, .detail-stage .timeline.has-marks, .detail-stage .time-ring, .detail-stage .time-ring.has-marks,
+.detail-stage .detail-ring, .detail-stage .month-ring { --tl: var(--D); width: var(--D); height: var(--D); margin: 0; }
+.detail-stage .time-ring { aspect-ratio: auto; }
+.detail-stage .month-ring { width: calc(var(--D) - 32px); height: calc(var(--D) - 32px); }
+/* The face in the center: the name, what is now and its line, sized from the center. */
+.detail-face { width: 100%; height: 100%; gap: 1.5cqw; }
+.detail-face .face-name { font-size: clamp(12px, 4.4cqw, 17px); max-width: 84cqw; }
+.detail-face .face-big { font-size: clamp(22px, 15cqw, 64px); letter-spacing: -.02em; max-width: 86cqw; }
+.detail-face .face-label { font-size: clamp(11px, 3.8cqw, 15px); max-width: 84cqw; white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.3; }
+.detail-face.level-1 .face-big { color: var(--minor); }
+.detail-face.level-2 .face-big { color: var(--critical); }
+.detail-face .face-why { font-size: clamp(11px, 3.6cqw, 14px); line-height: 1.35; max-width: 78cqw; white-space: normal; text-align: center; color: var(--ink); }
+.detail-face .face-acts { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 1.5cqw; }
+.detail-face .face-acts .pill { min-height: 40px; padding: 8px 16px; font-size: 14px; }
+.detail-face.has-image .face-name, .detail-face.has-image .face-label { color: rgba(255,255,255,.85); }
+.detail-face .live-pill { display: inline-flex; align-items: center; gap: 6px; margin-top: 2cqw; padding: 4px 10px; border-radius: 12px; background: #0e1013; color: #f2f3f5; font-size: 12px; font-weight: 600; }
+.detail-face .live-pill::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--critical); }
+/* The dial as the center of the rings: a universe of its own in the center capsule. */
+.detail-stage .capsule.dial-center { width: 100%; height: 100%; }
+.detail-stage .capsule.dial-center > .detail-ring { width: 100%; height: 100%; }
+/* Under the object: a critical alert's title, the cause, the actions; a refused command. */
+.detail-below { display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; }
+.detail-below:empty { display: none; }
+.alert-t { font-size: 24px; font-weight: 700; }
+.alert-t.level-1 { color: var(--minor); }
+.alert-t.level-2 { color: var(--critical); }
+.why2 { font-size: 15px; line-height: 1.4; color: var(--muted); }
+.row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+/* The alert's main action carries the level's color; a plain pill beside it. */
+.pill.level-1 { background: var(--minor); border-color: var(--minor); color: var(--on-alert); }
+.pill.level-2 { background: var(--critical); border-color: var(--critical); color: var(--on-alert); }
+/* The segments as chips: lit when on, outlined when off; sending beats, a refused one is outlined in red. */
+.chips { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+.chip { all: unset; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; gap: 1px; min-height: 52px; padding: 6px 12px; border-radius: 14px; cursor: pointer; }
+.chip.on { background: var(--ink); color: var(--bg); }
+.chip.off { box-shadow: inset 0 0 0 1px var(--dim); color: var(--ink); }
+.chip.is-still { cursor: default; }
+.chip:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+.chip .cn { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chip .cs { font-size: 11px; opacity: .75; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chip.fail.level-1 { box-shadow: inset 0 0 0 2px var(--minor); }
+.chip.fail.level-2 { box-shadow: inset 0 0 0 2px var(--critical); }
+.chip.is-failed { box-shadow: 0 0 0 3px var(--critical); }
+.chip.is-failed .cs { color: var(--critical); opacity: 1; }
+.chip.on.is-failed .cs { color: var(--bg); }
+.chip.is-pending { animation: chip-wait 1s ease-in-out infinite; }
+@keyframes chip-wait { 50% { opacity: .35; } }
+/* The objects of a detail with more than one (day, month): tabs under the stage. */
+.detail-tabs { display: inline-flex; gap: 2px; padding: 3px; border-radius: 24px; border: 1px solid var(--line); }
+.detail-tabs button { border: 0; background: none; padding: 6px 14px; border-radius: 999px; font-size: 12px; color: var(--muted); cursor: pointer; }
+.detail-tabs button[aria-pressed="true"] { background: var(--plate); color: var(--ink); }
+.detail-more { display: grid; gap: 12px; justify-items: center; }
+.detail-more:empty { display: none; }
+.detail-more .chips { width: 100%; max-width: 720px; }
+.hint { color: var(--muted); }
 
 @media (prefers-reduced-motion: reduce) {
   .obj { transition: none; }
@@ -178,6 +275,12 @@ o-arc.is-failed { --o-stroke: var(--critical); --o-stroke-width: 2; }
 .knob[data-handle]:focus-visible { box-shadow: 0 0 0 3px var(--bg), 0 0 0 5px var(--ink); }
 .layer:has(.dial:focus-visible) .knob[data-handle]:not(:focus-visible) { box-shadow: 0 0 0 3px var(--bg); }
 .range-track { cursor: grab; }
+/* The detail's knob says its value; the measurement is a dot with its value outside; a scale inside the band. */
+.knob.has-text { display: grid; place-items: center; font-size: 12px; font-weight: 700; color: var(--bg); }
+.knob-text { pointer-events: none; }
+.now-dot { border-radius: 50%; background: var(--bg); box-shadow: inset 0 0 0 2px var(--ink); pointer-events: none; }
+.now-text { font-size: 11px; color: var(--muted); white-space: nowrap; --o-outward-gap: 12px; }
+.dial-tick { height: 1px; background: var(--dim); --o-alignment: -2px; }
 
 /* ─── Time ring ───────────────────────────────────────── */
 .time-ring { width: 220px; aspect-ratio: 1; margin: 10px auto; }
@@ -208,12 +311,14 @@ o-arc.is-failed { --o-stroke: var(--critical); --o-stroke-width: 2; }
 .track.warn.is-on .track-span:last-of-type { --o-stroke: color-mix(in srgb, var(--minor) 40%, transparent); }
 .track.critical.is-on .track-span:last-of-type { --o-stroke: color-mix(in srgb, var(--critical) 40%, transparent); }
 .track.is-pending { animation: track-beat 1.2s ease-in-out infinite; }
-.capsule.time-event { width: max-content; height: auto; }
 @keyframes track-beat { 50% { opacity: .35; } }
-.time-event { position: relative; padding-left: 10px; font-size: 10px; color: var(--muted); white-space: nowrap; }
-.time-event::before { content: ''; position: absolute; left: 0; top: 50%; width: 6px; height: 6px; margin-top: -3px; border-radius: 50%; background: var(--ink); }
-.time-event.warn::before { background: var(--minor); }
-.time-event.critical::before { background: var(--critical); }
+/* An event: a dot on the outside at its hour, its words hanging outward. */
+.time-event-dot { border-radius: 50%; background: var(--ink); box-shadow: 0 0 0 2px var(--bg); }
+.time-event-dot.warn { background: var(--minor); }
+.time-event-dot.critical { background: var(--critical); }
+.time-event { font-size: 10px; color: var(--muted); white-space: nowrap; max-width: 140px; overflow: hidden; text-overflow: ellipsis; --o-outward-gap: 6px; }
+.time-event.warn { color: var(--minor); }
+.time-event.critical { color: var(--critical); }
 .timeline .time-center { width: 100%; padding: 0 8px; box-sizing: border-box; }
 .timeline .time-big, .timeline .time-label { max-width: 100%; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .timeline .time-big { font-size: 22px; }
@@ -229,8 +334,6 @@ o-arc.is-failed { --o-stroke: var(--critical); --o-stroke-width: 2; }
 .hue-knob, .sat-knob { box-shadow: 0 0 0 2px #fff, 0 0 0 3px rgba(0,0,0,.4); }
 .ring-center { width: 100%; height: 100%; border-radius: 50%; display: grid; place-content: center; justify-items: center; gap: 2px; text-align: center; }
 .ring-center.has-color { background: color-mix(in srgb, var(--c) 30%, transparent); }
-.ring-big { font-size: 22px; font-weight: 600; letter-spacing: -.5px; white-space: nowrap; }
-.ring-label { font-size: 11px; color: var(--muted); white-space: nowrap; max-width: 90px; overflow: hidden; text-overflow: ellipsis; }
 
 /* ─── Color wheel ─────────────────────────────────────── */
 .color-wheel {
@@ -249,9 +352,6 @@ o-arc.is-failed { --o-stroke: var(--critical); --o-stroke-width: 2; }
 .toggle { cursor: pointer; outline: none; }
 .toggle:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; border-radius: 50%; }
 .how { flex-basis: 100%; font-size: 12px; color: var(--muted); }
-.switches { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
-.switches label { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 14px; border: 1px solid var(--dim); border-radius: 8px; cursor: pointer; }
-.switches input { width: 18px; height: 18px; accent-color: var(--ink); }
 
 /* ─── Phone ───────────────────────────────────────────── */
 .dots { display: flex; justify-content: center; gap: 10px; }
@@ -276,6 +376,16 @@ o-arc.is-failed { --o-stroke: var(--critical); --o-stroke-width: 2; }
   .dot .bigbang { width: 18px; }
   /* The alert's actions as full-width pills, stacked. */
   .strip .primary, .strip .plain { flex: 1 1 100%; min-height: 52px; margin: 0; border-radius: 26px; font-size: 16px; }
+  /* The detail on the phone: everything under the object, the pills full width. */
+  .detail { padding: 12px 16px 96px; gap: 8px; }
+  .detail-head { min-height: 40px; }
+  .crumb { font-size: 14px; }
+  .detail-below { align-items: stretch; text-align: left; }
+  .detail-below .row { flex-direction: column; }
+  .detail-below .pill { width: 100%; min-height: 52px; font-size: 16px; }
+  .alert-t { font-size: 20px; }
+  .chips { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+  .chip { padding: 6px 8px; }
   /* With two layers and less growth, 1.1× lets the ring behind fit. */
   .obj { --zoom: 1.1; }
 }
@@ -333,6 +443,8 @@ o-arc.is-failed { --o-stroke: var(--critical); --o-stroke-width: 2; }
 .scroll-item.is-on::after { content: ""; position: absolute; left: 50%; top: 50%; width: 7px; height: 7px; margin: -3.5px 0 0 -3.5px; border-radius: 50%; background: var(--ink); }
 .scroll-list:focus-visible .scroll-item.is-focus .sl-text { text-decoration: underline; text-underline-offset: 3px; }
 .scroll-list.is-pending .scroll-item { opacity: .5 !important; }
+.scroll-center .detail-face { background: none; }
+.scroll-center .face-big { font-size: clamp(16px, 11cqw, 28px); white-space: normal; max-width: 86cqw; line-height: 1.1; }
 .scroll-track o-arc { --o-fill: var(--line); --o-stroke: transparent; }
 .scroll-thumb { --o-fill: var(--muted); --o-stroke: transparent; cursor: grab; }
 .scroll-list:active .scroll-thumb { cursor: grabbing; }
