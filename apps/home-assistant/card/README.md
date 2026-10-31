@@ -186,9 +186,13 @@ top:
 ![The orbit view](images/dashboard-orbit.png)
 
 **A system.** Tap a ring to zoom in. The system's channels are layers of one
-object: the one in front has its controls on the ring (segments toggle,
-the dial sets a value by dragging), the ones behind are read as arcs with
-their label. Alerts come with their action (*Retry*, *Disarm*, *Close
+object: the one in front has its controls on the ring (segments toggle, the
+dial sets a value by dragging, a choice such as the thermostat's mode or the
+alarm's state is picked by tapping its name, a comfort range has a knob at
+each end), the ones behind are read as arcs with their label. A camera, or
+the artwork of what is playing, fills the center; the detail shows it round
+or square, live for a camera, and draws the last 24 hours of a sensor as a
+ring and a color wheel for a color light. Alerts come with their action (*Retry*, *Disarm*, *Close
 windows*) and *Mute*; a muted alert goes behind and comes back if its text
 changes. *View flat* shows the same system as a list; the center opens the
 detail with the entities behind each channel.
@@ -208,12 +212,12 @@ builds a different object. A channel that follows one entity takes its name.
 
 | System | Channels and what they look for |
 |---|---|
-| **Lights** | all `light` entities (segments toggle them) · the first dimmable light (brightness dial) · all `switch` entities as plugs |
-| **Climate** | the first two `climate` entities (temperature dials; one may have a range) · a humidity sensor (`device_class: humidity`); past 70% its alert offers the dehumidifier |
-| **Security** | the `alarm_control_panel` (arm and disarm) · `siren` entities · `lock` entities · the `binary_sensor`s of Home Assistant's Security view: doors, windows, garage doors and openings; smoke, gas, carbon monoxide, moisture, glass break, safety and tamper; motion and occupancy (the ones detecting something first, eight at most) |
+| **Lights** | all `light` entities (segments toggle them) · the first dimmable light (brightness dial, in the light's color; a hue and saturation wheel in the detail when it supports color) · all `switch` entities as plugs |
+| **Climate** | the first `climate` entity (temperature dial) · its mode (`hvac_modes`, a choice on the ring) · a second thermostat · a `fan` (speed dial) · a thermostat with a comfort range (`target_temp_low/high`: a band with a knob at each end) · a humidity sensor (`device_class: humidity`; its last 24 hours in the detail); past 70% its alert offers the dehumidifier |
+| **Security** | the `alarm_control_panel` (a choice: disarmed, home, away) · `camera` entities (the picture in the center; the gear picks which; live in the detail) · `siren` entities · `lock` entities · the `binary_sensor`s of Home Assistant's Security view: doors, windows, garage doors and openings; smoke, gas, carbon monoxide, moisture, glass break, safety and tamper; motion and occupancy (the ones detecting something first, eight at most) |
 | **Openings** | the first two `cover`s with a position (dials) · the garage door (`device_class: garage`) · `valve` entities |
-| **Media** | `media_player` entities (play and pause) · the volume of the first one (dial) |
-| **Energy** | a power sensor in W · a carbon monoxide sensor · the `water_heater` (dial) |
+| **Media** | `media_player` entities (play and pause; the artwork of what plays in the center) · a player's `source_list` (a choice) · the volume of the first one (dial) |
+| **Energy** | a power sensor in W · a carbon monoxide sensor (both with their last 24 hours in the detail) · the `water_heater` (dial) |
 | **Maintenance** | `update` entities (install) · `vacuum` entities (start, return to base) · battery sensors (`device_class: battery`, low under 20%) · `problem` binary sensors · the repairs of Settings › Repairs |
 
 What stays out: entities hidden in the registry, and config or diagnostic ones

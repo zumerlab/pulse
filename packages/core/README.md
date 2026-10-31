@@ -19,7 +19,10 @@ import '@zumer/pulse/style.css';
 
 | | |
 |---|---|
-| `ring(key, reading, lanes, options)` | A channel's ring on `orbit-12`: progress or segments; with `controls`, a draggable dial (`role="slider"`, knob on `.satellite.at-value`) or switches (`role="switch"`); failing segments ripple (`o-arc.ripple`) when the alert calls |
+| `ring(key, reading, lanes, options)` | A channel's ring on `orbit-12`. `kind: 'p'` a band that fills (with `controls` and a `dial`, a draggable slider with its knob on `.satellite.at-value`; with a `range`, a band from `lo` to `hi` with a knob at each end, each a slider, the nearer one following a drag on the track); `'s'` segments that switch (`role="switch"`); `'c'` a choice, one segment on, its names along the inside of the ring (`role="radiogroup"`, radios). `tint` colors what is on; failing segments ripple (`o-arc.ripple`) when the alert calls |
+| `face(...)` with `image` | The disc over a picture (`.disc.has-image`, `img.face-image`): the text sits on a scrim |
+| `timeRing({ values, big, label, unit, min, max })` | The last 24 hours around a clock, its own universe (`.time-ring`): one dot per hour, the current one at the top, its distance from the ring the value (`--o-alignment`), a segment per hour darkening with it |
+| `colorWheel(hs, key, label)` + `wheelControls(el, controls)` | A hue (around) and saturation (outward) wheel with a handle, `role="slider"`; drag, tap or arrows (left/right hue, up/down saturation) |
 | `face(…)`, `backLayer(…)` | The front layer's disc (the Zumly trigger of the next level) and a layer behind (arc label with `range="auto"` and a transparent interactive arc that brings it forward) |
 | `systemShell(title, buttons)`, `dots(…)`, `calmStrip(…)` | The system view's skeleton, the mini-ring dots of the phone, the strip under the object |
 | `dialControls(el, …)` | Drag, wheel and keyboard on the dial, and how they live with Zumly (swallowed `mouseup`/`touchend`/`click` while dragging). Returns the cleanup |

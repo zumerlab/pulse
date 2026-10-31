@@ -20,16 +20,24 @@ export type Alert = {
   busy?: boolean;                   // already being resolved: no button until Home Assistant confirms
   fail?: number[];                  // segments painted in the alert color
 };
+// A dial with two ends (a thermostat's comfort range): the band goes from lo to hi.
+export type Range = { lo: number; hi: number; set: (lo: number, hi: number) => Call };
+// A light's hue and saturation (null when it is off or white), and how to set them.
+export type Color = { hs: [number, number] | null; entity: string; set: (h: number, s: number) => Call };
 export type Reading = {
-  kind: 'p' | 's';
+  kind: 'p' | 's' | 'c';            // the object's primitives: a band, switches, a choice (see @zumer/pulse)
   v?: number;                       // progress 0..1
   segs?: Seg[];
   dial?: Dial;
+  range?: Range;
   big: string; label: string;
   name?: string;                    // replaces the channel's name when it follows the entity
   alert?: Alert;
   entities: string[];               // which entities it depends on (detail and "sending")
-  camera?: string;
+  image?: { src: string; alt: string; entity: string };   // a picture for the face (relative URL: the source resolves it)
+  tint?: string;                    // CSS color of what is on (a light's color)
+  color?: Color;
+  history?: string;                 // a numeric entity worth a day's ring in the detail
   choice?: string;                  // a channel that follows one entity: the one it follows…
   choices?: string[];               // …and the others it could (the gear offers them)
 };
@@ -167,6 +175,18 @@ const call = (domain: string, service: string, entity_id: string | string[], dat
   ({ domain, service, data: { entity_id, ...data } });
 const busy = (state: string) => /ing$/.test(state) && state !== 'playing';
 const cap = (t: string) => t.replace(/^./, (c) => c.toUpperCase());
+const strs = (e: HassState, k: string) => ((e.attributes[k] as unknown[] | undefined) ?? []).map(String);
+// A light's color as CSS, when it is on and colored: Home Assistant's rgb_color
+// (warm white comes out warm, as in its own light card), or the hue and
+// saturation at full value when that is all there is.
+const lightTint = (e: HassState) => {
+  if (e.state !== 'on') return undefined;
+  const rgb = e.attributes.rgb_color as number[] | null | undefined, hs = e.attributes.hs_color as number[] | null | undefined;
+  if (rgb?.length === 3) return `rgb(${rgb.join(',')})`;
+  return hs?.length === 2 ? `hsl(${Math.round(hs[0])} 100% ${Math.round(100 - hs[1] / 2)}%)` : undefined;
+};
+const COLOR_MODES = ['hs', 'rgb', 'xy', 'rgbw', 'rgbww'];
+const picture = (e: HassState | undefined) => (e?.attributes.entity_picture as string | undefined) || undefined;
 
 // Temperature dial of a thermostat or water heater. It shows the measurement;
 // the ring is the target, which is what changes.
@@ -193,6 +213,7 @@ const hvacAction: Record<string, string> = {
 const hvacMode: Record<string, string> = {
   off: 'off', heat: 'heat', cool: 'cool', heat_cool: 'auto', auto: 'auto', dry: 'dry', fan_only: 'fan only',
 };
+const cameraState: Record<string, string> = { streaming: 'Live', recording: 'Recording', idle: 'Idle', unavailable: 'Unavailable' };
 const coverState: Record<string, string> = { open: 'open', closed: 'closed', opening: 'opening…', closing: 'closing…' };
 const alarmState: Record<string, string> = {
   disarmed: 'Disarmed', armed_home: 'Home', armed_away: 'Away', armed_night: 'Night',
@@ -259,10 +280,14 @@ const SYSTEMS: PulseSystem[] = [
       const e = id ? s.get(id) : undefined;
       if (!id || !e) return null;
       const pct = e.state === 'on' ? Math.round((attr(e, 'brightness') ?? 255) / 2.55) : 0;
+      const colored = strs(e, 'supported_color_modes').some((m) => COLOR_MODES.includes(m));
+      const hs = e.attributes.hs_color as [number, number] | null | undefined;
       return { kind: 'p', v: pct / 100, entities: [id], big: pct ? `${pct}%` : 'Off', label: nameOf(s, id).toLowerCase(),
-        name: ownName(s, id) && `${nameOf(s, id)} brightness`,
+        name: ownName(s, id) && `${nameOf(s, id)} brightness`, tint: lightTint(e),
         dial: { min: 0, max: 100, step: 5, unit: '%', label: 'brightness', value: pct, entity: id,
-          set: (x) => x ? call('light', 'turn_on', id, { brightness_pct: x }) : call('light', 'turn_off', id) } };
+          set: (x) => x ? call('light', 'turn_on', id, { brightness_pct: x }) : call('light', 'turn_off', id) },
+        color: colored ? { hs: e.state === 'on' && hs?.length === 2 && e.attributes.color_mode !== 'color_temp' ? [Math.round(hs[0]), Math.round(hs[1])] : null, entity: id,
+          set: (h, sat) => call('light', 'turn_on', id, { hs_color: [h, sat] }) } : undefined };
     } },
     { key: 'plugs', name: 'Plugs', glyph: g.plug, read: (s) => {
       const ids = ofDomain(s, 'switch');
@@ -289,15 +314,43 @@ const SYSTEMS: PulseSystem[] = [
             why: `Heating with ${list(open.map((id) => nameOf(s, id)))} open`, verb: 'Close windows',
             calls: [call('cover', 'close_cover', open)] };
         }) },
+    { key: 'mode', name: 'Mode', glyph: g.thermo, read: (s) => {
+      // The thermostat's mode: one of its hvac_modes, chosen on the ring.
+      const id = first(s, 'climate', ['climate.heatpump', 'climate.hvac'], (e) => strs(e, 'hvac_modes').length > 1);
+      const e = id ? s.get(id) : undefined;
+      if (!id || !e) return null;
+      const modes = strs(e, 'hvac_modes').slice(0, 8);
+      if (modes.length < 2) return null;
+      const segs = modes.map((m) => ({ label: cap(hvacMode[m] ?? m), on: e.state === m, entity: id,
+        act: e.state === m ? undefined : call('climate', 'set_hvac_mode', id, { hvac_mode: m }) }));
+      const action = hvacAction[String(e.attributes.hvac_action)];
+      return { kind: 'c', segs, entities: [id], big: cap(hvacMode[e.state] ?? e.state), name: ownName(s, id) && `${nameOf(s, id)} mode`,
+        label: action && action !== hvacMode[e.state] ? action : 'tap a mode' };
+    } },
     { key: 'ac', name: 'Air conditioning', glyph: g.fan, read: thermostat((s) => thermostat_(s, 1), 'climate', thermoLabel) },
+    { key: 'fan', name: 'Fan', glyph: g.fan, read: (s) => {
+      const id = first(s, 'fan', [], (e) => attr(e, 'percentage') != null || e.state === 'off');
+      const e = id ? s.get(id) : undefined;
+      if (!id || !e) return null;
+      const pct = e.state === 'on' ? attr(e, 'percentage') ?? 100 : 0, step = attr(e, 'percentage_step') ?? 25;
+      return { kind: 'p', v: pct / 100, entities: [id], big: pct ? `${num(pct, 0)}%` : 'Off', label: nameOf(s, id).toLowerCase(), name: nameOf(s, id),
+        dial: { min: 0, max: 100, step: Math.max(1, Math.round(step)), unit: '%', label: 'speed', value: pct, entity: id,
+          set: (x) => x ? call('fan', 'set_percentage', id, { percentage: x }) : call('fan', 'turn_off', id) } };
+    } },
     { key: 'ecobee', name: 'Ecobee', glyph: g.thermo, read: (s, u) => {
+      // A thermostat with a comfort range: the band goes from the low target to the high one.
       const id = first(s, 'climate', ['climate.ecobee'], (e) => attr(e, 'target_temp_low') != null);
       const e = id ? s.get(id) : undefined;
       if (!id || !e || attr(e, 'current_temperature') == null) return null;
       const min = attr(e, 'min_temp') ?? 7, max = attr(e, 'max_temp') ?? 35, cur = attr(e, 'current_temperature')!;
       const lo = attr(e, 'target_temp_low'), hi = attr(e, 'target_temp_high');
+      const step = attr(e, 'target_temp_step') ?? 1;
+      const set = (l: number, h: number) => call('climate', 'set_temperature', id, { target_temp_low: l, target_temp_high: h });
       return { kind: 'p', v: clamp((cur - min) / (max - min)), entities: [id], big: `${num(cur)}${u.temp}`, name: ownName(s, id),
-        label: lo != null && hi != null ? `between ${num(lo)}° and ${num(hi)}°` : hvacMode[e.state] ?? e.state };
+        label: lo != null && hi != null ? `between ${num(lo)}° and ${num(hi)}°` : hvacMode[e.state] ?? e.state,
+        ...(lo != null && hi != null ? {
+          dial: { min, max, step, unit: '°', label: 'range', value: lo, entity: id, set: (x) => set(x, Math.max(x, hi)) },
+          range: { lo, hi, set } } : {}) };
     } },
     { key: 'humidity', name: 'Humidity', glyph: g.drop, read: (s) => {
       // The first id is a simulated sensor of the local test installation.
@@ -305,7 +358,7 @@ const SYSTEMS: PulseSystem[] = [
       if (!id) return null;
       const h = Number(s.get(id)!.state), dry = first(s, 'humidifier', ['humidifier.dehumidifier'], isClass('dehumidifier'));
       const dryOff = dry != null && s.get(dry)!.state === 'off';
-      return { kind: 'p', v: clamp(h / 100), entities: [id], big: `${num(h, 0)}%`, label: nameOf(s, id).toLowerCase(),
+      return { kind: 'p', v: clamp(h / 100), entities: [id], big: `${num(h, 0)}%`, label: nameOf(s, id).toLowerCase(), history: id,
         alert: h >= 70 ? { level: 1, big: `${num(h, 0)}%`, label: 'high humidity', why: 'Humidity went past 70%',
           verb: dryOff ? 'Turn on dehumidifier' : 'Got it', calls: dryOff ? [call('humidifier', 'turn_on', dry!)] : [] }
           : undefined };
@@ -323,11 +376,23 @@ const SYSTEMS: PulseSystem[] = [
         on: e.state === st || (e.state === 'arming' && next === st),
         act: e.state === st ? undefined : call('alarm_control_panel', service, id, { code: ALARM_CODE }) }));
       const fired = e.state === 'triggered' || e.state === 'pending';
-      return { kind: 's', segs, entities: [id], big: alarmState[e.state] ?? e.state,
+      return { kind: 'c', segs, entities: [id], big: alarmState[e.state] ?? e.state,
         label: e.state === 'arming' ? `switching to ${alarmState[next]?.toLowerCase() ?? 'armed'}` : 'tap a mode',
         alert: fired ? { level: 2, big: alarmState[e.state], label: 'alarm', fail: [0, 1, 2],
           why: e.state === 'triggered' ? 'The alarm went off' : 'The alarm is about to sound', verb: 'Disarm',
           calls: [call('alarm_control_panel', 'alarm_disarm', id, { code: ALARM_CODE })] } : undefined };
+    } },
+    { key: 'cameras', name: 'Cameras', glyph: g.eye, read: (s) => {
+      // One camera in the face (the gear picks another); the ring counts them all.
+      const id = first(s, 'camera', ['camera.demo_camera']);
+      const e = id ? s.get(id) : undefined;
+      if (!id || !e) return null;
+      const all = ofDomain(s, 'camera').slice(0, 8);
+      const segs = all.map((c) => ({ label: nameOf(s, c), on: c === id, entity: c }));
+      const src = picture(e), state = cameraState[e.state] ?? cap(e.state);
+      return { kind: 's', segs, entities: all.includes(id) ? all : [id, ...all], big: state, name: ownName(s, id) && nameOf(s, id),
+        label: placeOf(id)?.toLowerCase() ?? (all.length > 1 ? `${all.length} cameras` : 'camera'),
+        image: src ? { src, alt: nameOf(s, id), entity: id } : undefined };
     } },
     { key: 'sirens', name: 'Sirens', glyph: g.siren, read: (s) => {
       const ids = ofDomain(s, 'siren');
@@ -373,7 +438,6 @@ const SYSTEMS: PulseSystem[] = [
       const detecting = (classes: string[]) => all.filter((id) => on(id) && classes.includes(cls(id)));
       const where = (found: string[]) => list(found.map((id) => whereIs(s, id)));
       const fail = (found: string[]) => found.map((id) => ids.indexOf(id)).filter((i) => i >= 0);
-      const camera = first(s, 'camera', ['camera.demo_camera']);
       const danger = detecting(SAFETY), moving = detecting(MOTION), opened = detecting(OPENINGS);
       let alert: Alert | undefined;
       if (danger.length) {
@@ -386,7 +450,7 @@ const SYSTEMS: PulseSystem[] = [
           why: `${moving.length ? 'Motion' : 'Something open'} (${where(found)}) with the alarm armed`, verb: 'Got it', calls: [] };
       }
       const active = [...danger, ...moving, ...opened];
-      return { kind: 's', segs, entities: [...all, ...(camera ? [camera] : [])], camera,
+      return { kind: 's', segs, entities: all,
         big: danger.length ? SAFETY_WORDS[cls(danger[0])] : moving.length ? 'Motion' : opened.length ? `${opened.length} open` : 'Still',
         label: active.length ? where(active.slice(0, 3)) : `${all.length} sensors`, alert };
     } },
@@ -426,9 +490,23 @@ const SYSTEMS: PulseSystem[] = [
       const segs = switches(ids, s, (e) => e.state === 'playing',
         (e) => ['playing', 'paused'].includes(e.state) ? call('media_player', 'media_play_pause', e.entity_id) : undefined);
       const on = segs.filter((x) => x.on);
-      const title = on.length ? String(s.get(on[0].entity)!.attributes.media_title ?? '') : '';
+      const lead = on.length ? s.get(on[0].entity)! : undefined;
+      const title = String(lead?.attributes.media_title ?? '');
+      const art = picture(lead);
       return { kind: 's', segs, entities: ids, big: on.length ? `${on.length} of ${segs.length}` : 'Silence',
-        label: on.length ? (title.length > 26 ? `${title.slice(0, 25)}…` : title || list(on.map((x) => x.label))) : 'all paused' };
+        label: on.length ? (title.length > 26 ? `${title.slice(0, 25)}…` : title || list(on.map((x) => x.label))) : 'all paused',
+        image: art && lead ? { src: art, alt: title || nameOf(s, lead.entity_id), entity: lead.entity_id } : undefined };
+    } },
+    { key: 'source', name: 'Source', glyph: g.box, read: (s) => {
+      // What a player plays from (TV inputs, a receiver's sources): one of its source_list.
+      const id = first(s, 'media_player', ['media_player.lounge_room'], (e) => strs(e, 'source_list').length > 1);
+      const e = id ? s.get(id) : undefined;
+      if (!id || !e) return null;
+      const sources = strs(e, 'source_list').slice(0, 8), current = String(e.attributes.source ?? '');
+      if (sources.length < 2) return null;
+      const segs = sources.map((src) => ({ label: src, on: src === current, entity: id,
+        act: src === current ? undefined : call('media_player', 'select_source', id, { source: src }) }));
+      return { kind: 'c', segs, entities: [id], big: current || 'None', label: nameOf(s, id).toLowerCase(), name: `${nameOf(s, id)} source` };
     } },
     { key: 'volume', name: 'Living room volume', glyph: g.volume, read: (s) => {
       const id = first(s, 'media_player', ['media_player.living_room'], (e) => attr(e, 'volume_level') != null);
@@ -449,7 +527,7 @@ const SYSTEMS: PulseSystem[] = [
         (e) => e.attributes.unit_of_measurement === 'W');
       if (!id) return null;
       const w = Number(s.get(id)!.state), capW = 3000;
-      return { kind: 'p', v: clamp(w / capW), entities: [id], big: `${num(w, 0)} W`, label: `of ${num(capW)} W`,
+      return { kind: 'p', v: clamp(w / capW), entities: [id], big: `${num(w, 0)} W`, label: `of ${num(capW)} W`, history: id,
         alert: w > 2000 ? { level: 1, big: `${num(w, 0)} W`, label: 'high consumption', why: 'Consumption went past 2000 W',
           verb: 'Got it', calls: [] } : undefined };
     } },
@@ -459,7 +537,7 @@ const SYSTEMS: PulseSystem[] = [
       const ppm = Number(e.state);
       // 35 ppm: the EPA's one-hour limit; 100 ppm is already dangerous.
       const level = ppm >= 100 ? 2 : ppm >= 35 ? 1 : 0;
-      return { kind: 'p', v: clamp(ppm / 150), entities: [id], big: `${num(ppm, 0)} ppm`, label: 'carbon monoxide',
+      return { kind: 'p', v: clamp(ppm / 150), entities: [id], big: `${num(ppm, 0)} ppm`, label: 'carbon monoxide', history: id,
         alert: level ? { level: level as 1 | 2, big: `${num(ppm, 0)} ppm`, label: 'carbon monoxide',
           why: level === 2 ? 'Dangerous carbon monoxide: ventilate and leave' : 'Carbon monoxide above 35 ppm', verb: 'Got it', calls: [] }
           : undefined };

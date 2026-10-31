@@ -212,3 +212,116 @@ test('the URL fixes what the page shows and the gear chooses within it', async (
   await expect(page.locator('.settings input[name="systems"]')).toHaveCount(3);
   await expect(page.locator('.settings select[name="start"] option')).toHaveCount(4);
 });
+
+// ─── The primitives beyond the dial and the switches ───
+
+const bring = async (page: Page, key: string) => {
+  const view = current(page);
+  if (await view.locator(`.layer-front[data-ch="${key}"]`).count()) return;
+  await view.locator(`[data-pick="${key}"]`).first().dispatchEvent('click');
+  // (the layer itself is a zero-width gravity-spot: its disc is what shows)
+  await expect(view.locator(`.layer-front[data-ch="${key}"] .disc`)).toBeVisible();
+  await expect(view.locator('.stage')).not.toHaveClass(/is-locked/);
+};
+
+test('a camera fills the face of its layer, and the detail shows it round or square', async ({ page }) => {
+  await page.goto(`${HA}?demo=arsaboo`);
+  await page.locator('.tile[data-system="security"]').click();
+  await bring(page, 'cameras');
+  const front = current(page).locator('.layer-front');
+  await expect(front.locator('.disc.has-image .face-image')).toHaveAttribute('src', /camera\.backyard\.jpg\?t=\d+/);
+  await expect(front.locator('.face-big')).toHaveText('Live');
+  await expect(front.locator('.face-label')).toHaveText('4 cameras');
+  await front.locator('.disc').click();
+  const figure = current(page).locator('.detail-image');
+  await expect(figure.locator('img')).toHaveAttribute('alt', 'Backyard');
+  await expect(figure).not.toHaveClass(/is-square/);
+  await figure.locator('[data-shape]').click();
+  await expect(figure).toHaveClass(/is-square/);
+  await expect(figure.locator('[data-shape]')).toHaveText('Show round');
+  // The demo cannot stream: no live button.
+  await expect(figure.locator('[data-live]')).toHaveCount(0);
+});
+
+test('a choice on the ring: the thermostat mode is a radio group, and tapping an option sets it', async ({ page }) => {
+  await page.goto(`${HA}?demo=home`);
+  await page.locator('.tile[data-system="climate"]').click();
+  await bring(page, 'mode');
+  const front = current(page).locator('.layer-front');
+  await expect(front.locator('.face-name')).toHaveText('Thermostat mode');
+  await expect(front.locator('.face-big')).toHaveText('Heat');
+  const radios = front.locator('o-arc[role="radio"]');
+  await expect(radios).toHaveCount(3);
+  await expect(front.locator('o-arc[role="radio"][aria-checked="true"]')).toHaveAttribute('aria-label', 'Heat');
+  // The names run along the inside of the ring; the chosen one is lit.
+  expect(await front.locator('.choice-label').evaluateAll((l) => l.map((x) => x.getAttribute('data-label')))).toEqual(['Auto', 'Heat', 'Off']);
+  await expect(front.locator('.choice-label.is-on')).toHaveAttribute('data-label', 'Heat');
+  await front.locator('o-arc[role="radio"][aria-label="Auto"]').dispatchEvent('click');
+  await expect(front.locator('.face-big')).toHaveText('Auto');
+  await expect(front.locator('o-arc[role="radio"][aria-checked="true"]')).toHaveAttribute('aria-label', 'Auto');
+  // In the detail the options are radios too.
+  await front.locator('.disc').click();
+  await expect(current(page).locator('.switches.choice input[type="radio"]')).toHaveCount(3);
+  await expect(current(page).locator('.switches.choice input:checked + *, .switches.choice label:has(input:checked)').first()).toContainText('Auto');
+});
+
+test('a thermostat with a range has two knobs, and one end never crosses the other', async ({ page }) => {
+  await page.goto(`${HA}?demo=arsaboo`);
+  await page.locator('.tile[data-system="climate"]').click();
+  await bring(page, 'ecobee');
+  const front = current(page).locator('.layer-front');
+  await expect(front.locator('.face-label')).toHaveText('between 20° and 24°');
+  const lo = front.locator('.knob[data-handle="lo"]'), hi = front.locator('.knob[data-handle="hi"]');
+  await expect(lo).toHaveAttribute('aria-valuetext', '20°');
+  await expect(hi).toHaveAttribute('aria-valuetext', '24°');
+  await hi.focus();
+  await page.keyboard.press('ArrowRight');
+  await expect(front.locator('.face-label')).toHaveText('between 20° and 25°');
+  // The low end cannot go past the high one.
+  await lo.focus();
+  await page.keyboard.press('End');
+  await expect(front.locator('.face-label')).toHaveText('between 25° and 25°');
+  // The command went out and the demo took it.
+  await expect(front.locator('.face-label')).toHaveText('between 25° and 25°');
+  await front.locator('.disc').click();
+  await expect(current(page).locator('.ranges input[type="range"]')).toHaveCount(2);
+  await expect(current(page).locator('.ranges input[data-handle="lo"]')).toHaveValue('25');
+});
+
+test("a numeric channel's detail draws its last 24 hours as a ring", async ({ page }) => {
+  await page.goto(`${HA}?demo=home`);
+  await page.locator('.tile[data-system="climate"]').click();
+  await bring(page, 'humidity');
+  await current(page).locator('.layer-front .disc').click();
+  const ring = current(page).locator('.time-ring');
+  await expect(ring).toHaveAttribute('aria-label', /last 24 hours: 52%/);
+  await expect(ring.locator('.time-dot')).toHaveCount(24);
+  await expect(ring.locator('.time-heat')).toHaveCount(24);
+  await expect(ring.locator('.time-dot.is-now')).toHaveAttribute('title', /^now: 52%/);
+  await expect(ring.locator('.time-big')).toHaveText('52%');
+});
+
+test('a color light takes its hue and saturation from a wheel in the detail', async ({ page }) => {
+  await page.goto(`${HA}?demo=home`);
+  await page.locator('.gear').click();
+  await page.locator('select[name="entity"][data-key="lights/brightness"]').selectOption('light.living_room_floor_lamp');
+  await page.keyboard.press('Escape');
+  await page.locator('.tile[data-system="lights"]').click();
+  await bring(page, 'brightness');
+  await current(page).locator('.layer-front .disc').click();
+  const wheel = current(page).locator('.color-wheel');
+  // White light: no hue yet.
+  await expect(wheel).toHaveClass(/is-unset/);
+  await wheel.focus();
+  await page.keyboard.press('ArrowRight');
+  await expect(wheel).toHaveAttribute('aria-valuetext', 'hue 5°, saturation 100%');
+  await expect(wheel).not.toHaveClass(/is-unset/);
+  // After the pause the light gets the color, and the reading keeps it.
+  await page.waitForTimeout(900);
+  await page.keyboard.press('Tab');
+  await expect(current(page).locator('.color-wheel')).toHaveAttribute('aria-valuetext', 'hue 5°, saturation 100%');
+  await expect(current(page).locator('.color-wheel')).not.toHaveClass(/is-unset/);
+  // Back on the ring, the dial takes the light's color.
+  await page.locator('.z-nav-back').click();
+  await expect(current(page).locator('.layer-front .dial')).toHaveAttribute('style', /--o-fill:\s*(hsl\(5 100% 50%\)|rgb\(255,\s*21,\s*0\))/);
+});

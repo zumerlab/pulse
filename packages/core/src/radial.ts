@@ -11,11 +11,16 @@ import { num, t } from './i18n.ts';
 
 export type RingSeg = { label: string; on: boolean; act?: unknown; entity?: string };
 export type RingDial = { min: number; max: number; step: number; unit: string; label: string; value: number };
+// The primitives of the object. 'p' a band that fills (a dial when it can be
+// dragged); 's' segments that switch on and off; 'c' a choice: segments of
+// which exactly one is on, with their names along the ring.
 export type RingReading = {
-  kind: 'p' | 's';
+  kind: 'p' | 's' | 'c';
   v?: number;                       // progress 0..1
   segs?: RingSeg[];
   dial?: RingDial;
+  range?: { lo: number; hi: number };   // a 'p' with two handles: the band goes from lo to hi (fractions 0..1)
+  tint?: string;                    // CSS color of what is on, when nothing is wrong (a light's color)
   alert?: { level: 1 | 2; fail?: number[] };
 };
 
@@ -55,9 +60,11 @@ export type RingOptions = {
 // dial's knob is an `.at-value` satellite on the same ring: Orbit seats it
 // where the progress ends and moves it when the value changes.
 export function ring(key: string, r: RingReading, lanes: number, o: RingOptions = {}) {
-  const fill = o.muted ? 'var(--muted)' : r.alert ? levelColor(r.alert.level) : 'var(--ink)';
+  const on = (!o.muted && !r.alert && r.tint) || 'var(--ink)';
+  const fill = o.muted ? 'var(--muted)' : r.alert ? levelColor(r.alert.level) : on;
   const size = `--o-size-ratio:${lanes.toFixed(3)}`;
   const isPending = o.pending ?? (() => false);
+  if (r.kind === 'p' && r.range) return rangeRing(key, r, fill, size, isPending(undefined), o);
   if (r.kind === 'p') {
     const pct = ((r.v ?? 0) * 100).toFixed(1);
     const busy = r.segs?.some((s) => isPending(s.entity)) || isPending(undefined) ? ' is-pending' : '';
@@ -72,17 +79,46 @@ export function ring(key: string, r: RingReading, lanes: number, o: RingOptions 
         aria-valuetext="${num(dial.value)}${dial.unit}" style="--o-fill:${fill}; --o-back-fill:var(--line)"></o-progress>
       <div class="satellite knob at-value" style="--o-size-ratio:1.4"></div></div>`;
   }
+  // A choice is a radio group: the one that is on has no action, the others switch to themselves.
+  const role = r.kind === 'c' ? 'radio' : 'switch';
   const segs = (r.segs ?? []).map((s, i) => {
     const fail = !!r.alert?.fail?.includes(i) && !o.muted;
-    const f = fail ? fill : s.on ? 'var(--ink)' : 'var(--dim)';
+    const f = fail ? fill : s.on ? on : 'var(--dim)';
     // Rule 2: the wave comes out of the failing segment (o-arc.ripple).
     const cls = (isPending(s.entity) ? ' is-pending' : '') + (o.call && fail ? ' ripple' : '');
+    // The option that is chosen is a radio too, just not one that does anything.
+    if (r.kind === 'c' && o.controls && s.on && !s.act) return `<o-arc class="${cls.trim()}" style="--o-fill:${f}" role="radio" aria-checked="true" aria-label="${esc(s.label)}"></o-arc>`;
     if (!(o.controls && s.act)) return `<o-arc class="${cls.trim()}" style="--o-fill:${f}"></o-arc>`;
     return `<o-arc style="--o-fill:${f}" class="toggle${cls}" data-seg="${i}" interactive hit-width="10"
-      role="switch" tabindex="0" aria-checked="${s.on}" aria-label="${esc(s.label)}"></o-arc>`;
+      role="${role}" tabindex="0" aria-checked="${s.on}" aria-label="${esc(s.label)}"></o-arc>`;
   }).join('');
-  const gap = (r.segs?.length ?? 0) > 1 ? 24 : 0;
-  return `<div class="orbit-12" style="${size}; --o-gap:${gap}">${segs}</div>`;
+  const n = r.segs?.length ?? 0, gap = n > 1 ? 24 : 0;
+  const group = r.kind === 'c' && o.controls ? ` role="radiogroup"${o.name ? ` aria-label="${esc(o.name)}"` : ''}` : '';
+  // The names of a choice run along the inside of the ring, each over its
+  // segment; the ones in the lower half are flipped so they read upright.
+  const labels = r.kind === 'c' && o.controls ? `<div class="orbit-10 choice-labels" style="--o-gap:${gap}">${
+    (r.segs ?? []).map((s, i) => { const mid = (i + 0.5) * 360 / n; return `<o-arc text-anchor="middle"${mid > 90 && mid < 270 ? ' flip' : ''} class="choice-label${s.on ? ' is-on' : ''}" data-label="${esc(s.label)}">${esc(s.label)}</o-arc>`; }).join('')}</div>` : '';
+  return `<div class="orbit-12" style="${size}; --o-gap:${gap}"${group}>${segs}</div>${labels}`;
+}
+
+// A band from lo to hi over a faint track, with a knob at each end. With
+// `controls`, the knobs are sliders (data-handle lo|hi) and the track takes the
+// drag: whichever knob is nearer follows the pointer.
+function rangeRing(key: string, r: RingReading, fill: string, size: string, pending: boolean, o: RingOptions) {
+  const { lo, hi } = r.range!, dial = r.dial;
+  const knob = (handle: 'lo' | 'hi', v: number) => {
+    const value = dial ? dial.min + v * (dial.max - dial.min) : v;
+    const a = o.controls && dial ? ` data-dial="${key}" data-handle="${handle}" role="slider" tabindex="0"
+      aria-label="${esc(t.handleOf(handle === 'lo' ? t.low : t.high, o.name ? t.dialOf(dial.label, o.name) : dial.label))}"
+      aria-valuemin="${dial.min}" aria-valuemax="${dial.max}" aria-valuenow="${value}" aria-valuetext="${num(value)}${dial.unit}"` : '';
+    return `<div class="orbit-12 knob-orbit" style="--o-range:0deg; --o-from:${(v * 360).toFixed(2)}deg">
+      <div class="satellite knob ${handle}" style="--o-size-ratio:1.4"${a}></div></div>`;
+  };
+  const track = o.controls && dial ? `<o-arc class="dial range-track" data-dial="${key}" interactive hit-width="12" style="--o-fill:var(--line)"></o-arc>`
+    : `<o-arc style="--o-fill:var(--line)"></o-arc>`;
+  return `<div class="orbit-12${pending ? ' is-pending' : ''}" style="${size}">${track}</div>
+    <div class="orbit-12 range-band" style="${size}"><o-arc class="band" start="${(lo * 100).toFixed(1)}" value="${((hi - lo) * 100).toFixed(1)}" style="--o-fill:${fill}"></o-arc></div>
+    ${knob('lo', lo)}${knob('hi', hi)}`;
 }
 
 // ─── Layers ─────────────────────────────────────────────────────────
@@ -93,15 +129,18 @@ export type Face = {
   props?: Record<string, string>;      // data-* for that view
   aria: string;
   extra?: string;                      // more markup inside the disc ("sending…")
+  // A picture inside the disc (a camera, a cover, a plan, a map): the text sits over it.
+  image?: { src: string; alt: string; key?: string };
 };
 
 // The front layer's center: the face in an at-center satellite of orbit-0,
 // which is the Zumly trigger of the next level.
 export function face(f: Face) {
   const props = Object.entries(f.props ?? {}).map(([k, v]) => ` data-${k}="${esc(v)}"`).join('');
+  const img = f.image ? `<img class="face-image" src="${esc(f.image.src)}" alt="${esc(f.image.alt)}"${f.image.key ? ` data-image="${esc(f.image.key)}"` : ''}>` : '';
   return `<div class="orbit-0" style="--o-size-ratio:21.2"><div class="satellite at-center">
-    <div class="capsule disc zoom-me" role="button" tabindex="0" data-to="${f.to}"${props} aria-label="${esc(f.aria)}">
-      ${icon(f.glyph)}<span class="face-name">${esc(f.name)}</span>
+    <div class="capsule disc zoom-me${img ? ' has-image' : ''}" role="button" tabindex="0" data-to="${f.to}"${props} aria-label="${esc(f.aria)}">
+      ${img}${icon(f.glyph)}<span class="face-name">${esc(f.name)}</span>
       <span class="face-big">${esc(f.big)}</span><span class="face-label">${esc(f.label)}</span>${f.extra ?? ''}</div></div></div>`;
 }
 
@@ -159,12 +198,15 @@ export function calmStrip(title: string, frontName: string, extra: number, how: 
 
 // ─── Dial gestures ──────────────────────────────────────────────────
 
+// A dial with two handles (a range) names them: `handle` is 'lo' or 'hi';
+// a plain dial has none (undefined).
 export type DialControls = {
   locked: () => boolean;
   ringOf: (key: string) => Element | null;      // the .orbit-12 that holds the dial, for the angle
-  current: (key: string) => number;             // value as a fraction 0..1
+  current: (key: string, handle?: string) => number;      // value as a fraction 0..1
   stepOf: (key: string) => number;              // one step as a fraction of the range
-  set: (key: string, v: number) => void;        // from a fraction (clamped to 0..1)
+  set: (key: string, v: number, handle?: string) => void; // from a fraction (clamped to 0..1)
+  nearest?: (key: string, v: number) => string | undefined;   // which handle a drag at `v` takes (ranges)
   onStart?: (key: string) => void;
   onEnd?: (key: string) => void;                // the drag ended (send the command)
   onInput?: (key: string) => void;              // keyboard or wheel changed it (send after a pause)
@@ -175,7 +217,7 @@ export type DialControls = {
 // Returns the cleanup.
 export function dialControls(el: HTMLElement, c: DialControls) {
   const clamp = (v: number) => Math.min(1, Math.max(0, v));
-  let drag: { key: string; last: number } | null = null;
+  let drag: { key: string; last: number; handle?: string } | null = null;
   let swallowUntil = 0;
 
   // Pointer angle (0 at the top, clockwise) as a fraction of a turn. Near the
@@ -195,16 +237,20 @@ export function dialControls(el: HTMLElement, c: DialControls) {
     if (drag.last > 0.75 && v < 0.25) v = 1;
     else if (drag.last < 0.25 && v > 0.75) v = 0;
     drag.last = v;
-    c.set(drag.key, v);
+    c.set(drag.key, v, drag.handle);
   };
   const onDown = (e: PointerEvent) => {
     const ringEl = (e.target as HTMLElement).closest<HTMLElement>('[data-dial]');
     if (!ringEl || c.locked()) return;
     e.preventDefault();
     ringEl.setPointerCapture(e.pointerId);
-    ringEl.focus({ preventScroll: true });
     const key = ringEl.dataset.dial!;
-    drag = { key, last: c.current(key) };
+    // A knob names its handle; on the track, the nearer handle follows.
+    let handle = ringEl.dataset.handle;
+    if (!handle && c.nearest) { const at = angleAt(key, e.clientX, e.clientY); handle = c.nearest(key, at ?? c.current(key)); }
+    const focusEl = handle && !ringEl.dataset.handle ? c.ringOf(key)?.parentElement?.querySelector<HTMLElement>(`[data-dial="${key}"][data-handle="${handle}"]`) : ringEl;
+    (focusEl ?? ringEl).focus({ preventScroll: true });
+    drag = { key, last: c.current(key, handle), handle };
     swallowUntil = Infinity;
     c.onStart?.(key);
     dragTo(e.clientX, e.clientY);
@@ -227,8 +273,8 @@ export function dialControls(el: HTMLElement, c: DialControls) {
     if (!ringEl) return;
     e.preventDefault();
     e.stopPropagation();
-    const key = ringEl.dataset.dial!;
-    c.set(key, clamp(c.current(key) + (e.deltaY < 0 ? c.stepOf(key) : -c.stepOf(key))));
+    const key = ringEl.dataset.dial!, handle = ringEl.dataset.handle;
+    c.set(key, clamp(c.current(key, handle) + (e.deltaY < 0 ? c.stepOf(key) : -c.stepOf(key))), handle);
     c.onInput?.(key);
   };
   // The o-arc are not native buttons: Enter and Space activate them. The dial
@@ -241,14 +287,14 @@ export function dialControls(el: HTMLElement, c: DialControls) {
       return;
     }
     if (!target.matches('[data-dial]')) return;
-    const key = target.dataset.dial!, v = c.current(key), s = c.stepOf(key);
+    const key = target.dataset.dial!, handle = target.dataset.handle, v = c.current(key, handle), s = c.stepOf(key);
     const next: Record<string, number> = {
       ArrowRight: v + s, ArrowUp: v + s, ArrowLeft: v - s, ArrowDown: v - s,
       PageUp: v + s * 4, PageDown: v - s * 4, Home: 0, End: 1,
     };
     if (!(e.key in next)) return;
     e.preventDefault();
-    c.set(key, clamp(next[e.key]));
+    c.set(key, clamp(next[e.key]), handle);
     c.onInput?.(key);
   };
 
@@ -263,6 +309,116 @@ export function dialControls(el: HTMLElement, c: DialControls) {
   return () => {
     for (const type of swallowed) window.removeEventListener(type, swallow, true);
   };
+}
+
+// ─── Time ring ──────────────────────────────────────────────────────
+
+export type TimeRing = {
+  values: (number | null)[];           // one per hour, oldest first; the last one is the current hour
+  big: string; label: string;          // the center
+  unit?: string;                       // for the hour dots' titles
+  min?: number; max?: number;          // the scale (default: the values' own)
+};
+
+// The last 24 hours around a clock: the hour is the angle (the current hour
+// at the top, so the past reads clockwise behind it), the value is how far
+// out each dot sits (--o-alignment moves it inward from the ring), and a
+// faint segment per hour darkens with the value. Its own universe; the
+// width comes from CSS (.time-ring).
+export function timeRing(tr: TimeRing) {
+  const n = tr.values.length || 1;
+  const nums = tr.values.filter((v): v is number => v != null);
+  const lo = tr.min ?? Math.min(...nums), hi = tr.max ?? Math.max(...nums);
+  const span = hi - lo || 1;
+  const norm = (v: number) => Math.min(1, Math.max(0, (v - lo) / span));
+  // The ring is 12 lanes out; the dots travel the 6 inner ones (--o-alignment in lanes × LANE px of this universe).
+  const lane = TIME_RING / 2 / 12;
+  const dots = tr.values.map((v, i) => {
+    const hour = i === n - 1 ? t.now : t.hoursAgo(n - 1 - i);
+    if (v == null) return `<div class="satellite time-dot is-empty" title="${esc(hour)}"></div>`;
+    return `<div class="satellite time-dot${i === n - 1 ? ' is-now' : ''}" style="--o-alignment:${((1 - norm(v)) * 6 * lane).toFixed(1)}px"
+      title="${esc(`${hour}: ${num(v)}${tr.unit ?? ''}`)}"></div>`;
+  }).join('');
+  const heat = tr.values.map((v) => `<o-arc class="time-heat" style="--o-fill:var(--ink); opacity:${v == null ? 0 : (0.08 + norm(v) * 0.5).toFixed(2)}"></o-arc>`).join('');
+  // Orbit seats the first child at --o-from and the arcs split the range from
+  // there: half a step in, the last hour's segment is centered at the top, and
+  // the dots (a further half step) sit over the middle of their segments.
+  const step = 360 / n;
+  return `<div class="bigbang time-ring" role="img" aria-label="${esc(t.last24h)}: ${esc(tr.big)}"><div class="gravity-spot">
+    <div class="orbit-12 time-track" style="--o-from:${(step / 2).toFixed(3)}deg; --o-gap:6">${heat}</div>
+    <div class="orbit-12 time-dots" style="--o-from:${step.toFixed(3)}deg">${dots}</div>
+    <div class="orbit-0" style="--o-size-ratio:15"><div class="satellite at-center"><div class="capsule time-center">
+      <span class="time-big">${esc(tr.big)}</span><span class="time-label">${esc(tr.label)}</span></div></div></div>
+  </div></div>`;
+}
+export const TIME_RING = 200;        // px; the universe of the time ring (see .time-ring in the CSS)
+
+// ─── Color wheel ────────────────────────────────────────────────────
+
+// Hue around (0 at the top, clockwise), saturation outward: the control of a
+// light's color. The handle shows the color it points at. Its gestures live
+// in wheelControls().
+export function colorWheel(hs: [number, number] | null, key: string, label: string) {
+  const [h, s] = hs ?? [0, 0];
+  const x = 50 + 50 * (s / 100) * Math.sin(h * Math.PI / 180), y = 50 - 50 * (s / 100) * Math.cos(h * Math.PI / 180);
+  return `<div class="color-wheel${hs ? '' : ' is-unset'}" data-wheel="${esc(key)}" role="slider" tabindex="0" aria-label="${esc(label)}"
+      aria-valuemin="0" aria-valuemax="360" aria-valuenow="${Math.round(h)}" aria-valuetext="${esc(t.hueSat(Math.round(h), Math.round(s)))}">
+    <div class="color-handle" style="left:${x.toFixed(1)}%; top:${y.toFixed(1)}%; background:${hsCss(h, s)}"></div></div>`;
+}
+// CSS color of a hue/saturation at full brightness.
+export const hsCss = (h: number, s: number) => `hsl(${Math.round(h)} 100% ${Math.round(100 - s / 2)}%)`;
+
+export type WheelControls = {
+  current: (key: string) => [number, number];
+  set: (key: string, hs: [number, number]) => void;     // moves the handle (no command yet)
+  onEnd: (key: string) => void;                         // the gesture ended (send the command)
+  onInput?: (key: string) => void;                      // the keyboard changed it (send after a pause)
+};
+
+// Drag or tap anywhere on the wheel; arrows turn the hue (left/right, 5° a
+// step) and move the saturation (up/down, 5 a step). Returns the cleanup.
+export function wheelControls(el: HTMLElement, c: WheelControls) {
+  let drag: string | null = null;
+  const at = (wheel: HTMLElement, x: number, y: number): [number, number] => {
+    const b = wheel.getBoundingClientRect();
+    const dx = x - (b.left + b.width / 2), dy = y - (b.top + b.height / 2);
+    const h = ((Math.atan2(dx, -dy) * 180 / Math.PI) + 360) % 360;
+    return [Math.round(h), Math.round(Math.min(1, Math.hypot(dx, dy) / (b.width / 2)) * 100)];
+  };
+  const onDown = (e: PointerEvent) => {
+    const wheel = (e.target as HTMLElement).closest<HTMLElement>('[data-wheel]');
+    if (!wheel) return;
+    e.preventDefault();
+    wheel.setPointerCapture(e.pointerId);
+    wheel.focus({ preventScroll: true });
+    drag = wheel.dataset.wheel!;
+    c.set(drag, at(wheel, e.clientX, e.clientY));
+  };
+  const onMove = (e: PointerEvent) => {
+    if (!drag) return;
+    const wheel = el.querySelector<HTMLElement>(`[data-wheel="${drag}"]`);
+    if (wheel) c.set(drag, at(wheel, e.clientX, e.clientY));
+  };
+  const onUp = () => { if (!drag) return; const key = drag; drag = null; c.onEnd(key); };
+  const onKey = (e: KeyboardEvent) => {
+    const wheel = (e.target as HTMLElement).closest<HTMLElement>('[data-wheel]');
+    if (!wheel) return;
+    const key = wheel.dataset.wheel!, [h, s] = c.current(key);
+    const next: Record<string, [number, number]> = {
+      ArrowRight: [(h + 5) % 360, s], ArrowLeft: [(h + 355) % 360, s],
+      ArrowUp: [h, Math.min(100, s + 5)], ArrowDown: [h, Math.max(0, s - 5)], Home: [h, 0], End: [h, 100],
+    };
+    if (!(e.key in next)) return;
+    e.preventDefault();
+    c.set(key, next[e.key]);
+    c.onInput?.(key);
+  };
+  el.addEventListener('pointerdown', onDown);
+  el.addEventListener('pointermove', onMove);
+  el.addEventListener('pointerup', onUp);
+  el.addEventListener('pointercancel', onUp);
+  el.addEventListener('keydown', onKey);
+  return () => { /* the listeners go with the element */ };
 }
 
 // ±7° parallax with the pointer, only in 3D and not on the phone (no pointer).

@@ -52,7 +52,42 @@ export interface PulseSource {
   call(c: Call): Promise<unknown>;
   // Resolves an entity's relative URL (a camera image) against the source.
   url(path: string): string;
+  // A camera's live MJPEG stream, when the source can serve one.
+  stream?(entity: string): string | undefined;
+  // A numeric entity's last `hours` hours as one value per hour, oldest
+  // first, the current hour last; null where nothing is known.
+  history?(entity: string, hours: number): Promise<(number | null)[]>;
 }
+
+// What `history/history_during_period` returns with minimal_response and
+// no_attributes: per entity, the state and when it was last updated (seconds).
+export type HistoryRow = { s: string; lu: number };
+// Hourly means of a state history. A state holds until the next one, so an
+// hour with no change takes the state that was current when it began.
+export function hourly(rows: HistoryRow[], hours: number, now = Date.now()): (number | null)[] {
+  const end = now / 1000, start = end - hours * 3600;
+  const out: (number | null)[] = [];
+  let i = 0, last: number | null = null;
+  // The state in force at `start`: the last row before it.
+  while (i < rows.length && rows[i].lu <= start) { const v = Number(rows[i].s); last = Number.isFinite(v) ? v : last; i++; }
+  for (let h = 0; h < hours; h++) {
+    const t0 = start + h * 3600, t1 = t0 + 3600;
+    let sum = 0, weight = 0, at = t0, current = last;
+    while (i < rows.length && rows[i].lu < t1) {
+      const v = Number(rows[i].s);
+      if (current != null) { sum += current * (rows[i].lu - at); weight += rows[i].lu - at; }
+      at = rows[i].lu;
+      current = Number.isFinite(v) ? v : current;
+      i++;
+    }
+    if (current != null) { sum += current * (t1 - at); weight += t1 - at; }
+    out.push(weight > 0 ? sum / weight : null);
+    last = current;
+  }
+  return out;
+}
+export const cameraStream = (e: HassState | undefined) =>
+  e && e.attributes.access_token ? `/api/camera_proxy_stream/${e.entity_id}?token=${String(e.attributes.access_token)}` : undefined;
 
 // The lists Home Assistant serves over the WebSocket, as the registry. None of
 // them needs an admin user. `repairs/list_issues` fails when the repairs
@@ -241,5 +276,20 @@ export class WebSocketSource implements PulseSource {
     if (!this.conn) return Promise.reject(new Error(t.errNoConnection));
     const { entity_id, ...rest } = data;
     return callService(this.conn, domain, service, rest, entity_id ? { entity_id: entity_id as string | string[] } : undefined);
+  }
+
+  stream(entity: string) {
+    const path = cameraStream(this.states.get(entity));
+    return path ? this.url(path) : undefined;
+  }
+
+  async history(entity: string, hours: number) {
+    if (!this.conn) throw new Error(t.errNoConnection);
+    const now = Date.now();
+    const rows = await this.conn.sendMessagePromise<Record<string, HistoryRow[]>>({
+      type: 'history/history_during_period', entity_ids: [entity], minimal_response: true, no_attributes: true,
+      start_time: new Date(now - hours * 3600_000).toISOString(), end_time: new Date(now).toISOString(),
+    });
+    return hourly(rows[entity] ?? [], hours, now);
   }
 }

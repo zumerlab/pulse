@@ -1,10 +1,11 @@
 import Zumly, { type ViewContext } from 'zumly';
 import type { Call, HassState, PulseSource, Status } from './source.ts';
-import { nameOf, placeOf, systems, type Alert, type Channel, type Reading } from './model.ts';
+import { nameOf, placeOf, systems, type Alert, type Channel, type Dial, type Reading } from './model.ts';
 import { tune } from './tune.ts';
 import {
-  DOT_LANES, LANE, LOCK_MS, MINI_LANES, PHONE, SIZE, STROKE, backLayer, calmStrip, dialControls, dots, esc, face,
-  icon, labelAt, levelColor, num, parallax, ring as drawRing, startInside, systemShell, time, zumlyOptions,
+  DOT_LANES, LANE, LOCK_MS, MINI_LANES, PHONE, SIZE, STROKE, backLayer, calmStrip, colorWheel, dialControls, dots, esc, face,
+  icon, labelAt, levelColor, num, parallax, ring as drawRing, startInside, systemShell, time, timeRing, wheelControls, zumlyOptions,
+  type RingReading,
 } from '@zumer/pulse';
 import { t } from './strings.ts';
 
@@ -182,9 +183,19 @@ function compute() {
       const named = r.name && r.name !== ch.name ? { ...ch, name: r.name } : ch;
       channels[sys.id].push({ ch: named, r, hidden: hidden.includes(ch.key) });
       if (hidden.includes(ch.key)) continue;
-      if (r.dial) {
+      if (r.dial && r.range) {
+        // Each end of a range is held on its own (entity#lo, entity#hi).
+        const lo = hold.get(`${r.dial.entity}#lo`), hi = hold.get(`${r.dial.entity}#hi`);
+        if (lo && lo.until > now) r.range.lo = lo.value;
+        if (hi && hi.until > now) r.range.hi = hi.value;
+        r.dial.value = r.range.lo;
+      } else if (r.dial) {
         const h = hold.get(r.dial.entity);
         if (h && h.until > now) { r.dial.value = h.value; r.v = (h.value - r.dial.min) / (r.dial.max - r.dial.min); }
+      }
+      if (r.color) {
+        const h = hold.get(`${r.color.entity}#hs`);
+        if (h && h.until > now) r.color.hs = [Math.floor(h.value / 1000), h.value % 1000];
       }
       map.set(ch.key, { ch: named, r });
       if (r.alert) {
@@ -253,10 +264,23 @@ function repaint() {
 // `call`: this ring's alert calls (in front and not muted): its failing segments ripple.
 // What was sent and not confirmed is marked pending (it beats).
 function ring(key: string, r: Reading, lanes: number, controls = false, muted = false, call = false, name?: string) {
-  return drawRing(key, r, lanes, {
+  return drawRing(key, ringReading(r), lanes, {
     name, controls, muted, call,
     pending: (entity) => entity === undefined ? isPending(r) : pending.has(entity),
   });
+}
+// The model's reading is the core's, except that a range is given in the dial's units.
+const frac = (d: Dial, v: number) => Math.min(1, Math.max(0, (v - d.min) / (d.max - d.min)));
+function ringReading(r: Reading): RingReading {
+  return { ...r, range: r.range && r.dial ? { lo: frac(r.dial, r.range.lo), hi: frac(r.dial, r.range.hi) } : undefined };
+}
+// A reading's picture, resolved against the source. A camera's snapshot is
+// asked again every few seconds (the bucket in the URL): the browser does not cache it.
+function imageOf(r: Reading) {
+  if (!r.image) return undefined;
+  const camera = r.image.entity.startsWith('camera.');
+  const src = ha.url(r.image.src);
+  return { src: camera ? `${src}${src.includes('?') ? '&' : '?'}t=${Math.floor(Date.now() / 8192)}` : src, alt: r.image.alt, key: camera ? r.image.entity : undefined };
 }
 
 // ─── Board ──────────────────────────────────────────────────────────
@@ -809,7 +833,7 @@ function system(ctx: ViewContext, id: string) {
       }).join('') : '';
       layer.innerHTML = ring(key, r, STROKE[d] / grow / LANE, i === 0, false, i === 0 && !!r.alert && !seen, ch.name) + sats + (i === 0
         ? face({ glyph: ch.glyph, name: ch.name, big: shown.big, label: shown.label, to: 'detail',
-          props: { system: id, channel: key }, aria: t.details(ch.name),
+          props: { system: id, channel: key }, aria: t.details(ch.name), image: imageOf(r),
           extra: isPending(r) ? `<span class="face-wait">${t.sending}</span>` : '' })
         : backLayer({ text: `${ch.name} · ${shown.big}`, at: labelAt(i), grow, stroke: STROKE[d], hit: 12,
           pick: { attr: 'data-pick', value: key, aria: t.bringToFront(ch.name) } }));
@@ -819,7 +843,8 @@ function system(ctx: ViewContext, id: string) {
     if (!frontItem) { strip.textContent = t.noEntities; return; }
     const extra = ord.length - SIZE.length;
     const fa = frontItem.r.alert && !u.seen.has(ord[0]) ? frontItem.r.alert : null;
-    const how = frontItem.r.dial ? t.howDial : frontItem.r.segs?.some((s) => s.act) ? t.howSegments : '';
+    const how = frontItem.r.range ? t.howRange : frontItem.r.dial ? t.howDial
+      : frontItem.r.kind === 'c' && frontItem.r.segs?.some((s) => s.act) ? t.howChoice : frontItem.r.segs?.some((s) => s.act) ? t.howSegments : '';
     if (dotsEl) {
       dotsEl.innerHTML = dots(IDS.filter((other) => order(other).length).map((other) => {
         const k = order(other)[0];
@@ -840,7 +865,9 @@ function system(ctx: ViewContext, id: string) {
     const layer = target.closest<HTMLElement>('.layer')?.dataset.ch;
     for (const a of ['data-seg', 'data-dial', 'data-pick', 'data-resolve', 'data-act']) {
       const v = target.getAttribute(a);
-      if (v !== null) return `${a === 'data-seg' && layer ? `.layer[data-ch="${layer}"] ` : ''}[${a}="${v}"]`;
+      if (v === null) continue;
+      const handle = target.getAttribute('data-handle');
+      return `${a === 'data-seg' && layer ? `.layer[data-ch="${layer}"] ` : ''}[${a}="${v}"]${handle ? `[data-handle="${handle}"]` : ''}`;
     }
     return null;
   };
@@ -852,13 +879,38 @@ function system(ctx: ViewContext, id: string) {
     const raw = dial.min + Math.min(1, Math.max(0, v)) * (dial.max - dial.min);
     return Math.round(raw / dial.step) * dial.step;
   };
+  const rangeOf = (key: string) => readings[id].get(key)!.r.range;
+  // Where each end of a range is now (held or read), in the dial's units.
+  const endOf = (key: string, handle: string) => {
+    const dial = dialOf(key), range = rangeOf(key)!;
+    return hold.get(`${dial.entity}#${handle}`)?.value ?? (handle === 'lo' ? range.lo : range.hi);
+  };
   // The dial moves in place; the command goes out on release (or after a keyboard pause).
-  const setDial = (key: string, value: number, until = Infinity) => {
+  const setDial = (key: string, value: number, until = Infinity, handle?: string) => {
     const dial = dialOf(key);
     value = Math.min(dial.max, Math.max(dial.min, value));
+    const layer = layers.get(key)!;
+    if (handle) {
+      // One end never crosses the other.
+      const other = endOf(key, handle === 'lo' ? 'hi' : 'lo');
+      value = handle === 'lo' ? Math.min(value, other) : Math.max(value, other);
+      hold.set(`${dial.entity}#${handle}`, { value, until });
+      const lo = endOf(key, 'lo'), hi = endOf(key, 'hi'), fl = frac(dial, lo), fh = frac(dial, hi);
+      const band = layer.querySelector<HTMLElement>('.range-band o-arc');
+      band?.setAttribute('start', (fl * 100).toFixed(1));
+      band?.setAttribute('value', ((fh - fl) * 100).toFixed(1));
+      for (const [h, v, f] of [['lo', lo, fl], ['hi', hi, fh]] as const) {
+        const knob = layer.querySelector<HTMLElement>(`.knob[data-handle="${h}"]`);
+        knob?.parentElement?.style.setProperty('--o-from', `${(f * 360).toFixed(2)}deg`);
+        knob?.setAttribute('aria-valuenow', String(v));
+        knob?.setAttribute('aria-valuetext', `${num(v)}${dial.unit}`);
+      }
+      const label = layer.querySelector('.face-label');
+      if (label) label.textContent = `between ${num(lo)}° and ${num(hi)}°`;
+      return value;
+    }
     hold.set(dial.entity, { value, until });
     const v = (value - dial.min) / (dial.max - dial.min);
-    const layer = layers.get(key)!;
     const ringEl = layer.querySelector<HTMLElement>('[data-dial]');
     ringEl?.setAttribute('value', (v * 100).toFixed(1));
     ringEl?.setAttribute('aria-valuenow', String(value));
@@ -868,7 +920,15 @@ function system(ctx: ViewContext, id: string) {
     return value;
   };
   const commit = (key: string) => {
-    const dial = dialOf(key), h = hold.get(dial.entity);
+    const dial = dialOf(key), range = rangeOf(key);
+    if (range) {
+      const lo = hold.get(`${dial.entity}#lo`), hi = hold.get(`${dial.entity}#hi`);
+      if (!lo && !hi) return;
+      for (const h of [lo, hi]) if (h) h.until = Date.now() + PENDING_MS;
+      void send([range.set(lo?.value ?? range.lo, hi?.value ?? range.hi)]);
+      return;
+    }
+    const h = hold.get(dial.entity);
     if (!h) return;
     h.until = Date.now() + PENDING_MS;
     void send([dial.set(h.value)]);
@@ -879,18 +939,38 @@ function system(ctx: ViewContext, id: string) {
     keyTimer = window.setTimeout(() => commit(key), 500);
   };
 
-  const fraction = (key: string) => { const d = dialOf(key); return ((hold.get(d.entity)?.value ?? d.value) - d.min) / (d.max - d.min); };
+  const fraction = (key: string, handle?: string) => {
+    const d = dialOf(key);
+    if (handle) return frac(d, endOf(key, handle));
+    return ((hold.get(d.entity)?.value ?? d.value) - d.min) / (d.max - d.min);
+  };
   ctx.onCleanup(dialControls(el, {
     locked: () => locked,
     ringOf: (key) => layers.get(key)?.querySelector('.orbit-12') ?? null,
     current: fraction,
     stepOf: (key) => { const d = dialOf(key); return d.step / (d.max - d.min); },
-    set: (key, v) => setDial(key, snap(key, v)),
+    set: (key, v, handle) => setDial(key, snap(key, v), Infinity, handle),
+    // On a range's track, the end nearer to the pointer follows it.
+    nearest: (key, v) => {
+      if (!rangeOf(key)) return undefined;
+      const dist = (f: number) => Math.min(Math.abs(f - v), 1 - Math.abs(f - v));
+      return dist(fraction(key, 'lo')) <= dist(fraction(key, 'hi')) ? 'lo' : 'hi';
+    },
     onStart: () => { dragging = true; },
     onEnd: (key) => { dragging = false; commit(key); },
     onInput: commitSoon,
     activate: 'o-arc[data-pick], o-arc[data-seg], .sat[data-pick]',
   }));
+
+  // A camera in the face: its snapshot is asked again every 8 s.
+  const refresh = window.setInterval(() => {
+    const img = el.querySelector<HTMLImageElement>('.layer-front .face-image[data-image]');
+    const r = img && readings[id].get(ord0())?.r;
+    const next = r && imageOf(r);
+    if (img && next && img.src !== next.src) img.src = next.src;
+  }, 8000);
+  const ord0 = () => order(id)[0];
+  ctx.onCleanup(() => clearInterval(refresh));
 
   const lock = () => {
     locked = true;
@@ -954,32 +1034,63 @@ function stateText(e: HassState) {
   return `${stateWords[e.state] ?? e.state}${u ? ` ${String(u)}` : ''}`;
 }
 
+// A day of an entity, once per visit (and again after five minutes).
+const histories = new Map<string, { at: number; values: (number | null)[] | null; error?: boolean }>();
+const HISTORY_MS = 5 * 60_000;
+
 function detail(ctx: ViewContext) {
   const id = String(ctx.props.system), key = String(ctx.props.channel);
   const el = ctx.target;
   el.dataset.title = readings[id]?.get(key)?.ch.name ?? key;
   let last = '';
+  let square = false, live = false;
   const paint = () => {
     const item = readings[id]?.get(key);
     if (!item) return;
     const { ch, r } = item;
-    const now = JSON.stringify([r, [...pending.keys()], toast]);
+    const history = r.history ? histories.get(r.history) : undefined;
+    const now = JSON.stringify([r, [...pending.keys()], toast, square, live, history?.values?.length ?? history?.error]);
     if (now === last) return;
     last = now;
-    if (el.contains(activeElement()) && (activeElement() as HTMLElement).matches('input[type="range"]')) return;
+    const active = activeElement() as HTMLElement | null;
+    if (el.contains(active) && active?.matches('input[type="range"], [data-wheel]')) return;
     const a = r.alert && !ui[id].seen.has(key) ? r.alert : null;
     let control = '';
-    if (r.dial) {
+    if (r.dial && r.range) {
+      const d = r.dial;
+      const one = (handle: 'lo' | 'hi', value: number, label: string) => `<label class="slider">${esc(label)} · <output>${num(value)}${d.unit}</output>
+        <input type="range" data-handle="${handle}" min="${d.min}" max="${d.max}" step="${d.step}" value="${value}"></label>`;
+      control = `<div class="ranges">${one('lo', r.range.lo, t.lowOf(d.label))}${one('hi', r.range.hi, t.highOf(d.label))}</div>`;
+    } else if (r.dial) {
       control = `<label class="slider">${r.dial.label[0].toUpperCase()}${r.dial.label.slice(1)} · <output>${num(r.dial.value)}${r.dial.unit}</output>
         <input type="range" min="${r.dial.min}" max="${r.dial.max}" step="${r.dial.step}" value="${r.dial.value}"></label>`;
     } else if (r.segs) {
-      control = `<ul class="switches">${r.segs.map((s, i) => `<li><label class="${pending.has(s.entity) ? 'is-pending' : ''}${
+      // Switches, or the options of a choice (radios: the one that is on has no action).
+      const type = r.kind === 'c' ? 'radio' : 'checkbox';
+      control = `<ul class="switches${r.kind === 'c' ? ' choice' : ''}">${r.segs.map((s, i) => `<li><label class="${pending.has(s.entity) ? 'is-pending' : ''}${
         r.alert?.fail?.includes(i) ? ` fail level-${r.alert.level}` : ''}">
-        <input type="checkbox" data-seg="${i}"${s.on ? ' checked' : ''}${s.act ? '' : ' disabled'}> ${esc(s.label)}
-        <span class="state">${esc(stateText(ha.states.get(s.entity)!))}</span></label></li>`).join('')}</ul>`;
+        <input type="${type}" name="seg" data-seg="${i}"${s.on ? ' checked' : ''}${s.act ? '' : ' disabled'}> ${esc(s.label)}
+        <span class="state">${esc(r.kind === 'c' ? '' : stateText(ha.states.get(s.entity)!))}</span></label></li>`).join('')}</ul>`;
     }
-    const picture = r.camera ? ha.states.get(r.camera)?.attributes.entity_picture : undefined;
-    const cam = picture ? ha.url(picture) : '';
+    if (r.color) control += colorWheel(r.color.hs, key, t.colorOf(ch.name));
+    // The picture, round like the face or square on request; a camera can go live.
+    let figure = '';
+    if (r.image) {
+      const stream = r.image.entity.startsWith('camera.') ? ha.stream?.(r.image.entity) : undefined;
+      const img = imageOf(r)!;
+      figure = `<figure class="detail-image${square ? ' is-square' : ''}">
+        <img src="${esc(live && stream ? stream : img.src)}" alt="${esc(img.alt)}"${img.key && !live ? ` data-image="${esc(img.key)}"` : ''}>
+        <figcaption><button class="plain" data-shape>${square ? t.showRound : t.showSquare}</button>
+          ${stream ? `<button class="plain" data-live aria-pressed="${live}">${live ? t.snapshot : t.live}</button>` : ''}</figcaption></figure>`;
+    }
+    // The last 24 hours of a numeric entity, as a ring.
+    let day = '';
+    if (r.history && ha.history) {
+      if (!history || (Date.now() - history.at > HISTORY_MS && history.values)) void loadHistory(r.history);
+      const u = String(ha.states.get(r.history)?.attributes.unit_of_measurement ?? '');
+      day = `<div class="history">${history?.values ? timeRing({ values: history.values, big: r.big, label: t.last24h, unit: u === '%' || !u ? u : ` ${u}` })
+        : `<p class="hint">${history?.error ? t.historyNone : t.historyLoading}</p>`}</div>`;
+    }
     el.innerHTML = `<div class="detail">
       <p class="eyebrow">${SYS[id].title}</p>
       <h1>${icon(ch.glyph, 30)} ${ch.name}</h1>
@@ -988,7 +1099,8 @@ function detail(ctx: ViewContext) {
       ${a ? `<p class="detail-why level-${a.level}">${esc(a.why)}. ${a.busy ? `<span class="face-wait">${t.inProgress}</span>`
         : `<button class="primary" data-resolve>${esc(a.verb)}</button>`}</p>` : ''}
       ${toast ? `<p class="error">${esc(toast)}</p>` : ''}
-      ${cam ? `<img class="camera" alt="${t.backyardCamera}" src="${esc(cam)}&t=${Date.now() >> 13}">` : ''}
+      ${figure}
+      ${day}
       ${control}
       <details class="entities"><summary>${t.entitiesInHA}</summary><ul>${r.entities.map((e) => {
         const s = ha.states.get(e);
@@ -996,19 +1108,76 @@ function detail(ctx: ViewContext) {
       }).join('')}</ul></details>
     </div>`;
   };
+  const loadHistory = (entity: string) => {
+    const was = histories.get(entity);
+    histories.set(entity, { at: Date.now(), values: was?.values ?? null });
+    return ha.history!(entity, 24).then(
+      (values) => { histories.set(entity, { at: Date.now(), values: values.some((v) => v != null) ? values : null, error: !values.some((v) => v != null) }); paint(); },
+      () => { histories.set(entity, { at: Date.now(), values: null, error: true }); paint(); });
+  };
+  // A camera's snapshot, refreshed like the face's.
+  const refresh = window.setInterval(() => {
+    const img = el.querySelector<HTMLImageElement>('.detail-image img[data-image]');
+    const r = readings[id]?.get(key)?.r, next = r && imageOf(r);
+    if (img && next && img.src !== next.src) img.src = next.src;
+  }, 8000);
+  ctx.onCleanup(() => clearInterval(refresh));
   paint();
   rerender.add(paint);
   ctx.onCleanup(() => { rerender.delete(paint); });
+
+  // ─── The color wheel: the handle follows the pointer; the light gets the color on release ───
+  const hsOf = (): [number, number] => {
+    const r = readings[id].get(key)!.r, h = hold.get(`${r.color!.entity}#hs`);
+    // A white light has no hue yet: the keys start from a full red, not from white.
+    return h ? [Math.floor(h.value / 1000), h.value % 1000] : r.color!.hs ?? [0, 100];
+  };
+  let wheelTimer = 0;
+  const sendColor = () => {
+    const r = readings[id].get(key)!.r, h = hold.get(`${r.color!.entity}#hs`);
+    if (!h) return;
+    h.until = Date.now() + PENDING_MS;
+    const [hue, sat] = [Math.floor(h.value / 1000), h.value % 1000];
+    void send([r.color!.set(hue, sat)]);
+  };
+  ctx.onCleanup(wheelControls(el, {
+    current: hsOf,
+    set: (_k, [h, sat]) => {
+      const r = readings[id].get(key)!.r;
+      // One number holds both: hue × 1000 + saturation.
+      hold.set(`${r.color!.entity}#hs`, { value: h * 1000 + sat, until: Infinity });
+      const wheel = el.querySelector<HTMLElement>('[data-wheel]'), handle = wheel?.querySelector<HTMLElement>('.color-handle');
+      if (!wheel || !handle) return;
+      wheel.classList.remove('is-unset');
+      wheel.setAttribute('aria-valuenow', String(h));
+      wheel.setAttribute('aria-valuetext', t.hueSat(h, sat));
+      handle.style.left = `${(50 + 50 * (sat / 100) * Math.sin(h * Math.PI / 180)).toFixed(1)}%`;
+      handle.style.top = `${(50 - 50 * (sat / 100) * Math.cos(h * Math.PI / 180)).toFixed(1)}%`;
+      handle.style.background = `hsl(${h} 100% ${Math.round(100 - sat / 2)}%)`;
+    },
+    onEnd: sendColor,
+    onInput: () => { clearTimeout(wheelTimer); wheelTimer = window.setTimeout(sendColor, 500); },
+  }));
+
   el.addEventListener('input', (e) => {
     const input = e.target as HTMLInputElement, r = readings[id].get(key)!.r;
-    if (input.type === 'range' && r.dial) {
-      hold.set(r.dial.entity, { value: Number(input.value), until: Infinity });
-      el.querySelector('output')!.textContent = `${num(Number(input.value))}${r.dial.unit}`;
-    }
+    if (input.type !== 'range' || !r.dial) return;
+    const handle = input.dataset.handle;
+    hold.set(handle ? `${r.dial.entity}#${handle}` : r.dial.entity, { value: Number(input.value), until: Infinity });
+    input.closest('label')!.querySelector('output')!.textContent = `${num(Number(input.value))}${r.dial.unit}`;
   });
   el.addEventListener('change', (e) => {
     const input = e.target as HTMLInputElement, r = readings[id].get(key)!.r;
-    if (input.type === 'range' && r.dial) {
+    if (input.type === 'range' && r.dial && r.range) {
+      const handle = input.dataset.handle!, value = Number(input.value);
+      const lo = handle === 'lo' ? value : hold.get(`${r.dial.entity}#lo`)?.value ?? r.range.lo;
+      const hi = handle === 'hi' ? value : hold.get(`${r.dial.entity}#hi`)?.value ?? r.range.hi;
+      const [l, h] = lo <= hi ? [lo, hi] : handle === 'lo' ? [lo, lo] : [hi, hi];
+      hold.set(`${r.dial.entity}#lo`, { value: l, until: Date.now() + PENDING_MS });
+      hold.set(`${r.dial.entity}#hi`, { value: h, until: Date.now() + PENDING_MS });
+      void send([r.range.set(l, h)]);
+      input.blur();
+    } else if (input.type === 'range' && r.dial) {
       hold.set(r.dial.entity, { value: Number(input.value), until: Date.now() + PENDING_MS });
       void send([r.dial.set(Number(input.value))]);
       input.blur();
@@ -1018,7 +1187,10 @@ function detail(ctx: ViewContext) {
     }
   });
   el.addEventListener('click', (e) => {
-    if (!(e.target as HTMLElement).closest('[data-resolve]')) return;
+    const target = e.target as HTMLElement;
+    if (target.closest('[data-shape]')) { square = !square; paint(); return; }
+    if (target.closest('[data-live]')) { live = !live; paint(); return; }
+    if (!target.closest('[data-resolve]')) return;
     const a = readings[id].get(key)?.r.alert;
     if (!a) return;
     if (a.calls.length) void send(a.calls);

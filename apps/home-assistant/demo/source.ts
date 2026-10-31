@@ -98,6 +98,24 @@ export class DemoSource implements PulseSource {
     });
   }
 
+  // The demo has no recorder: a day is made up around the current value, the
+  // same one every time for the same entity (a hash of its id seeds it).
+  async history(entity: string, hours: number) {
+    const e = this.states.get(entity), v = Number(e?.state);
+    if (!e || !Number.isFinite(v)) return Array.from({ length: hours }, () => null);
+    let seed = 0;
+    for (const c of entity) seed = (seed * 31 + c.charCodeAt(0)) >>> 0;
+    const rand = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 2 ** 32; };
+    const phase = rand() * Math.PI * 2, swing = 0.1 + rand() * 0.2, noise = rand() * 0.06;
+    const base = v || 1;
+    return Array.from({ length: hours }, (_, i) => {
+      const x = (i + 1) / hours;                // 1 at the current hour
+      const wave = Math.sin(x * Math.PI * 2 + phase) - Math.sin(Math.PI * 2 + phase);
+      const value = base * (1 + swing * wave * (1 - x) + (rand() - 0.5) * noise);
+      return Math.round((i === hours - 1 ? v : value) * 100) / 100;
+    });
+  }
+
   async call({ domain, service, data }: Call) {
     if (this.status !== 'live') throw new Error(t.errNoConnection);
     const { entity_id, ...rest } = data;

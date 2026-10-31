@@ -165,17 +165,48 @@ another installation, or one of the demo homes, builds its own object.
 
 | System | Channels | Controls on the ring |
 |---|---|---|
-| Lights | all lights · brightness of the first dimmable one · plugs | segments = `light.toggle`; dial = `brightness_pct` |
-| Climate | two thermostats · one with a range (Ecobee) · humidity | dial = `climate.set_temperature` |
-| Security | alarm · sirens · locks · sensors (doors and windows, safety, motion) | alarm modes (the demo's code), sirens, locks |
+| Lights | all lights · brightness of the first dimmable one (the dial takes the light's color; a color wheel in the detail) · plugs | segments = `light.toggle`; dial = `brightness_pct`; wheel = `hs_color` |
+| Climate | thermostat · its mode (a choice) · air conditioning · fan speed · one with a range (Ecobee: a band with two ends) · humidity (a day ring in the detail) | dial = `climate.set_temperature`; choice = `set_hvac_mode`; dial = `fan.set_percentage`; range = `target_temp_low/high` |
+| Security | alarm (a choice) · cameras (the picture in the face) · sirens · locks · sensors (doors and windows, safety, motion) | alarm modes (the demo's code), sirens, locks |
 | Openings | two covers with position · garage door · irrigation valves | dial = `set_cover_position`; valves |
-| Media | players · volume of the first one | play/pause; dial = `volume_set` |
-| Energy | power (W) · carbon monoxide · hot water | dial = `water_heater.set_temperature` |
+| Media | players (the artwork in the face) · a player's source (a choice) · volume of the first one | play/pause; choice = `select_source`; dial = `volume_set` |
+| Energy | power (W) · carbon monoxide · hot water (the first two with a day ring) | dial = `water_heater.set_temperature` |
 | Maintenance | updates · vacuums · batteries · problems · repairs | install; start / return to base |
 
 The models are in `model.ts`: each channel is a function of the state. If no
 entity fits, the channel does not appear. A channel that follows one entity
 takes its name (the face says "Thermostat", "Kitchen shutter").
+
+### The primitives a reading can use
+
+The object has a few primitives (in `@zumer/pulse`), and every channel is one
+of them plus, sometimes, a picture or a day. `Reading.kind`:
+
+- `'p'`: a band that fills; with a `dial`, dragged on the ring. With a
+  `range` (`lo`, `hi`, `set`) the band goes from one end to the other and has
+  a knob at each: the nearer one follows the pointer, each is a slider for
+  the keyboard, and neither crosses the other (the Ecobee's comfort range).
+- `'s'`: segments that switch on and off (`segs` with `act`).
+- `'c'`: a choice, segments of which exactly one is on, with their names
+  along the inside of the ring (`role="radiogroup"`): the thermostat's
+  `hvac_modes`, the alarm's modes, a player's `source_list`. In the detail
+  they are radios.
+
+Besides the kind, a reading can carry `image` (`src`, `alt`, `entity`): the
+picture fills the face's disc, with the text over it; in the detail it is
+round like the face or square on request, and a camera has a *Live* button
+when the source can stream it (`PulseSource.stream`: Home Assistant's MJPEG
+`camera_proxy_stream`; the snapshot is asked again every 8 s). Cameras,
+album art and, by the same path, a vacuum's map or a floor plan served as an
+`image` or `camera` entity. `tint` colors the band (the light's `rgb_color`).
+`color` (`hs`, `set`) adds a hue and saturation wheel to the detail: hue
+around, saturation outward, arrows on the keyboard (`light.turn_on` with
+`hs_color`). `history` names a numeric entity whose last 24 hours the detail
+draws as a ring (`PulseSource.history`: `history/history_during_period`
+bucketed per hour, one dot per hour with the current one at the top, its
+distance from the ring the value; the demo makes a day up around the current
+value). What has no honest radial reading (free text, long lists, maps with
+zones) stays out: Home Assistant's own more-info dialog is a tap away.
 
 The source also carries Home Assistant's registries (`PulseSource.registry`:
 areas, devices, entities, floors, and the repairs; `onRegistry` when they

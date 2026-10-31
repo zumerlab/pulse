@@ -26,7 +26,9 @@ export const t = {
   inFront: (channel: string) => `${channel} in front`,
   behind: (n: number) => `+${n} behind`,
   howDial: 'Drag the ring · tap the center for more',
+  howRange: 'Drag either end of the band · tap the center for more',
   howSegments: 'Tap a segment to change it',
+  howChoice: 'Tap an option to choose it',
   moreWaiting: (n: number) => `${count(n, 'more alert')} waiting`,
   mute: 'Mute',
   inProgress: 'in progress…',
@@ -35,4 +37,12 @@ export const t = {
   alertIn: (channel: string, why: string) => `Alert in ${channel}: ${why}`,
   dialOf: (dial: string, channel: string) => `${dial} for ${channel}`,
   nOfM: (n: number, m: number) => `${n} of ${m}`,
+
+  // Primitives
+  low: 'low', high: 'high',
+  handleOf: (end: string, dial: string) => `${end} end of ${dial}`,
+  last24h: 'last 24 hours',
+  now: 'now',
+  hoursAgo: (n: number) => n === 1 ? '1 hour ago' : `${n} hours ago`,
+  hueSat: (h: number, s: number) => `hue ${h}°, saturation ${s}%`,
 };

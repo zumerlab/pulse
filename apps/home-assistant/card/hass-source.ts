@@ -1,6 +1,6 @@
 // PulseSource over the `hass` object a custom card receives: Home Assistant
 // already holds the connection and pushes a new `hass` on every change.
-import { emptyRegistry, type Call, type HassState, type Issue, type PulseSource, type Registry, type States, type Status } from '../source.ts';
+import { cameraStream, emptyRegistry, hourly, type Call, type HassState, type HistoryRow, type Issue, type PulseSource, type Registry, type States, type Status } from '../source.ts';
 import { t } from '../strings.ts';
 import type { HomeAssistant } from './hass.ts';
 
@@ -79,5 +79,20 @@ export class HassSource implements PulseSource {
     if (!this.hass) return Promise.reject(new Error(t.errNoConnection));
     const { entity_id, ...rest } = data;
     return this.hass.callService(domain, service, rest, entity_id ? { entity_id: entity_id as string | string[] } : undefined);
+  }
+
+  stream(entity: string) {
+    const path = cameraStream(this.states.get(entity));
+    return path ? this.url(path) : undefined;
+  }
+
+  async history(entity: string, hours: number) {
+    if (!this.hass?.callWS) throw new Error(t.errNoConnection);
+    const now = Date.now();
+    const rows = await this.hass.callWS<Record<string, HistoryRow[]>>({
+      type: 'history/history_during_period', entity_ids: [entity], minimal_response: true, no_attributes: true,
+      start_time: new Date(now - hours * 3600_000).toISOString(), end_time: new Date(now).toISOString(),
+    });
+    return hourly(rows[entity] ?? [], hours, now);
   }
 }
