@@ -4,7 +4,7 @@ import '@zumer/orbit/style';
 import '@zumer/orbit';
 import '@zumer/pulse/style.css';
 import {
-  DOT_LANES, LANE, LOCK_MS, MINI_LANES, PHONE, SIZE, STROKE, backLayer, calmStrip, dialControls, dots, face,
+  DOT_LANES, LANE, LOCK_MS, MINI_LANES, PHONE, SIZE, STROKE, backLayer, calmStrip, detailFace, detailFit, detailShell, dialControls, dots, face,
   fitFor, icon, labelAt, listOf, num, parallax, ring, setViewToggle, startInside, systemShell, viewToggle, zumlyOptions, type RingReading,
 } from '@zumer/pulse';
 import { systems, type Channel, type PulseSystem } from './systems.ts';
@@ -291,44 +291,64 @@ function detail(ctx: ViewContext) {
   const ch = systems[id].ch[key];
   const el = ctx.target;
   el.dataset.title = ch.name;
-  // The same controls as the object, with more room.
+  // The same disc, closer: the channel's ring with its controls, big, the
+  // face in the center; the segments again as chips under it.
+  el.innerHTML = detailShell([systems[id].title, ch.name], null);
+  const stage = el.querySelector<HTMLElement>('.detail-stage')!, objEl = el.querySelector<HTMLElement>('.detail-obj')!;
+  const below = el.querySelector<HTMLElement>('.detail-below')!, more = el.querySelector<HTMLElement>('.detail-more')!;
+  ctx.onCleanup(detailFit(stage));
+  let dragging = false;
   const paint = () => {
-    const r = reading(id, key, ch);
-    let control = '';
-    if (ch.dial && r.dial) {
-      control = `<label class="slider">${ch.dial.label[0].toUpperCase()}${ch.dial.label.slice(1)}
-        <input type="range" min="${ch.dial.min}" max="${ch.dial.max}" step="${ch.dial.step}" value="${r.dial.value}"></label>`;
-    } else if (ch.toggles && r.segs) {
-      control = `<ul class="switches">${r.segs.map((s, i) => `<li><label>
-        <input type="checkbox" data-seg="${i}"${s.on ? ' checked' : ''}> ${s.label}</label></li>`).join('')}</ul>`;
-    } else if (r.segs) {
-      control = `<ol class="segments">${r.segs.map((s, i) =>
-        `<li class="${r.alert?.fail?.includes(i) ? 'fail' : s.on ? 'on' : ''}">${s.label}</li>`).join('')}</ol>`;
-    }
-    el.innerHTML = `<div class="detail">
-      <p class="eyebrow">${systems[id].title}</p>
-      <h1>${icon(ch.glyph, 30)} ${ch.name}</h1>
-      <p class="detail-big">${r.big}</p>
-      <p class="detail-label">${r.label}</p>
-      ${r.alert ? `<p class="detail-why">${r.alert.why}</p>` : ''}
-      ${control}
-    </div>`;
+    if (dragging) return;
+    const r = reading(id, key, ch), a = r.alert;
+    const inFace = !!a && !PHONE && a.level !== 2;
+    const acts = a ? `<button class="primary pill level-${a.level}" data-resolve>${a.verb}</button>` : '';
+    const extra = inFace ? `<span class="face-why">${a!.why}</span><span class="face-acts">${acts}</span>` : '';
+    objEl.innerHTML = `<div class="bigbang detail-ring"><div class="gravity-spot">${ring(key, r, 1, { name: ch.name, controls: true, call: !!a, knobText: !!r.dial, ticks: !!r.dial })}
+      <div class="orbit-0" style="--o-size-ratio:19"><div class="satellite at-center">${detailFace({ name: ch.name, big: r.big, label: r.label, level: a?.level, extra })}</div></div></div></div>`;
+    below.innerHTML = a && !inFace ? `<p class="alert-t level-${a.level}">${r.big}</p><p class="why2">${a.why}.</p><div class="row">${acts}</div>` : '';
+    more.innerHTML = r.segs ? `<ul class="chips" role="group" aria-label="${ch.name}">${r.segs.map((s, i) =>
+      `<li><button type="button" class="chip ${s.on ? 'on' : 'off'}${a?.fail?.includes(i) ? ` fail level-${a.level}` : ''}${s.act ? '' : ' is-still'}" role="switch" aria-checked="${s.on}" data-seg="${i}"${s.act ? '' : ' aria-disabled="true"'}><span class="cn">${s.label}</span></button></li>`).join('')}</ul>` : '';
   };
   paint();
-  el.addEventListener('input', (e) => {
-    const input = e.target as HTMLInputElement;
-    if (input.type === 'range' && ch.dial) {
-      state[id].values[key] = (Number(input.value) - ch.dial.min) / (ch.dial.max - ch.dial.min);
-      el.querySelector('.detail-label')!.textContent = reading(id, key, ch).label;
-    } else if (input.dataset.seg !== undefined) {
-      const st = state[id], i = Number(input.dataset.seg);
+  // The dial moves in place, like the object's.
+  const setDial = (k: string, v: number) => {
+    const dial = ch.dial!, value = dialValue(dial, v);
+    v = (value - dial.min) / (dial.max - dial.min);
+    state[id].values[k] = v;
+    const ringEl = el.querySelector<HTMLElement>('[data-dial]');
+    ringEl?.setAttribute('value', (v * 100).toFixed(1));
+    ringEl?.setAttribute('aria-valuenow', String(value));
+    ringEl?.setAttribute('aria-valuetext', `${num(value)}${dial.unit}`);
+    const knob = el.querySelector('.knob-text');
+    if (knob) knob.textContent = `${num(value)}${dial.unit}`;
+    const label = el.querySelector('.detail-face .face-label');
+    if (label) label.textContent = reading(id, key, ch).label;
+  };
+  ctx.onCleanup(dialControls(el, {
+    locked: () => false,
+    ringOf: () => el.querySelector('.detail-ring .orbit-12:has([data-dial])'),
+    current: () => reading(id, key, ch).v ?? 0,
+    stepOf: () => { const d = ch.dial!; return d.step / (d.max - d.min); },
+    set: setDial,
+    onStart: () => { dragging = true; },
+    onEnd: () => { dragging = false; },
+    activate: 'o-arc[data-seg]',
+  }));
+  el.addEventListener('click', (e) => {
+    const target = e.target as HTMLElement;
+    const seg = target.closest<HTMLElement>('[data-seg]');
+    if (seg && ch.toggles) {
+      const st = state[id], i = Number(seg.dataset.seg);
       const lit = [...lightsOf(id, key, ch, st.alerts.includes(key))];
-      lit[i] = input.checked;
+      lit[i] = !lit[i];
       st.lit[key] = lit;
-      if (st.alerts.includes(key) && ch.al.seg === i && !lit[i]) st.alerts = st.alerts.filter((a) => a !== key);
+      if (st.alerts.includes(key) && ch.al.seg === i && !lit[i]) st.alerts = st.alerts.filter((x) => x !== key);
       paint();
-      el.querySelector<HTMLElement>(`[data-seg="${i}"]`)?.focus();
+      el.querySelector<HTMLElement>(`.chip[data-seg="${i}"]`)?.focus();
+      return;
     }
+    if (target.closest('[data-resolve]')) { state[id].alerts = state[id].alerts.filter((x) => x !== key); paint(); }
   });
 }
 
