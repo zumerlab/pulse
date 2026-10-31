@@ -11,6 +11,7 @@ export class HassSource implements PulseSource {
   error = '';
   version = '';
   unit = '°';
+  language?: string;
   private hass: HomeAssistant | null = null;
   private seen: { areas?: unknown; devices?: unknown; entities?: unknown; floors?: unknown } = {};
   private issues: Issue[] = [];
@@ -23,6 +24,8 @@ export class HassSource implements PulseSource {
   onRegistry(fn: () => void) { this.registryListeners.add(fn); return () => this.registryListeners.delete(fn); }
   onStatus(fn: () => void) { this.statusListeners.add(fn); return () => this.statusListeners.delete(fn); }
   url(path: string) { return /^https?:/.test(path) ? path : this.hass ? this.hass.hassUrl(path) : path; }
+  // The frontend's words for a state, in the user's language.
+  stateText(e: HassState) { try { return this.hass?.formatEntityState?.(e) || undefined; } catch { return undefined; } }
 
   // Each `hass` carries the whole state; the frontend keeps the objects of the
   // entities that did not change, so a diff by reference finds the changed ones.
@@ -30,13 +33,16 @@ export class HassSource implements PulseSource {
     this.hass = hass;
     this.version = hass.config?.version ?? '';
     this.unit = hass.config?.unit_system?.temperature ?? '°';
+    const language = hass.locale?.language ?? hass.language ?? hass.config?.language;
+    const languageChanged = language !== this.language;
+    this.language = language;
     const changed: HassState[] = [];
     for (const [id, e] of Object.entries(hass.states)) {
       if (this.states.get(id) !== e) { this.states.set(id, e); changed.push(e); }
     }
     for (const id of [...this.states.keys()]) if (!(id in hass.states)) this.states.delete(id);
     const status: Status = hass.connected === false ? 'offline' : 'live';
-    if (status !== this.status) {
+    if (status !== this.status || languageChanged) {
       this.status = status;
       this.statusListeners.forEach((fn) => fn());
     }

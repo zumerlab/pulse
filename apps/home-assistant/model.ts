@@ -102,6 +102,7 @@ const g = {
   battery: 'M3 8h15v8H3z M18 10h2v4h-2z M6 11v2',
   warn: 'M10.3 4.5L2.6 18a2 2 0 0 0 1.7 3h15.4a2 2 0 0 0 1.7-3L13.7 4.5a2 2 0 0 0-3.4 0z M12 9v4 M12 17h.01',
   wrench: 'M14.5 5.5a4 4 0 0 1 5 4.6L12 17.6l-3.5-3.5 7.5-7.5a4 4 0 0 1-1.5-1.1z M8.5 14.1L3 19.6 4.4 21l5.5-5.5',
+  spark: 'M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z M19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8z',
 };
 
 // Short names for the demo's entities; otherwise Home Assistant's friendly name.
@@ -148,8 +149,11 @@ export const areaOf = (id: string) => {
   return e?.area_id ?? (e?.device_id ? reg.devices.get(e.device_id)?.area_id : undefined) ?? undefined;
 };
 export const placeOf = (id: string) => { const a = areaOf(id); return a ? reg.areas.get(a)?.name : undefined; };
-// With areas chosen, only what is in them counts; an entity with no area stays out (as in Home Assistant's area views).
-const inAreas = (id: string) => { if (!areaSet) return true; const a = areaOf(id); return !!a && areaSet.has(a); };
+// With areas chosen, only what is in them counts; an entity with no area stays
+// out (as in Home Assistant's area views), unless the empty id is among them
+// (NO_AREA: the room of what has no area, on the rooms axis).
+export const NO_AREA = '';
+const inAreas = (id: string) => { if (!areaSet) return true; const a = areaOf(id); return a ? areaSet.has(a) : areaSet.has(NO_AREA); };
 const scan = (s: States, domain: string, diagnostic: boolean) =>
   [...s.keys()].filter((id) => id.startsWith(`${domain}.`) && visible(id, diagnostic) && inAreas(id)).sort();
 const ofDomain = (s: States, domain: string, only?: string[], diagnostic = false) => {
@@ -184,7 +188,7 @@ const nth = (s: States, domain: string, ids: string[], fits: (e: HassState) => b
 const first = (s: States, domain: string, ids: string[], fits?: (e: HassState) => boolean) => nth(s, domain, ids, fits, 0);
 // The home's energy meter: the first kWh sensor, the grid's consumption when one is named so.
 export function meterOf(s: States) {
-  const all = [...s.values()].filter((e) => e.entity_id.startsWith('sensor.') && e.attributes.unit_of_measurement === 'kWh' && Number.isFinite(Number(e.state)));
+  const all = [...s.values()].filter((e) => e.entity_id.startsWith('sensor.') && e.attributes.unit_of_measurement === 'kWh' && Number.isFinite(Number(e.state)) && inAreas(e.entity_id));
   const pick = (f: (e: HassState) => boolean) => all.find(f)?.entity_id;
   return pick((e) => e.attributes.device_class === 'energy' && /consum|grid|import|house|home|total/i.test(e.entity_id))
     ?? pick((e) => e.attributes.device_class === 'energy') ?? pick((e) => /consum|grid/i.test(e.entity_id)) ?? all[0]?.entity_id;
@@ -380,6 +384,19 @@ const SYSTEMS: PulseSystem[] = [
       const action = hvacAction[String(e.attributes.hvac_action)];
       return { kind: 'c', segs, entities: [id], big: cap(hvacMode[e.state] ?? e.state), name: ownName(s, id) && `${nameOf(s, id)} mode`,
         label: action && action !== hvacMode[e.state] ? action : nameOf(s, id).toLowerCase() };
+    } },
+    { key: 'preset', name: 'Preset', glyph: g.sprout, read: (s) => {
+      // The thermostat's preset (eco, away, comfort, sleep…): one of its preset_modes, chosen on the ring.
+      const id = first(s, 'climate', ['climate.ecobee', 'climate.hvac'], (e) => strs(e, 'preset_modes').length > 1);
+      const e = id ? s.get(id) : undefined;
+      if (!id || !e) return null;
+      const modes = strs(e, 'preset_modes').slice(0, 8);
+      if (modes.length < 2) return null;
+      const cur = String(e.attributes.preset_mode ?? '');
+      const segs = modes.map((m) => ({ label: cap(m.replace(/_/g, ' ')), on: m === cur, entity: id,
+        act: m === cur ? undefined : call('climate', 'set_preset_mode', id, { preset_mode: m }) }));
+      return { kind: 'c', segs, entities: [id], big: cur ? cap(cur.replace(/_/g, ' ')) : 'None', label: nameOf(s, id).toLowerCase(),
+        name: ownName(s, id) && `${nameOf(s, id)} preset` };
     } },
     { key: 'ac', name: 'Air conditioning', glyph: g.fan, read: thermostat((s) => thermostat_(s, 1), 'climate', thermoLabel) },
     { key: 'fan', name: 'Fan', glyph: g.fan, read: (s) => {
@@ -606,6 +623,25 @@ const SYSTEMS: PulseSystem[] = [
         (e) => `target ${num(attr(e, 'temperature')!)}° · ${String(e.attributes.operation_mode ?? e.state)}`) },
   ] },
 
+  { id: 'scenes', title: 'Scenes', channels: [
+    { key: 'scenes', name: 'Scenes', glyph: g.spark, read: (s) => {
+      // A scene is a preset of several entities at once (the lights for a movie,
+      // the morning): activating one sets them all. Its state is when it was
+      // last activated, so the latest is the one on. In a room, a scene counts
+      // when it, or something it sets, is in the area.
+      const own = ofDomain(s, 'scene');
+      const sets = (id: string) => strs(s.get(id)!, 'entity_id');
+      const ids = areaSet ? [...new Set([...own, ...[...s.keys()].filter((id) => id.startsWith('scene.') && visible(id) && sets(id).some(inAreas))])].sort() : own;
+      if (!ids.length) return null;
+      const at = (id: string) => Date.parse(s.get(id)!.state);
+      const latest = ids.filter((id) => !Number.isNaN(at(id))).sort((a, b) => at(b) - at(a))[0];
+      const options = ids.map((id) => ({ label: nameOf(s, id), on: id === latest, entity: id, act: call('scene', 'turn_on', id) }));
+      // The ring takes eight names; the detail scrolls through all of them.
+      return { kind: 'c', segs: options.slice(0, 8), list: options, entities: ids, big: latest ? nameOf(s, latest) : 'None',
+        label: latest ? `last of ${ids.length}` : `${ids.length} ${ids.length === 1 ? 'scene' : 'scenes'}`,
+        events: latest ? [{ entity: latest, text: `${nameOf(s, latest)} activated` }] : undefined };
+    } },
+  ] },
   { id: 'maintenance', title: 'Maintenance', channels: [
     { key: 'updates', name: 'Updates', glyph: g.box, read: (s) => {
       const ids = ofDomain(s, 'update');
@@ -700,3 +736,29 @@ export const systems: PulseSystem[] = SYSTEMS.map((sys) => ({
     return r;
   } })),
 }));
+
+// ─── Rooms: the other axis of the home ──────────────────────────────
+// A room is a system too: its channels are the channels of the systems, read
+// within that area only. What has no area is the room NO_AREA. A room's
+// channel keeps the key `system/channel`, so the viewer's picks and hidden
+// channels (kept by system) hold on both axes. Floors order the rooms.
+export const ROOM = 'room:';
+export const isRoom = (id: string) => id.startsWith(ROOM);
+export const roomArea = (id: string) => id.slice(ROOM.length);
+export function roomSystems(registry: Registry, within: string[], hidden: (system: string, channel: string) => boolean, noAreaTitle: string): PulseSystem[] {
+  const level = (a: { floor_id?: string | null }): number => (a.floor_id ? registry.floors.get(a.floor_id)?.level : null) ?? Number.MAX_SAFE_INTEGER;
+  const areas = [...registry.areas.values()].sort((a, b) => level(a) - level(b) || a.name.localeCompare(b.name));
+  const rooms = [...areas.map((a) => ({ area: a.area_id, title: a.name })), { area: NO_AREA, title: noAreaTitle }];
+  const chosen = systems.filter((sys) => within.includes(sys.id));
+  return rooms.map((room) => ({
+    id: ROOM + room.area, title: room.title,
+    channels: chosen.flatMap((sys) => sys.channels.filter((ch) => !hidden(sys.id, ch.key)).map((ch) => ({
+      key: `${sys.id}/${ch.key}`, name: ch.name, glyph: ch.glyph,
+      read: (s: States, ctx: Context) => {
+        const r = ch.read(s, { ...ctx, areas: [room.area] });
+        // What is not about entities (the repairs) is the home's, not a room's.
+        return r && r.entities.length ? r : null;
+      },
+    }))),
+  }));
+}

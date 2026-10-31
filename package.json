@@ -24,7 +24,7 @@
     "@eslint/js": "10.0.1",
     "@playwright/test": "1.63.0",
     "@types/node": "22.20.4",
-    "@zumer/orbit": "^2.1.0",
+    "@zumer/orbit": "^2.2.0",
     "eslint": "10.11.0",
     "typescript": "6.0.3",
     "typescript-eslint": "8.70.1",

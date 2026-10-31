@@ -6,7 +6,7 @@ import './style.css';
 import { WebSocketSource, type PulseSource } from './source.ts';
 import { DemoSource } from './demo/source.ts';
 import { mountLogin } from './login.ts';
-import { BOARD_MODES, mountPulse, type BoardMode } from './app.ts';
+import { AXES, BOARD_MODES, mountPulse, type Axis, type BoardMode } from './app.ts';
 import { mountTunePanel } from './tune.ts';
 import { t } from './strings.ts';
 
@@ -16,6 +16,9 @@ import { t } from './strings.ts';
 
 const socket = new WebSocketSource();
 const demo = new DemoSource();
+// `?lang=es-AR` tries the demo with another locale (numbers and times), as Home Assistant would tell it.
+const lang = new URLSearchParams(location.search).get('lang');
+if (lang) demo.language = lang;
 const shell = document.querySelector<HTMLElement>('.shell')!;
 const canvas = document.querySelector<HTMLElement>('#canvas')!;
 const loginSlot = document.querySelector<HTMLElement>('#login')!;
@@ -25,17 +28,18 @@ function status(ha: PulseSource) {
     <button class="plain" data-action="signout">${ha === demo ? t.leaveDemo : t.signOut}</button></span>`;
 }
 
-// `?systems=lights,climate&mode=orbit&start=climate&areas=kitchen,living_room&layers=3`
+// `?systems=lights,climate&mode=orbit&axis=rooms&start=climate&areas=kitchen,living_room&layers=3`
 // fixes what the page shows (a kiosk, a shared link); the gear chooses within that.
 const query = new URLSearchParams(location.search);
 const listParam = (name: string) => { const v = query.get(name)?.split(',').map((s) => s.trim()).filter(Boolean); return v?.length ? v : undefined; };
-const modeParam = query.get('mode') as BoardMode | null;
+const modeParam = query.get('mode') as BoardMode | null, axisParam = query.get('axis') as Axis | null;
 
 const pulse = mountPulse(canvas, {
   source: socket,
   systems: listParam('systems'),
   areas: listParam('areas'),
   mode: modeParam && BOARD_MODES.includes(modeParam) ? modeParam : undefined,
+  axis: axisParam && AXES.includes(axisParam) ? axisParam : undefined,
   start: query.get('start') ?? undefined,
   layers: Number(query.get('layers')) || undefined,
   status,

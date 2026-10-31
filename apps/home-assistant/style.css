@@ -171,9 +171,6 @@
 /* The rings behind soften with the distance: a halo of their color (see the core's 3D rule). */
 .board-stage .layer:not(.layer-front) > .orbit-12 :is(o-arc, o-progress) { --o-stroke: color-mix(in srgb, var(--o-fill, var(--muted)) 30%, transparent); --o-stroke-width: var(--halo, 0); }
 .board-stage .face-label { max-width: 150px; }
-/* The layer index at the left side of the stage, level with the object; on a small stage the strip names what is behind. */
-.board-stage .layer-index-slot { position: absolute; left: 0; top: 50%; translate: 0 -50%; max-width: 32%; }
-.compact .board-stage .layer-index-slot { display: none; }
 
 @media (prefers-reduced-motion: reduce) { .hub.beat .hub-ring, .otile.has-alert .otile-ring, .slide { animation: none; } }
 .board.mode-layers .ticker, .board.mode-layers .board-head h1 { display: none; }

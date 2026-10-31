@@ -1,12 +1,16 @@
 // The little of Home Assistant's `hass` object a card needs, typed here so the
 // card does not depend on the frontend's own types.
-import type { Connection, HassEntities, HassServiceTarget } from 'home-assistant-js-websocket';
+import type { Connection, HassEntities, HassEntity, HassServiceTarget } from 'home-assistant-js-websocket';
 
 export type HomeAssistant = {
   states: HassEntities;
   connected: boolean;
   connection: Connection;
-  config: { version: string; unit_system: { temperature: string } };
+  config: { version: string; unit_system: { temperature: string }; language?: string };
+  // The user's language and locale, and the frontend's own words for a state.
+  language?: string;
+  locale?: { language: string; number_format?: string; time_format?: string };
+  formatEntityState?(stateObj: HassEntity, state?: string): string;
   // The registries the frontend already holds (display entries: name, area,
   // device, hidden, category); a new object whenever one changes.
   areas?: Record<string, { area_id: string; name: string; floor_id?: string | null; icon?: string | null }>;

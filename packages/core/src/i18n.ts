@@ -2,12 +2,17 @@
 // language today. Another language is another object with the same shape plus
 // a way to pick it; the apps extend this dictionary with their own strings and
 // their demo data (system and channel names, alert texts) would switch along.
+//
+// The locale (numbers, times) does follow the source: Home Assistant tells the
+// user's language and the app passes it on with setLocale.
 
-export const LOCALE = 'en-US';
+let locale = 'en-US';
+export const setLocale = (tag?: string) => { locale = tag || 'en-US'; };
+export const localeOf = () => locale;
 
-export const num = (n: number, digits = 1) => n.toLocaleString(LOCALE, { maximumFractionDigits: digits });
+export const num = (n: number, digits = 1) => n.toLocaleString(locale, { maximumFractionDigits: digits });
 export const time = (d: Date) =>
-  d.toLocaleTimeString(LOCALE, { hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' });
+  d.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' });
 export const count = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 export const listOf = (items: string[]) =>
   items.length <= 1 ? (items[0] ?? '') : `${items.slice(0, -1).join(', ')} and ${items.at(-1)}`;

@@ -4,7 +4,7 @@ import '@zumer/orbit/style';
 import '@zumer/orbit';
 import '@zumer/pulse/style.css';
 import {
-  DOT_LANES, LANE, LOCK_MS, MINI_LANES, PHONE, SIZE, STROKE, backLayer, calmStrip, dialControls, dots, face,
+  DOT_LANES, LANE, LOCK_MS, MINI_LANES, PHONE, SIZE, STROKE, backLayer, calmStrip, dialControls, dots, face, layerIndex,
   fitFor, icon, labelAt, listOf, num, parallax, ring, setViewToggle, startInside, systemShell, viewToggle, zumlyOptions, type RingReading,
 } from '@zumer/pulse';
 import { systems, type Channel, type PulseSystem } from './systems.ts';
@@ -192,6 +192,10 @@ function system(ctx: ViewContext, id: string) {
           pick: { attr: 'data-pick', value: key, aria: t.bringToFront(ch.name) } }));
     });
 
+    stage.querySelector<HTMLElement>('.layer-index-slot')!.innerHTML = layerIndex(ord.map((key, i) => {
+      const ch = sys.ch[key], r = reading(id, key, ch);
+      return { id: key, title: ch.name, big: r.big, level: r.alert ? ch.level : 0, off: i >= SIZE.length };
+    }), 'data-pick');
     const front = sys.ch[ord[0]], fr = reading(id, ord[0], front);
     const hidden = ord.slice(SIZE.length).map((k) => ({ key: k, name: sys.ch[k].name }));
     if (dotsEl) {

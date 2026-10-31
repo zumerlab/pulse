@@ -115,6 +115,14 @@ class MockPassiveEntity extends MockEntity {
   protected stateAttributes() { return this.attributes; }
 }
 
+// scene: activating it stamps the moment, as Home Assistant does (what it sets is not simulated).
+class MockSceneEntity extends MockEntity {
+  async handleService(domain: string, service: string) {
+    if (domain === 'scene' && service === 'turn_on') this.update({ state: new Date().toISOString() });
+  }
+  protected stateAttributes() { return this.attributes; }
+}
+
 // switch, input_boolean, siren.
 class MockToggleEntity extends MockEntity {
   async handleService(domain: string, service: string, data: Attributes) {
@@ -513,6 +521,7 @@ const TYPES: Record<string, new (input: EntityInput) => MockEntity> = {
   light: MockLightEntity,
   lock: MockLockEntity,
   media_player: MockMediaPlayerEntity,
+  scene: MockSceneEntity,
   siren: MockToggleEntity,
   switch: MockToggleEntity,
   update: MockUpdateEntity,

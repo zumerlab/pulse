@@ -33,6 +33,7 @@ export class DemoSource implements PulseSource {
   error = '';
   version = '';
   unit = '°C';
+  language = 'en-US';
   home: Home | null = null;
   areas: Area[] = [];
   floors: Floor[] = [];

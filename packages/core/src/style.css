@@ -262,7 +262,12 @@ o-arc.is-failed { --o-stroke: var(--critical); --o-stroke-width: 2; }
 .switches input { width: 18px; height: 18px; accent-color: var(--ink); }
 
 /* ─── Phone ───────────────────────────────────────────── */
-/* The layer index beside a stacked object: a ladder of dots, front to back. */
+/* The layer index beside a stacked object: a ladder of dots, front to back, at
+   the left side of the stage, level with the object. On a small stage the strip
+   under the object names what is behind instead. */
+.stage .layer-index-slot { position: absolute; left: 0; top: 50%; translate: 0 -50%; max-width: 32%; z-index: 2; }
+.compact .layer-index-slot { display: none; }
+@media (max-width: 640px) { .layer-index-slot { display: none; } }
 .layer-index { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
 .layer-item {
   display: flex; align-items: center; gap: 8px; min-height: 28px; padding: 2px 10px 2px 6px; border: 0; border-radius: 14px;

@@ -220,6 +220,7 @@ export function systemShell(title: string | null, buttons: string) {
     <div class="stage" data-zoom="calm">
       <div class="obj"><div class="bigbang"><div class="gravity-spot depth outer-perspective is-flat"
         style="--o-depth-grow:${GROW}"></div></div></div>
+      <div class="layer-index-slot"></div>
     </div>
     <div class="strip" aria-live="polite"></div>
     <footer class="foot">

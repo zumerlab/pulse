@@ -1,7 +1,7 @@
 # Pulse for Home Assistant
 
 Pulse shows your home as one radial object per system: lights, climate,
-security, openings, media, energy and maintenance. Each system is a ring with
+security, openings, media, energy, scenes and maintenance. Each system is a ring with
 its own controls, and the systems stack in depth by urgency: whatever calls the
 most sits in front, the rest waits behind. Nothing is configured by hand. Pulse
 reads your entities, decides what each ring shows, and raises an alert when a
@@ -142,9 +142,10 @@ strategy alike.
 
 | Option | Values | Default | What it does |
 |---|---|---|---|
-| `systems` | list of `lights`, `climate`, `security`, `openings`, `media`, `energy`, `maintenance` | all seven | Which systems the board shows. A system with no matching entities does not show anyway. |
+| `systems` | list of `lights`, `climate`, `security`, `openings`, `media`, `energy`, `scenes`, `maintenance` | all eight | Which systems the board shows. A system with no matching entities does not show anyway. |
 | `areas` | list of area ids (the editor offers an area picker) | the whole home | Only the entities in those areas count, by their own area or their device's. An entity with no area stays out, as in Home Assistant's area views (whole-home sensors such as grid power usually have none). |
 | `mode` | `grid`, `orbit`, `layers`, `list` | the view the viewer picked last | The board's view when the card opens. With it set, the switch at the top still works, but the choice is not remembered. |
+| `axis` | `systems`, `rooms` | `systems` | What the board is made of: the systems (lights, climate, security…) or the rooms. By room, each area of the home is one object with what calls the most in front and the rest of its devices as layers; what has no area is the room "No area". The gear switches between the two. |
 | `start` | one of the system ids | the board (on a phone, the system that calls the most) | Open the card zoomed into that system. The board stays one step back ("Board" at the bottom left). Must be one of `systems` if both are given. |
 | `settings` | `true`, `false` | `true` | The gear at the top right of the board (see below). `false` hides it: the options above are final. |
 | `layers` | a whole number | all of them | How many systems the Layers view stacks, front to back; the list beside the object names them all in that order (the ones past the cap hollow), and each is a button that brings it to the front. |
@@ -171,7 +172,7 @@ phone in a pocket can show different things from the same card. "Back to
 defaults" returns to what the card's options say.
 
 The options you set in the card or the strategy are the frame: the gear only
-offers the systems and areas you allowed, and `mode`, `start`, `layers`, `stack`, `dial`,
+offers the systems and areas you allowed, and `mode`, `axis`, `start`, `layers`, `stack`, `dial`,
 `day` and `ends` are its defaults. At least one system, one area and one channel per system stay
 ticked. If you want the card to show exactly what you configured, everywhere,
 set `settings: false`.
@@ -211,6 +212,14 @@ detail with the entities behind each channel.
 on its way and settles when Home Assistant reports the new state. If the call
 fails, the error shows and the value comes back.
 
+## Language
+
+Pulse's own words are English for now. Numbers and times follow the language
+of your Home Assistant profile (a thermostat reads `21,5°` in German or
+Spanish), and the states in the pulse's list of changes come in your language
+from Home Assistant itself, as its own cards show them. Another language for
+Pulse's words is another dictionary; none exists yet.
+
 ## Which entities Pulse uses
 
 Pulse looks at the states Home Assistant already pushes to the dashboard; no
@@ -221,11 +230,12 @@ builds a different object. A channel that follows one entity takes its name.
 | System | Channels and what they look for |
 |---|---|
 | **Lights** | all `light` entities (segments toggle them) · the first dimmable light (brightness dial, in the light's color; a hue and saturation wheel in the detail when it supports color) · all `switch` entities as plugs |
-| **Climate** | the first `climate` entity (temperature dial) · its mode (`hvac_modes`, a choice on the ring) · a second thermostat · a `fan` (speed dial) · a thermostat with a comfort range (`target_temp_low/high`: a band with a knob at each end) · a humidity sensor (`device_class: humidity`; its last 24 hours in the detail); past 70% its alert offers the dehumidifier |
+| **Climate** | the first `climate` entity (temperature dial) · its mode (`hvac_modes`, a choice on the ring) · its preset (`preset_modes`: eco, away, comfort…, a choice) · a second thermostat · a `fan` (speed dial) · a thermostat with a comfort range (`target_temp_low/high`: a band with a knob at each end) · a humidity sensor (`device_class: humidity`; its last 24 hours in the detail); past 70% its alert offers the dehumidifier |
 | **Security** | the `alarm_control_panel` (a choice: disarmed, home, away) · `camera` entities (the picture in the center; the gear picks which; live in the detail) · `siren` entities · `lock` entities · the `binary_sensor`s of Home Assistant's Security view: doors, windows, garage doors and openings; smoke, gas, carbon monoxide, moisture, glass break, safety and tamper; motion and occupancy (the ones detecting something first, eight at most) |
 | **Openings** | the first two `cover`s with a position (dials) · the garage door (`device_class: garage`) · `valve` entities |
 | **Media** | `media_player` entities (play and pause; the artwork of what plays in the center) · a player's `source_list` (a choice) · the volume of the first one (dial) |
 | **Energy** | a power sensor in W · a carbon monoxide sensor (both with their last 24 hours in the detail) · the `water_heater` (dial) |
+| **Scenes** | all `scene` entities: a choice on the ring, the one activated last marked; tapping one activates it (what it sets follows in the other systems) |
 | **Maintenance** | `update` entities (install) · `vacuum` entities (start, return to base) · battery sensors (`device_class: battery`, low under 20%) · `problem` binary sensors · the repairs of Settings › Repairs |
 
 What stays out: entities hidden in the registry, and config or diagnostic ones

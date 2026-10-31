@@ -145,7 +145,7 @@ test('the gear lets the viewer choose what this screen shows, kept in the browse
   await gear.click();
   const panel = page.locator('.settings');
   await expect(panel).toBeVisible();
-  await expect(panel.locator('input[name="systems"]')).toHaveCount(7);
+  await expect(panel.locator('input[name="systems"]')).toHaveCount(8);
   await expect(panel.locator('input[name="systems"]').first()).toBeFocused();
   await panel.locator('input[name="systems"][value="media"]').uncheck();
   await expect(page.locator('.tile[data-system]')).toHaveCount(6);
@@ -473,6 +473,77 @@ test('a control of one entity resolved on the face has no detail; a channel with
   await expect(current(page).locator('.detail h1')).toContainText('Sensors');
 });
 
+test('the board groups by room too: each area one object, what has no area in its own room, and the gear switches the axis', async ({ page }) => {
+  await page.goto(`${HA}?demo=home&axis=rooms`);
+  const tiles = page.locator('.tile[data-system]');
+  await expect(tiles).toHaveCount(7);
+  const ids = await tiles.evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.system));
+  expect(ids.every((id) => id!.startsWith('room:'))).toBe(true);
+  // Floor by floor (the ground floor first), then the room of what has no area.
+  expect(ids[0]).toBe('room:entrance');
+  expect(ids[ids.length - 1]).toBe('room:');
+  await expect(tiles.last().locator('.tile-title')).toHaveText('No area');
+  // A room is an object like a system: its channels are the systems' channels, read within the area.
+  await page.locator('.tile[data-system="room:kitchen"]').click();
+  await expect(current(page).locator('.sys-title')).toHaveText('Kitchen');
+  const items = current(page).locator('.layer-index .layer-item');
+  await expect(items.first()).toContainText('Lights');
+  await expect(items).toHaveCount(7);
+  await expect(current(page).locator('.layer-index')).toContainText('Humidity');
+  await page.locator('.z-nav-back').click();
+  // The gear switches back to the systems; and the choice is kept for this browser.
+  await page.locator('.gear').click();
+  await page.locator('input[name="axis"][value="systems"]').check();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.tile[data-system="lights"]')).toBeVisible();
+  await expect(tiles).toHaveCount(7);
+  await page.reload();
+  await expect(page.locator('.tile[data-system="lights"]')).toBeVisible();
+});
+
+test('on the rooms axis the areas chosen are the rooms shown', async ({ page }) => {
+  await page.goto(`${HA}?demo=home&axis=rooms&areas=kitchen,bedroom`);
+  const tiles = page.locator('.tile[data-system]');
+  await expect(tiles).toHaveCount(2);
+  await expect(tiles.first()).toHaveAttribute('data-system', 'room:kitchen');
+  await expect(tiles.last()).toHaveAttribute('data-system', 'room:bedroom');
+});
+
+test('the scenes of the home are a choice on a ring: tapping one activates it and it comes out as the one on', async ({ page }) => {
+  await page.goto(`${HA}?demo=teachingbirds`);
+  const tile = page.locator('.tile[data-system="scenes"]');
+  await expect(tile).toBeVisible();
+  await expect(tile.locator('.tile-big')).toHaveText('None');
+  await tile.click();
+  const front = current(page).locator('.layer-front');
+  await expect(front.locator('o-arc.choice-label')).toHaveCount(2);
+  await expect(front.locator('o-arc.choice-label[data-label="Movie Time"]')).toBeAttached();
+  await front.locator('o-arc[role="radio"][aria-label="Movie Time"]').dispatchEvent('click');
+  await expect(front.locator('o-arc[role="radio"][aria-label="Movie Time"]')).toHaveAttribute('aria-checked', 'true');
+  await expect(front.locator('.face-big')).toHaveText('Movie Time');
+});
+
+test("the thermostat's presets are a choice too", async ({ page }) => {
+  await page.goto(`${HA}?demo=arsaboo`);
+  await page.locator('.tile[data-system="climate"]').click();
+  const items = current(page).locator('.layer-index .layer-item');
+  await expect(items.filter({ hasText: 'Preset' })).toHaveCount(1);
+  await items.filter({ hasText: 'Preset' }).click();
+  const front = current(page).locator('.layer-front');
+  await expect(front.locator('o-arc.choice-label[data-label="Eco"]')).toBeAttached();
+  // Bringing a layer to the front locks the order for a moment; the ring is operated after that.
+  await page.waitForTimeout(1200);
+  await front.locator('o-arc[role="radio"][aria-label="Eco"]').dispatchEvent('click');
+  await expect(front.locator('.face-big')).toHaveText('Eco');
+});
+
+test('numbers and times follow the language the source tells', async ({ page }) => {
+  await page.goto(`${HA}?demo=home&lang=de-DE`);
+  await expect(page.locator('.tile[data-system="climate"] .tile-big')).toHaveText('21,5°C');
+  await page.goto(`${HA}?demo=home`);
+  await expect(page.locator('.tile[data-system="climate"] .tile-big')).toHaveText('21.5°C');
+});
+
 test('the gear chooses the ends of the rings: square by default, or rounded', async ({ page }) => {
   await page.goto(`${HA}?demo=home&mode=orbit`);
   await expect(page.locator('.board o-progress').first()).toBeVisible();
@@ -517,6 +588,21 @@ test('the layers view lists its layers beside the object, front to back, each br
   await expect(items).toHaveCount(n);
   await expect(page.locator('.board .layer-index .layer-item.is-off')).toHaveCount(n - 2);
   await expect(layers).toHaveCount(2);
+});
+
+test('a system lists its channels beside the object too, front to back, the ones past the stack hollow', async ({ page }) => {
+  await page.goto(`${HA}?demo=home`);
+  await page.locator('.tile[data-system="climate"]').click();
+  const items = current(page).locator('.layer-index .layer-item');
+  await expect(items).toHaveCount(4);
+  await expect(current(page).locator('.layer-index .layer-item.is-off')).toHaveCount(1);
+  await expect(items.last()).toContainText('Humidity');
+  await expect(items.first()).toHaveAttribute('aria-current', 'true');
+  const key = (await items.last().getAttribute('data-pick'))!;
+  await items.last().click();
+  await expect(current(page).locator('.layer-front')).toHaveAttribute('data-ch', key);
+  await expect(items.first()).toContainText('Humidity');
+  await expect(items.first()).toHaveAttribute('aria-current', 'true');
 });
 
 test('the gear chooses how many channels a system stacks as layers', async ({ page }) => {

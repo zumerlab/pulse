@@ -46,6 +46,12 @@ export interface PulseSource {
   readonly error: string;        // why, when status is 'error'
   readonly version: string;      // Home Assistant's version
   readonly unit: string;         // temperature unit of the installation
+  // The user's language as Home Assistant knows it (a BCP 47 tag); the object
+  // formats numbers and times with it. Nothing known: English.
+  readonly language?: string;
+  // A state in the user's words, as Home Assistant's own frontend shows it
+  // ("Heat", "Armed away"); nothing: the app's English words.
+  stateText?(e: HassState): string | undefined;
   onChange(fn: (changed: HassState[]) => void): () => void;
   onRegistry(fn: () => void): () => void;
   onStatus(fn: () => void): () => void;
@@ -193,6 +199,7 @@ export class WebSocketSource implements PulseSource {
   error = '';
   version = '';
   unit = '°';
+  language?: string;
   private auth: Auth | null = null;
   private conn: Connection | null = null;
   private listeners = new Set<(changed: HassState[]) => void>();
@@ -278,7 +285,13 @@ export class WebSocketSource implements PulseSource {
       if (error === ERR_INVALID_AUTH) void this.signOut();
       else this.setStatus('error', reason(error));
     });
-    subscribeConfig(conn, (config) => { this.unit = config.unit_system?.temperature ?? '°'; });
+    subscribeConfig(conn, (config) => {
+      this.unit = config.unit_system?.temperature ?? '°';
+      // The server's language, until the user's own (their profile) is known.
+      if (!this.language && config.language) { this.language = config.language; this.statusListeners.forEach((fn) => fn()); }
+    });
+    conn.sendMessagePromise<{ value: { language?: string } | null }>({ type: 'frontend/get_user_data', key: 'language' })
+      .then((data) => { if (this.conn === conn && data?.value?.language) { this.language = data.value.language; this.statusListeners.forEach((fn) => fn()); } }, () => { /* no profile data: the server's language */ });
     // The registries once, and again (a moment after) whenever one changes.
     const loadRegistry = () => fetchRegistry(conn).then((registry) => {
       if (this.conn !== conn) return;

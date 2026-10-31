@@ -1,11 +1,11 @@
 import Zumly, { type ViewContext } from 'zumly';
 import type { Call, Change, HassState, PulseSource, Status } from './source.ts';
-import { nameOf, placeOf, spansOf, systems, type Alert, type Channel, type Dial, type Reading } from './model.ts';
+import { nameOf, placeOf, roomSystems, spansOf, systems, type Alert, type Channel, type Dial, type PulseSystem, type Reading } from './model.ts';
 import { tune } from './tune.ts';
 import {
   DOT_LANES, LANE, LOCK_MS, MAX_TRACKS, MINI_LANES, PHONE, STACK_MAX, backLayer, calmStrip, clockRim, colorArcs, dialControls, dots, esc, face,
-  fitFor, hsCss, icon, labelAt, layerIndex, levelColor, listCenter, listControls, monthRing, musicVisual, num, parallax, radialList, ring as drawRing, ringCenter, satColor, sizes, strokeAt,
-  SCROLL_VISIBLE, scrollControls, scrollList, setViewToggle, startInside, systemShell, time, timeRing, timeline, turnList, viewToggle, zumlyOptions,
+  fitFor, hsCss, icon, labelAt, layerIndex, levelColor, localeOf, listCenter, listControls, monthRing, musicVisual, num, parallax, radialList, ring as drawRing, ringCenter, satColor, sizes, strokeAt,
+  SCROLL_VISIBLE, scrollControls, scrollList, setLocale, setViewToggle, startInside, systemShell, time, timeRing, timeline, turnList, viewToggle, zumlyOptions,
   type ListItem, type RingReading, type ScrollState,
 } from '@zumer/pulse';
 import { t } from './strings.ts';
@@ -20,12 +20,18 @@ import { t } from './strings.ts';
 
 export type BoardMode = 'grid' | 'orbit' | 'layers' | 'list';
 export const BOARD_MODES: BoardMode[] = ['grid', 'orbit', 'layers', 'list'];
+// The axis the board groups the home by: its systems (lights, climate…) or its
+// rooms (the registry's areas, floor by floor; what has no area, in its own room).
+export type Axis = 'systems' | 'rooms';
+export const AXES: Axis[] = ['systems', 'rooms'];
 
 // What a screen shows: the viewer's choices (the gear on the board), kept in
 // the browser. The host's `PulseOptions` are the frame they are made within.
 export type PulseSettings = {
   systems?: string[];
   mode?: BoardMode;
+  // The board grouped by system or by room.
+  axis?: Axis;
   start?: string;
   // Only the entities in these areas (registry ids); nothing set: everywhere.
   areas?: string[];
@@ -50,6 +56,8 @@ export type PulseOptions = {
   systems?: string[];
   // The board's view when it opens, until the viewer picks another on this browser.
   mode?: BoardMode;
+  // The board grouped by system (default) or by room, until the viewer picks the other.
+  axis?: Axis;
   // Start inside this system (the board stays behind, one step out).
   start?: string;
   // Only what is in these areas (registry ids); the gear chooses among them.
@@ -96,7 +104,8 @@ const compact = new ResizeObserver(([entry]) => {
 compact.observe(canvas);
 
 let ha: PulseSource = options.source;
-const SYS = Object.fromEntries(systems.map((s) => [s.id, s]));
+// The systems by id: the model's, and the rooms once the registry names them (see rooms()).
+const SYS: Record<string, PulseSystem> = Object.fromEntries(systems.map((s) => [s.id, s]));
 const ALL = systems.map((s) => s.id);
 const valid = (ids?: string[]) => (ids ?? []).filter((id) => ALL.includes(id));
 
@@ -104,6 +113,7 @@ const valid = (ids?: string[]) => (ids ?? []).filter((id) => ALL.includes(id));
 // viewer chooses within it with the gear; that choice is kept per browser.
 const frame = {
   systems: valid(options.systems).length ? valid(options.systems) : ALL, mode: options.mode, start: options.start,
+  axis: options.axis && AXES.includes(options.axis) ? options.axis : undefined,
   areas: options.areas?.length ? options.areas : undefined,
   look: options.look,
   layers: options.layers && options.layers >= 1 ? Math.floor(options.layers) : undefined,
@@ -123,13 +133,29 @@ const loadSettings = (): PulseSettings => {
 };
 let local: PulseSettings = loadSettings();
 let IDS: string[] = [];
+// The systems chosen (the gear within the frame): the board on the systems
+// axis, and what each room is made of on the rooms axis.
+let CHOSEN: string[] = [];
 let boardMode: BoardMode = 'grid';
+let axis: Axis = 'systems';
+// The rooms as systems, from the registry: built again when the registry or
+// the choices change, and each gets its view (sys-room:…) the first time.
+const rooms = () => {
+  const list = roomSystems(ha.registry, CHOSEN, (sys, ch) => hiddenChannels(sys).includes(ch), t.noArea);
+  for (const room of list) { SYS[room.id] = room; if (!views[`sys-${room.id}`]) views[`sys-${room.id}`] = (ctx: ViewContext) => system(ctx, room.id); }
+  return list.map((r) => r.id);
+};
 const applySettings = () => {
   const chosen = valid(local.systems).filter((id) => frame.systems.includes(id));
-  IDS = chosen.length ? chosen : frame.systems;
+  CHOSEN = chosen.length ? chosen : frame.systems;
+  axis = local.axis && AXES.includes(local.axis) ? local.axis : frame.axis ?? 'systems';
+  if (axis === 'rooms') {
+    // The rooms within the areas in force; the room of what has no area only when no area is chosen.
+    const within = activeAreas();
+    IDS = rooms().filter((id) => !within || within.includes(id.slice('room:'.length)));
+  } else IDS = CHOSEN;
   boardMode = local.mode && BOARD_MODES.includes(local.mode) ? local.mode : frame.mode ?? 'grid';
 };
-applySettings();
 const startId = () => { const id = local.start ?? frame.start; return id && IDS.includes(id) ? id : null; };
 // The areas the gear offers: the registry's, within the frame; and the ones in force.
 const frameAreas = () => [...ha.registry.areas.keys()].filter((a) => !frame.areas || frame.areas.includes(a));
@@ -143,6 +169,10 @@ const hiddenChannels = (id: string) => {
   // At least one channel: a system with all of them hidden shows all of them.
   return SYS[id].channels.every((ch) => hidden.includes(ch.key)) ? [] : hidden;
 };
+// The views Zumly zooms between: the board, the detail and one per system
+// (the rooms join as the registry names them; Zumly looks a view up when it zooms).
+const views: Record<string, (ctx: ViewContext) => void> = {};
+applySettings();
 // The look in force: the viewer's choice over the host's.
 const look = (): Required<Look> => ({ ...LOOK_DEFAULT, ...frame.look, ...local.look });
 // How many layers the Layers view stacks: the viewer's choice, the host's, or every system.
@@ -150,7 +180,7 @@ const layersShown = () => { const n = local.layers ?? frame.layers; return n && 
 // How many channels a system stacks as layers: the viewer's choice, the host's, or three (two on a phone), never past STACK_MAX.
 const STACK_DEFAULT = PHONE ? 2 : 3;
 const stackShown = () => { const n = local.stack ?? frame.stack; return Math.min(STACK_MAX, n && n >= 1 ? n : STACK_DEFAULT); };
-const settings = (): PulseSettings => ({ systems: IDS, mode: boardMode, start: startId() ?? undefined,
+const settings = (): PulseSettings => ({ systems: CHOSEN, mode: boardMode, axis, start: startId() ?? undefined,
   areas: activeAreas(), channels: local.channels, entities: local.entities, look: look(), layers: layersShown(), stack: stackShown() });
 const setSettings = (patch: PulseSettings) => {
   local = { ...local, ...patch };
@@ -172,7 +202,8 @@ type Ui = {
   sig: Map<string, string>;            // what each alert says: if it changes, it is no longer seen
   seen: Set<string>;                   // alerts marked as seen (no wave, they go behind)
 };
-const ui: Record<string, Ui> = Object.fromEntries(ALL.map((id) => [id, { pick: null, since: new Map(), sig: new Map(), seen: new Set() }]));
+const ui: Record<string, Ui> = {};
+const uiOf = (id: string): Ui => { let u = ui[id]; if (!u) { u = { pick: null, since: new Map(), sig: new Map(), seen: new Set() }; ui[id] = u; } return u; };
 let readings: Record<string, Map<string, { ch: Channel; r: Reading }>> = {};
 // Every channel with something to show, hidden ones included: what the gear lists.
 let channels: Record<string, { ch: Channel; r: Reading; hidden: boolean }[]> = {};
@@ -223,8 +254,10 @@ function compute() {
   readings = {};
   channels = {};
   const ctx = { temp: ha.unit, reg: ha.registry, areas: activeAreas() ?? null, picks: local.entities ?? {} };
-  for (const sys of IDS.map((id) => SYS[id])) {
-    const map = new Map<string, { ch: Channel; r: Reading }>(), u = ui[sys.id], hidden = hiddenChannels(sys.id);
+  // On the rooms axis the systems chosen are read too, only to list their channels in the gear.
+  const listed = axis === 'rooms' ? CHOSEN.filter((id) => !IDS.includes(id)) : [];
+  for (const sys of [...IDS, ...listed].map((id) => SYS[id])) {
+    const map = new Map<string, { ch: Channel; r: Reading }>(), u = uiOf(sys.id), hidden = hiddenChannels(sys.id);
     channels[sys.id] = [];
     for (const ch of sys.channels) {
       const r = ch.read(ha.states, ctx);
@@ -233,7 +266,7 @@ function compute() {
       // the gear lists every channel that has something, hidden or not.
       const named = r.name && r.name !== ch.name ? { ...ch, name: r.name } : ch;
       channels[sys.id].push({ ch: named, r, hidden: hidden.includes(ch.key) });
-      if (hidden.includes(ch.key)) continue;
+      if (hidden.includes(ch.key) || listed.includes(sys.id)) continue;
       if (r.dial && r.range) {
         // Each end of a range is held on its own (entity#lo, entity#hi).
         const lo = hold.get(`${r.dial.entity}#lo`), hi = hold.get(`${r.dial.entity}#hi`);
@@ -265,7 +298,7 @@ function compute() {
 }
 
 function order(id: string): string[] {
-  const map = readings[id], u = ui[id];
+  const map = readings[id] ?? new Map<string, { ch: Channel; r: Reading }>(), u = uiOf(id);
   const keys = [...map.keys()];
   const alerts = keys.filter((k) => map.get(k)!.r.alert);
   // Rule 1: the one in front stays; only a more serious one displaces it. Seen ones go behind.
@@ -278,7 +311,7 @@ function order(id: string): string[] {
   return all;
 }
 
-const live = (id: string) => order(id).filter((k) => readings[id].get(k)!.r.alert && !ui[id].seen.has(k));
+const live = (id: string) => order(id).filter((k) => readings[id].get(k)!.r.alert && !uiOf(id).seen.has(k));
 const worst = (id: string) => Math.max(0, ...live(id).map((k) => readings[id].get(k)!.r.alert!.level));
 const isPending = (r: Reading) => r.entities.some((e) => pending.has(e));
 const failuresOf = (r: Reading) => r.entities.filter((e) => failed.has(e)).map((e) => ({ entity: e, ...failed.get(e)! }));
@@ -363,7 +396,7 @@ function mini(id: string) {
     <span class="bigbang mini-ring"><span class="gravity-spot">${ring(key, r, MINI_LANES, false, !r.alert)}</span></span>${visualFor(id, key)}
     <span class="mini-glyph">${icon(ch.glyph, 26)}</span>
     <span class="tile-title">${sys.title}</span>
-    <span class="tile-big">${esc(r.alert && !ui[id].seen.has(key) ? r.alert.big : r.big)}</span>
+    <span class="tile-big">${esc(r.alert && !uiOf(id).seen.has(key) ? r.alert.big : r.big)}</span>
   </button>`;
 }
 
@@ -428,7 +461,7 @@ function boardOrder() {
 // The reading that represents a system: its front channel.
 function front(id: string) {
   const key = order(id)[0], { ch, r } = readings[id].get(key)!;
-  const a = r.alert && !ui[id].seen.has(key) ? r.alert : null;
+  const a = r.alert && !uiOf(id).seen.has(key) ? r.alert : null;
   return { key, ch, r, a, big: a ? a.big : r.big, label: a ? a.label : r.label };
 }
 
@@ -781,6 +814,9 @@ function board(ctx: ViewContext) {
         // At least one system: unchecking the last one does not stick.
         if (!chosen.length) { syncSettings(form); return; }
         setSettings({ systems: chosen.length === frame.systems.length ? undefined : chosen });
+      } else if (field === 'axis') {
+        const a = String(data.get('axis')) as Axis;
+        setSettings({ axis: a === (frame.axis ?? 'systems') ? undefined : a });
       } else if (field === 'areas') {
         const chosen = data.getAll('areas').map(String);
         if (!chosen.length) { syncSettings(form); return; }
@@ -853,6 +889,9 @@ function settingsPanel() {
         <p class="hint">${t.channelsHint}</p></fieldset>
       <fieldset><legend>${t.boardView}</legend>
         <div class="settings-row">${MODES.map(([m, label]) => `<label><input type="radio" name="mode" value="${m}"> ${label}</label>`).join('')}</div></fieldset>
+      <fieldset class="settings-axis"><legend>${t.axisField}</legend>
+        <div class="settings-row">${AXES.map((a) => `<label><input type="radio" name="axis" value="${a}"> ${t.axes[a]}</label>`).join('')}</div>
+        <p class="hint">${t.axisHint}</p></fieldset>
       <fieldset><legend>${t.openInside}</legend>
         <select name="start" aria-describedby="pulse-settings-start"></select>
         <p class="hint" id="pulse-settings-start">${t.startHint}</p></fieldset>
@@ -889,7 +928,7 @@ function rebuild(list: HTMLElement, html: string) {
   }
 }
 function syncSettings(form: HTMLFormElement) {
-  for (const box of form.querySelectorAll<HTMLInputElement>('input[name="systems"]')) box.checked = IDS.includes(box.value);
+  for (const box of form.querySelectorAll<HTMLInputElement>('input[name="systems"]')) box.checked = CHOSEN.includes(box.value);
   const lk = look();
   for (const box of form.querySelectorAll<HTMLInputElement>('input[name="dial"], input[name="day"], input[name="ends"]')) box.checked = lk[box.name as keyof Look] === box.value;
   // Areas, grouped by floor, and the channels of the systems shown: built from
@@ -908,7 +947,7 @@ function syncSettings(form: HTMLFormElement) {
   const active = activeAreas();
   for (const box of form.querySelectorAll<HTMLInputElement>('input[name="areas"]')) box.checked = !active || active.includes(box.value);
   const chList = form.querySelector<HTMLElement>('.settings-channels')!;
-  const chHtml = IDS.filter((id) => channels[id]?.length).map((id) => `<div class="settings-group"><span class="settings-group-title">${SYS[id].title}</span>${
+  const chHtml = CHOSEN.filter((id) => channels[id]?.length).map((id) => `<div class="settings-group"><span class="settings-group-title">${SYS[id].title}</span>${
     channels[id].map(({ ch, r }) => `<div class="settings-channel"><label><input type="checkbox" name="channel" value="${id}/${ch.key}"> ${esc(ch.name)}</label>${
       r.choices ? `<select name="entity" data-key="${id}/${ch.key}" data-default="${esc(r.choices[0])}" aria-label="${esc(t.entityFor(ch.name))}">${
         r.choices.map((e) => `<option value="${esc(e)}">${esc(nameOf(ha.states, e))}${placeOf(e) && !nameOf(ha.states, e).toLowerCase().includes(placeOf(e)!.toLowerCase()) ? ` · ${esc(placeOf(e)!)}` : ''}</option>`).join('')}</select>` : ''}</div>`).join('')}</div>`).join('');
@@ -924,6 +963,9 @@ function syncSettings(form: HTMLFormElement) {
     if (r?.choice) select.value = r.choice;
   }
   for (const radio of form.querySelectorAll<HTMLInputElement>('input[name="mode"]')) radio.checked = radio.value === boardMode;
+  // Rooms only when the registry names areas.
+  form.querySelector<HTMLElement>('.settings-axis')!.hidden = !ha.registry.areas.size;
+  for (const radio of form.querySelectorAll<HTMLInputElement>('input[name="axis"]')) radio.checked = radio.value === axis;
   const select = form.querySelector<HTMLSelectElement>('select[name="start"]')!;
   setHTML(select, `<option value="">${t.theBoard}</option>${IDS.map((id) => `<option value="${id}">${SYS[id].title}</option>`).join('')}`);
   select.value = startId() ?? '';
@@ -1063,7 +1105,7 @@ function system(ctx: ViewContext, id: string) {
   let last = '';
   const paint = () => {
     if (dragging) return;              // repainting would cut the dial drag
-    const ord = order(id), u = ui[id], map = readings[id];
+    const ord = order(id), u = uiOf(id), map = readings[id] ?? new Map<string, { ch: Channel; r: Reading }>();
     // Repaint only if something of this system changed.
     const SZ = sizes(stackShown());
     const now = JSON.stringify([ord, ord.map((k) => [map.get(k)!.r, isPending(map.get(k)!.r)]), [...u.seen], [...failed.keys()], flat, toast, SZ.length,
@@ -1110,6 +1152,11 @@ function system(ctx: ViewContext, id: string) {
     });
 
     startVisuals(el, visuals);
+    // Beside the object, the channels front to back, each a button; past the stack, hollow.
+    setHTML(stage.querySelector<HTMLElement>('.layer-index-slot')!, layerIndex(ord.map((key, i) => {
+      const { ch, r } = map.get(key)!, shown = r.alert && !u.seen.has(key) ? r.alert : r;
+      return { id: key, title: ch.name, big: shown.big, level: r.alert && !u.seen.has(key) ? r.alert.level : 0, off: i >= SZ.length };
+    }), 'data-pick'));
 
     const frontItem = map.get(ord[0]);
     if (!frontItem) { strip.textContent = t.noEntities; return; }
@@ -1194,14 +1241,14 @@ function system(ctx: ViewContext, id: string) {
       if (s.act && !pending.has(s.entity)) void send([s.act]);
       return;
     }
-    if (pick && !locked) { ui[id].pick = pick; lock(); }
+    if (pick && !locked) { uiOf(id).pick = pick; lock(); }
     else if (resolve) {
       const a = readings[id].get(resolve)?.r.alert;
       if (!a) return;
       if (a.calls.length) void send(a.calls);
-      else ui[id].seen.add(resolve);
+      else uiOf(id).seen.add(resolve);
       lock();
-    } else if (seenKey) { ui[id].seen.add(seenKey); lock(); }
+    } else if (seenKey) { uiOf(id).seen.add(seenKey); lock(); }
     else if (act === 'view') flat = !flat;
     else return;
     repaint();
@@ -1237,6 +1284,9 @@ const stateWords: Record<string, string> = {
   armed_away: 'armed (away)', arming: 'arming', triggered: 'triggered', unavailable: 'unavailable',
 };
 function stateText(e: HassState) {
+  // Home Assistant's own words when the source has them (the user's language).
+  const theirs = ha.stateText?.(e);
+  if (theirs) return theirs;
   const u = e.attributes.unit_of_measurement;
   return `${stateWords[e.state] ?? e.state}${u ? ` ${String(u)}` : ''}`;
 }
@@ -1270,7 +1320,7 @@ function detail(ctx: ViewContext) {
     const focus = activeElement();
     const focusSel = focus && el.contains(focus) && focus.matches('[data-dial]')
       ? `[data-dial="${focus.dataset.dial}"]${focus.dataset.handle ? `[data-handle="${focus.dataset.handle}"]` : ''}` : null;
-    const a = r.alert && !ui[id].seen.has(key) ? r.alert : null;
+    const a = r.alert && !uiOf(id).seen.has(key) ? r.alert : null;
     // The dial, big, operated like the system's front ring (a knob at each
     // end of a range), what is now in its center; a light's hue and
     // saturation as curved sliders inside it, the center washed with the color.
@@ -1332,7 +1382,7 @@ function detail(ctx: ViewContext) {
       if (!monthOf || (Date.now() - monthOf.at > MONTH_MS)) void loadMonth(r.month);
       const nowD = new Date(), days = new Date(nowD.getFullYear(), nowD.getMonth() + 1, 0).getDate(), today = nowD.getDate();
       const values = monthOf?.values.length === days ? monthOf.values : Array.from({ length: days }, () => null);
-      const title = nowD.toLocaleDateString('en', { month: 'long', year: 'numeric' }), v = values[today - 1], name = nameOf(ha.states, r.month);
+      const title = nowD.toLocaleDateString(localeOf(), { month: 'long', year: 'numeric' }), v = values[today - 1], name = nameOf(ha.states, r.month);
       day += `<div class="history">${monthOf?.error ? `<p class="hint">${t.monthNone}</p>` : monthRing({ days, today, values, unit: ' kWh', title, aria: t.monthAria(name, title),
         big: v != null ? `${num(v)} kWh` : monthOf ? '—' : t.loadingMonth, label: `${t.today} · ${name}` })}</div>`;
     }
@@ -1463,16 +1513,14 @@ function detail(ctx: ViewContext) {
     const a = readings[id].get(key)?.r.alert;
     if (!a) return;
     if (a.calls.length) void send(a.calls);
-    else { ui[id].seen.add(key); repaint(); }
+    else { uiOf(id).seen.add(key); repaint(); }
   });
 }
 
 // ─── Start ──────────────────────────────────────────────────────────
 
-const app = new Zumly(zumlyOptions({
-  board, detail,
-  ...Object.fromEntries(ALL.map((id) => [`sys-${id}`, (ctx: ViewContext) => system(ctx, id)])),
-}, 'board', canvas));
+Object.assign(views, { board, detail, ...Object.fromEntries(ALL.map((id) => [`sys-${id}`, (ctx: ViewContext) => system(ctx, id)])) });
+const app = new Zumly(zumlyOptions(views, 'board', canvas));
 app.on('afterZoomOut', () => repaint());
 
 // Entities some channel shows: only those enter the change log.
@@ -1480,6 +1528,7 @@ const watched = () => new Set(IDS.flatMap((id) => [...readings[id].values()].fla
 let loaded = false;
 
 const onStatus = () => {
+  setLocale(ha.language);
   if (ha.status === 'signed-out') { loaded = false; log.length = 0; }
   options.onStatus?.(ha.status);
   repaint();
@@ -1512,9 +1561,10 @@ const onChange = (changed: HassState[]) => {
 let unsubscribe: (() => void)[] = [];
 const subscribe = (src: PulseSource) => {
   unsubscribe.forEach((fn) => fn());
-  unsubscribe = [src.onStatus(onStatus), src.onChange(onChange), src.onRegistry(() => repaint())];
+  unsubscribe = [src.onStatus(onStatus), src.onChange(onChange), src.onRegistry(() => { applySettings(); repaint(); })];
 };
 subscribe(ha);
+setLocale(ha.language);
 // The source may already hold states (a card's `hass` arrives before the mount).
 compute();
 const setSource = (src: PulseSource) => {
@@ -1524,6 +1574,8 @@ const setSource = (src: PulseSource) => {
   log.length = 0;
   pending.clear();
   hold.clear();
+  setLocale(src.language);
+  applySettings();
   subscribe(src);
   onStatus();
   if (src.states.size) onChange([...src.states.values()]);
