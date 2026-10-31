@@ -87,7 +87,7 @@ test('a simulated alert ripples from the failing segment, not from the disc', as
   expect(discWave).toBe('none');
   // The stage zooms in with the alert and the 3D view switches on.
   await expect(current(page).locator('.stage')).toHaveAttribute('data-zoom', 'alert');
-  await expect(current(page).locator('[data-act="view"]')).toHaveText('View flat');
+  await expect(current(page).locator('[data-act="view"]')).toHaveAttribute('aria-label', 'View flat');
 
   await current(page).locator('[data-resolve="security"]').click();
   await expect(current(page).locator('.layer-front .face-name')).toHaveText('Climate');

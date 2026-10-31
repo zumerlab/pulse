@@ -35,6 +35,17 @@ export const STROKE = [6, 3, 2.5];                         // apparent stroke pe
 export const LOCK_MS = 800;                                // controls locked after a layer change
 export const UNIVERSE = 240;                               // px; one lane is radius / 12 = 10 px
 export const LANE = UNIVERSE / 2 / 12;
+export const ZOOM = { calm: PHONE ? 1.1 : 1.2, alert: 1.7 };   // --zoom of .obj (see .stage[data-zoom])
+
+// How much the object scales to fill its stage (--fit): calm, the outermost
+// visible layer touches the shorter side; in an alert, the front disc at its
+// zoom does. Never below half nor past 1.5, so a wall panel gets a big object
+// and a narrow phone a whole one.
+export function fitFor(width: number, height: number, alert: boolean) {
+  const side = Math.min(width, height);
+  const extent = alert ? UNIVERSE * ZOOM.alert : UNIVERSE * SIZE[SIZE.length - 1] * ZOOM.calm;
+  return Math.min(1.5, Math.max(0.5, side / extent));
+}
 
 export const esc = (s: string) => s.replace(/[&<>"]/g, (c) => `&#${c.charCodeAt(0)};`);
 
@@ -168,6 +179,10 @@ export const labelAt = (i: number) => (i === 1 ? 300 : 30);
 
 // The system view's skeleton: stage with the universe, strip, dots on the
 // phone and the buttons below.
+// The system's screen: the title, the stage with the object, the strip under
+// it and a footer bar: room at the left for the back button (Zumly's, at the
+// bottom left of the canvas), the systems' dots in the middle on the phone,
+// the secondary controls at the right.
 export function systemShell(title: string | null, buttons: string) {
   return `<div class="system">
     ${title ? `<p class="eyebrow sys-title">${esc(title)}</p>` : ''}
@@ -176,9 +191,25 @@ export function systemShell(title: string | null, buttons: string) {
         style="--o-depth-grow:${GROW}"></div></div></div>
     </div>
     <div class="strip" aria-live="polite"></div>
-    ${PHONE ? `<nav class="dots" aria-label="${t.systems}"></nav>` : ''}
-    <div class="controls">${buttons}</div>
+    <footer class="foot">
+      <span class="foot-back"></span>
+      ${PHONE ? `<nav class="dots" aria-label="${t.systems}"></nav>` : '<span></span>'}
+      <div class="controls">${buttons}</div>
+    </footer>
   </div>`;
+}
+
+// The toggle between the flat object and its 3D view: an icon button out of
+// the main path (the footer); its label says what it would do.
+export function viewToggle() {
+  return `<button class="plain icon-btn" data-act="view" aria-pressed="false" aria-label="${t.view3d}" title="${t.view3d}">
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" class="glyph"><path d="M12 4 3 9l9 5 9-5-9-5Z"/><path d="m3 14 9 5 9-5"/></svg></button>`;
+}
+export function setViewToggle(btn: HTMLElement, flat: boolean) {
+  const label = flat ? t.view3d : t.viewFlat;
+  btn.setAttribute('aria-pressed', String(!flat));
+  btn.setAttribute('aria-label', label);
+  btn.title = label;
 }
 
 export type Dot = { id: string; title: string; level: number; ring: string };

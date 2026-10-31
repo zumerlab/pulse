@@ -5,7 +5,7 @@ import '@zumer/orbit';
 import '@zumer/pulse/style.css';
 import {
   DOT_LANES, LANE, LOCK_MS, MINI_LANES, PHONE, SIZE, STROKE, backLayer, calmStrip, dialControls, dots, face,
-  icon, labelAt, listOf, num, parallax, ring, startInside, systemShell, zumlyOptions, type RingReading,
+  fitFor, icon, labelAt, listOf, num, parallax, ring, setViewToggle, startInside, systemShell, viewToggle, zumlyOptions, type RingReading,
 } from '@zumer/pulse';
 import { systems, type Channel, type PulseSystem } from './systems.ts';
 import { t } from './strings.ts';
@@ -137,13 +137,19 @@ function system(ctx: ViewContext, id: string) {
   // measures the front layer; outer-perspective leaves the perspective to the
   // stage so the parallax turns the whole object.
   el.innerHTML = systemShell(null,
-    `<button class="plain" data-act="view">${t.view3d}</button>
+    `${viewToggle()}
      <button class="plain" data-act="alert">${t.simulateAlert}</button>`);
   const stage = el.querySelector<HTMLElement>('.stage')!;
   const obj = el.querySelector<HTMLElement>('.obj')!;
   const depth = el.querySelector<HTMLElement>('.depth')!;
   const strip = el.querySelector<HTMLElement>('.strip')!;
   const dotsEl = el.querySelector<HTMLElement>('.dots');
+  // The object fills the stage (see fitFor); what fits depends on the state.
+  let box = { width: 0, height: 0 };
+  const refit = (alert: boolean) => { if (box.width) stage.style.setProperty('--fit', fitFor(box.width, box.height, alert).toFixed(3)); };
+  const fit = new ResizeObserver(([entry]) => { box = entry.contentRect; refit(stage.dataset.zoom === 'alert'); });
+  fit.observe(stage);
+  ctx.onCleanup(() => fit.disconnect());
 
   // One layer per channel, created once: reordering only changes data-depth,
   // so Orbit's depth transition animates the change.
@@ -161,9 +167,10 @@ function system(ctx: ViewContext, id: string) {
     const alert = st.alerts.length > 0;
     if (alert) flat = false;
     stage.dataset.zoom = alert ? 'alert' : 'calm';
+    refit(alert);
     stage.classList.toggle('is-3d', !flat);
     depth.classList.toggle('is-flat', flat);
-    el.querySelector<HTMLElement>('[data-act="view"]')!.textContent = flat ? t.view3d : t.viewFlat;
+    setViewToggle(el.querySelector<HTMLElement>('[data-act="view"]')!, flat);
     el.querySelector<HTMLElement>('[data-act="alert"]')!.textContent = alert ? t.resolveAlerts : t.simulateAlert;
 
     ord.forEach((key, i) => {

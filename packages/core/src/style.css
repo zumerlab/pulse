@@ -48,7 +48,15 @@ button { font: inherit; color: inherit; }
 .ring-hit:hover, .ring-hit:focus-visible { --o-fill: rgba(255, 255, 255, .08); outline: none; }
 
 /* ─── System ──────────────────────────────────────────── */
-.system { height: 100%; display: grid; grid-template-rows: 1fr auto auto; justify-items: center; padding: 16px; gap: 14px; }
+.system { position: relative; height: 100%; display: grid; grid-template-rows: 1fr auto; justify-items: center; padding: 16px 16px 72px; gap: 14px; }
+/* The footer bar: the back button (Zumly's, bottom left of the canvas) gets its
+   room at the left, the dots the middle, the controls the right. */
+.foot { position: absolute; left: 0; right: 0; bottom: 0; height: 72px; display: grid; grid-template-columns: 64px minmax(0, 1fr) auto; align-items: center; padding: 0 12px 0 0; }
+.foot .controls { padding: 0; justify-content: flex-end; }
+.foot .dots { justify-self: center; }
+.icon-btn { width: 44px; min-height: 44px; padding: 0; display: inline-grid; place-items: center; border-radius: 50%; color: var(--muted); }
+.icon-btn[aria-pressed="true"] { color: var(--ink); border-color: var(--muted); }
+.icon-btn .glyph { stroke-width: 1.5; }
 .stage { position: relative; width: 100%; overflow: hidden; perspective: 900px; }
 .obj {
   position: absolute; inset: 0; display: grid; place-items: center;
@@ -56,7 +64,8 @@ button { font: inherit; color: inherit; }
   /* The 3D container takes no clicks (cookbook §11.8): the satellites and the
      interactive arcs bring their own. */
   pointer-events: none;
-  transform: scale(var(--zoom, 1.2)) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
+  /* --fit is set by the view from the stage's size (fitFor): the object fills what it has. */
+  transform: scale(calc(var(--zoom, 1.2) * var(--fit, 1))) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
   transition: transform .8s cubic-bezier(.2,.8,.2,1);
 }
 .stage[data-zoom="alert"] .obj { --zoom: 1.7; }
@@ -117,7 +126,10 @@ button { font: inherit; color: inherit; }
 .strip .more { all: unset; cursor: pointer; color: var(--ink); text-decoration: underline dotted; text-underline-offset: 3px; padding: 8px 2px; }
 .strip .more:hover { text-decoration-style: solid; }
 .strip .more:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; border-radius: 4px; }
-.controls { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; padding-bottom: 56px; }
+.controls { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+/* The alert's main action carries the level's color. */
+.primary.level-1 { background: var(--minor); border-color: var(--minor); color: #111; }
+.primary.level-2 { background: var(--critical); border-color: var(--critical); color: #fff; }
 
 /* ─── Detail ──────────────────────────────────────────── */
 .detail { height: 100%; max-width: 520px; margin: 0 auto; display: grid; align-content: center; gap: 14px; padding: 24px 16px; }
@@ -193,8 +205,14 @@ button { font: inherit; color: inherit; }
   .mini-glyph { top: 19px; }
   .mini-glyph svg { width: 20px; height: 20px; }
   .tile-title { font-size: 11px; }
-  .controls { padding-bottom: 8px; }
-  .system { gap: 10px; padding-bottom: 64px; }
+  .system { gap: 10px; padding: 12px 12px 72px; }
+  /* The footer: the back button with its name at the left, seven dots in one row, the toggle. */
+  .foot { grid-template-columns: 104px minmax(0, 1fr) 52px; padding: 0 4px 0 0; }
+  .foot .dots { flex-wrap: nowrap; gap: 3px; }
+  .dot { width: 26px; height: 26px; padding: 4px; }
+  .dot .bigbang { width: 18px; }
+  /* The alert's actions as full-width pills, stacked. */
+  .strip .primary, .strip .plain { flex: 1 1 100%; min-height: 52px; margin: 0; border-radius: 26px; font-size: 16px; }
   /* With two layers and less growth, 1.1× lets the ring behind fit. */
   .obj { --zoom: 1.1; }
 }

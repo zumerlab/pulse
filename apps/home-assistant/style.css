@@ -27,12 +27,10 @@
 @keyframes tick-in { from { opacity: 0; transform: translateY(-4px); } }
 
 /* System */
-/* --fit is computed by the view: it shrinks the object when the stage is small. */
-.obj { transform: scale(calc(var(--zoom, 1.2) * var(--fit, 1))) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)); }
 .system { grid-template-columns: minmax(0, 1fr); }
 .strip { max-width: 100%; }
 .dots { flex-wrap: wrap; gap: 6px; max-width: 100%; }
-.system { grid-template-rows: auto 1fr auto auto auto; }
+.system { grid-template-rows: auto 1fr auto; }
 .sys-title { padding-top: 8px; }
 .face-wait { font-size: 12px; color: var(--muted); animation: live 1s ease-in-out infinite; }
 /* What was sent and not confirmed beats: the ring shows what Home Assistant says, not what was asked. */
@@ -171,10 +169,11 @@
 
 /* ─── Tuning (development only) ────────────────────────── */
 .tune {
-  position: fixed; right: 12px; bottom: 12px; z-index: 50; width: min(300px, calc(100vw - 24px));
+  position: fixed; left: 12px; top: 12px; z-index: 50; width: min(300px, calc(100vw - 24px));
   max-height: calc(100vh - 24px); overflow: auto; padding: 10px 12px;
   background: rgba(20, 22, 26, .94); border: 1px solid var(--line); border-radius: 12px; font-size: 12px; color: var(--muted);
 }
+.tune:not([open]) { width: auto; opacity: .6; }
 .tune summary { cursor: pointer; color: var(--ink); }
 .tune fieldset { border: 0; margin: 10px 0 0; padding: 0; display: grid; gap: 8px; }
 .tune legend { color: var(--ink); padding: 0; margin-bottom: 4px; }

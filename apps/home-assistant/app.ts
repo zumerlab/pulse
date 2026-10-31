@@ -4,7 +4,7 @@ import { nameOf, placeOf, systems, type Alert, type Channel, type Dial, type Rea
 import { tune } from './tune.ts';
 import {
   DOT_LANES, LANE, LOCK_MS, MINI_LANES, PHONE, SIZE, STROKE, backLayer, calmStrip, colorWheel, dialControls, dots, esc, face,
-  icon, labelAt, levelColor, num, parallax, ring as drawRing, startInside, systemShell, time, timeRing, wheelControls, zumlyOptions,
+  fitFor, icon, labelAt, levelColor, num, parallax, ring as drawRing, setViewToggle, startInside, systemShell, time, timeRing, viewToggle, wheelControls, zumlyOptions,
   type RingReading,
 } from '@zumer/pulse';
 import { t } from './strings.ts';
@@ -762,17 +762,16 @@ function system(ctx: ViewContext, id: string) {
   const el = ctx.target;
   let flat = true, locked = false, dragging = false;
 
-  el.innerHTML = systemShell(sys.title, `<button class="plain" data-act="view">${t.view3d}</button>`);
+  el.innerHTML = systemShell(sys.title, viewToggle());
   const stage = el.querySelector<HTMLElement>('.stage')!;
   const obj = el.querySelector<HTMLElement>('.obj')!;
   const depth = el.querySelector<HTMLElement>('.depth')!;
   const strip = el.querySelector<HTMLElement>('.strip')!;
-  // The object shrinks if it does not fit: the front disc, with the alert zoom
-  // (1.7 × 240 px), has to fit in the stage.
-  const fit = new ResizeObserver(([entry]) => {
-    const { width, height } = entry.contentRect;
-    stage.style.setProperty('--fit', String(Math.min(1, Math.min(width, height) / (240 * 1.7))));
-  });
+  // The object fills the stage: what fits depends on the state (calm shows the
+  // layers behind, an alert zooms the front), so it is set again on each paint.
+  let box = { width: 0, height: 0 };
+  const refit = (alert: boolean) => { if (box.width) stage.style.setProperty('--fit', fitFor(box.width, box.height, alert).toFixed(3)); };
+  const fit = new ResizeObserver(([entry]) => { box = entry.contentRect; refit(stage.dataset.zoom === 'alert'); });
   fit.observe(stage);
   ctx.onCleanup(() => fit.disconnect());
   const dotsEl = el.querySelector<HTMLElement>('.dots');
@@ -806,9 +805,10 @@ function system(ctx: ViewContext, id: string) {
     const alert = live(id).length > 0;
     if (alert) flat = false;
     stage.dataset.zoom = alert ? 'alert' : 'calm';
+    refit(alert);
     stage.classList.toggle('is-3d', !flat);
     depth.classList.toggle('is-flat', flat);
-    el.querySelector<HTMLElement>('[data-act="view"]')!.textContent = flat ? t.view3d : t.viewFlat;
+    setViewToggle(el.querySelector<HTMLElement>('[data-act="view"]')!, flat);
 
     for (const [key, layer] of layers) if (!map.has(key)) { layer.remove(); layers.delete(key); }
     const waiting = live(id).filter((k) => k !== ord[0]);
@@ -851,7 +851,7 @@ function system(ctx: ViewContext, id: string) {
     }
     strip.innerHTML = toast ? `<span class="error">${esc(toast)}</span>`
       : fa ? `<strong>${frontItem.ch.name}:</strong> ${esc(fa.why)}.
-          ${fa.busy ? `<span class="face-wait">${t.inProgress}</span>` : `<button class="primary" data-resolve="${ord[0]}">${esc(fa.verb)}</button>
+          ${fa.busy ? `<span class="face-wait">${t.inProgress}</span>` : `<button class="primary level-${fa.level}" data-resolve="${ord[0]}">${esc(fa.verb)}</button>
           ${fa.calls.length ? `<button class="plain" data-seen="${ord[0]}">${t.mute}</button>` : ''}`}
           ${waiting.length ? `<span class="how">${t.moreWaiting(waiting.length)}</span>` : ''}`
       : calmStrip(sys.title, frontItem.ch.name, hidden);
