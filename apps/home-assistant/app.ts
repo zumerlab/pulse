@@ -3,10 +3,11 @@ import type { Call, Change, HassState, PulseSource, Status } from './source.ts';
 import { nameOf, placeOf, roomSystems, spansOf, systems, type Alert, type Channel, type Dial, type PulseSystem, type Reading } from './model.ts';
 import { tune } from './tune.ts';
 import {
-  DOT_LANES, LANE, LOCK_MS, MAX_TRACKS, MINI_LANES, PHONE, STACK_MAX, backLayer, calmStrip, clockRim, colorArcs, dialControls, dots, esc, face,
-  fitFor, hsCss, icon, labelAt, layerIndex, levelColor, localeOf, listCenter, listControls, monthRing, musicVisual, num, parallax, radialList, ring as drawRing, ringCenter, satColor, sizes, strokeAt,
-  SCROLL_VISIBLE, scrollControls, scrollList, setLocale, setViewToggle, startInside, systemShell, time, timeRing, timeline, turnList, viewToggle, zumlyOptions,
+  DOT_LANES, LANE, LOCK_MS, MAX_TRACKS, MINI_LANES, PHONE, STACK_MAX, backLayer, calmStrip, colorArcs, dialControls, dots, esc, face,
+  fitFor, hsCss, icon, labelAt, layerIndex, levelColor, localeOf, monthRing, musicVisual, num, parallax, ring as drawRing, ringCenter, satColor, sizes, strokeAt,
+  SCROLL_VISIBLE, scrollControls, scrollList, setLocale, setViewToggle, startInside, systemShell, time, timeRing, timeline, viewToggle, zumlyOptions,
   type ListItem, type RingReading, type ScrollState,
+  DEFAULT_THEME, THEME_NAMES, applyTheme, queueRings, type ThemeName,
 } from '@zumer/pulse';
 import { t } from './strings.ts';
 
@@ -45,10 +46,12 @@ export type PulseSettings = {
   layers?: number;
   // How many channels a system stacks as layers (the rest are named under the object); nothing set: three (two on a phone).
   stack?: number;
+  // The calm systems shown even while something calls (folded by default).
+  calm?: 'open';
 };
-export type Look = { dial?: 'full' | 'open'; day?: 'plain' | 'marks'; ends?: 'flat' | 'rounded' };
+export type Look = { dial?: 'full' | 'open'; day?: 'plain' | 'marks'; ends?: 'flat' | 'rounded'; theme?: ThemeName };
 export const DIALS = ['full', 'open'] as const, DAYS = ['plain', 'marks'] as const, ENDS = ['flat', 'rounded'] as const;
-const LOOK_DEFAULT: Required<Look> = { dial: 'full', day: 'plain', ends: 'flat' };
+const LOOK_DEFAULT: Required<Look> = { dial: 'full', day: 'plain', ends: 'flat', theme: DEFAULT_THEME };
 
 export type PulseOptions = {
   source: PulseSource;
@@ -155,6 +158,8 @@ const applySettings = () => {
     IDS = rooms().filter((id) => !within || within.includes(id.slice('room:'.length)));
   } else IDS = CHOSEN;
   boardMode = local.mode && BOARD_MODES.includes(local.mode) ? local.mode : frame.mode ?? 'grid';
+  const theme = local.look?.theme ?? frame.look?.theme;
+  applyTheme(canvas, theme && THEME_NAMES.includes(theme) ? theme : DEFAULT_THEME);
 };
 const startId = () => { const id = local.start ?? frame.start; return id && IDS.includes(id) ? id : null; };
 // The areas the gear offers: the registry's, within the frame; and the ones in force.
@@ -386,6 +391,10 @@ function imageOf(r: Reading) {
 
 // ─── Board ──────────────────────────────────────────────────────────
 
+// The weight of a system's ring on the board follows its level: what is fine a
+// thin line, what calls heavier, the most serious the heaviest. Sizes never change.
+const boardLanes = (level: number) => MINI_LANES * ([0.6, 1, 1.35][level] ?? 1);
+
 function mini(id: string) {
   const sys = SYS[id], key = order(id)[0];
   if (!key) return '';
@@ -393,12 +402,22 @@ function mini(id: string) {
   const level = worst(id);
   return `<button class="tile zoom-me${level ? ` has-alert level-${level}` : ''}" data-to="sys-${id}" data-system="${id}"
       aria-label="${t.open(sys.title)}">
-    <span class="bigbang mini-ring"><span class="gravity-spot">${ring(key, r, MINI_LANES, false, !r.alert)}</span></span>${visualFor(id, key)}
+    <span class="bigbang mini-ring"><span class="gravity-spot">${ring(key, r, boardLanes(level), false, !r.alert)}</span></span>${visualFor(id, key)}
     <span class="mini-glyph">${icon(ch.glyph, 26)}</span>
     <span class="tile-title">${sys.title}</span>
     <span class="tile-big">${esc(r.alert && !uiOf(id).seen.has(key) ? r.alert.big : r.big)}</span>
   </button>`;
 }
+
+// The calm, folded: one quiet tile with a dot for each (or, open, the button that folds them again).
+function calmTile(n: number) {
+  return calmOpen()
+    ? `<button class="tile calm-fold is-open" data-calm aria-expanded="true"><span class="calm-ring"></span><span class="tile-title">${t.foldCalm}</span></button>`
+    : `<button class="tile calm-fold" data-calm aria-expanded="false" aria-label="${esc(t.showTheCalm(n))}"><span class="calm-ring">${
+      '<i></i>'.repeat(Math.min(n, 8))}</span><span class="tile-title">${t.calmN(n)}</span></button>`;
+}
+// The same under the layers and the list.
+const calmToggle = (n: number) => `<button class="calm-toggle" data-calm aria-expanded="${calmOpen()}">${calmOpen() ? t.foldCalm : `${t.calmN(n)} · ${t.showCalm}`}</button>`;
 
 // Sound in Media's face: a canvas the visual draws on, when the playing channel is in front.
 const visualFor = (id: string, key: string) => id === 'media' && key === 'playing' ? '<canvas class="face-visual" aria-hidden="true"></canvas>' : '';
@@ -426,13 +445,13 @@ const status = () => options.status?.(ha) ?? '';
 
 // Four ways to look at the whole home, over the same data:
 // - grid: a mini ring per system (the usual one);
-// - orbit: the home's pulse in the center (with the clock's rim: the hours, the latest changes at their minute) and the systems around it;
+// - orbit: the home's pulse in the center and the systems around it;
 // - layers: a single object, one system per layer; the one calling the most in front;
 // - list: the systems on a ring that turns, like the lists of a watch.
 const MODES: [BoardMode, string][] = BOARD_MODES.map((m) => [m, t.modes[m]]);
 let boardPick: string | null = null;
-// The list: which item is at the top (fractional while it turns). Kept across views.
-let listOffset = 0;
+// The list: the system the viewer put in its center (null: the most serious). Kept across views.
+let listFocus: string | null = null;
 
 // This month of an energy meter, by day (the detail's calendar), asked once
 // per meter and kept a while.
@@ -447,6 +466,17 @@ async function loadMonth(entity: string) {
   monthLoading.delete(entity);
   repaint();
 }
+
+// Systems by urgency, the most serious first, the usual order within a level;
+// a choice made by hand never moves them (the queue of the orbit, the grid,
+// the list and the index beside the layers).
+function urgencyOrder(ids: string[]) {
+  return ids.map((id, i) => ({ id, i, w: worst(id) })).sort((a, b) => b.w - a.w || a.i - b.i).map((x) => x.id);
+}
+// While something calls, what is fine folds into one quiet element; the
+// viewer opens it on demand, kept with the viewer's settings.
+const calmOpen = () => local.calm === 'open';
+const calmFolds = (ids: string[]) => ids.some((id) => worst(id)) && ids.some((id) => !worst(id));
 
 // Systems front to back: the choice made by hand, the ones calling (most serious
 // first) and then the usual order. A new alert cancels the choice.
@@ -473,7 +503,7 @@ function orbitTile(id: string) {
   return `<div class="satellite"><div class="capsule">
     <button class="otile zoom-me${level ? ` has-alert level-${level}` : ''}" data-to="sys-${id}" data-system="${id}"
       aria-label="${t.open(SYS[id].title)}">
-      <span class="otile-ring"><span class="bigbang"><span class="gravity-spot">${ring(f.key, f.r, MINI_LANES, false, !f.r.alert)}</span></span>
+      <span class="otile-ring"><span class="bigbang"><span class="gravity-spot">${ring(f.key, f.r, boardLanes(level), false, !f.r.alert)}</span></span>
         <span class="otile-glyph">${icon(f.ch.glyph, 24)}</span></span>
       <span class="otile-label outward-y"><span class="tile-title">${SYS[id].title}</span>
       <span class="tile-big">${esc(f.big)}</span></span>
@@ -488,12 +518,10 @@ function hubRing(ids: string[]) {
     return `<o-arc${look().ends === 'rounded' ? ' shape="rounded"' : ''} style="--o-fill:${level ? levelColor(level as 1 | 2) : 'var(--dim)'}"></o-arc>`;
   }).join('');
   // The systems are shifted half a step (none right at the top): each segment
-  // faces its own without rotating the ring. Inside, the clock's rim: the
-  // hours, now, and the latest changes as dots at their minute.
-  const since = Date.now() - 12 * 3600_000;
+  // faces its own without rotating the ring. The clock's rim that sat inside
+  // (clockRim) is out until it has a design of its own.
   return `<span class="bigbang hub-ring"><span class="gravity-spot">
-    <div class="orbit-12" style="--o-size-ratio:.5; --o-gap:30">${segs}</div>
-    ${clockRim(log.filter((l) => l.at.getTime() > since).slice(0, 24).map((l) => ({ at: l.at, level: l.level, text: l.text })))}</span></span>`;
+    <div class="orbit-12" style="--o-size-ratio:.5; --o-gap:30">${segs}</div></span></span>`;
 }
 
 // Inside the center, one thing at a time: each alert (most serious first) and
@@ -520,8 +548,6 @@ function hubSlides(): Slide[] {
     <ul class="hub-rows">${rows.join('') || `<li><span>${t.waitingChanges}</span></li>`}</ul></div>` });
   return list;
 }
-let slideKey: string | null = null;
-const SLIDE_MS = 6000;
 
 // Replaces the content only if it changed: new o-arc take a moment to draw (and
 // to receive taps), and the home sends changes every few seconds.
@@ -536,12 +562,11 @@ function board(ctx: ViewContext) {
   const el = ctx.target;
   el.dataset.title = t.board;   // shown by Zumly's back button
   el.innerHTML = `<div class="board">
-    <header class="board-head"><h1></h1><span class="conn-slot"></span>
+    <header class="board-head"><span class="conn-slot"></span>
       <nav class="modes" aria-label="${t.viewSelector}">${MODES.map(([m, label]) =>
-        `<button class="mode" data-mode="${m}">${label}</button>`).join('')}</nav></header>
-    <p class="error" hidden></p>
+        `<button class="mode" data-mode="${m}">${label}</button>`).join('')}</nav><h1></h1>
+      <p class="error" hidden></p></header>
     <div class="board-body"></div>
-    <ol class="ticker" aria-label="${t.latestChanges}"></ol>
   </div>` + (STORE ? settingsPanel() : '');
   const boardEl = el.querySelector<HTMLElement>('.board')!;
   const body = el.querySelector<HTMLElement>('.board-body')!;
@@ -580,18 +605,7 @@ function board(ctx: ViewContext) {
     unbuild?.();
     unbuild = null;
     if (boardMode === 'list') {
-      body.innerHTML = `<div class="stage list-stage"><div class="one"></div></div>`;
-      const obj = body.querySelector<HTMLElement>('.one')!;
-      const turn = (o: number, settled: boolean) => {
-        listOffset = o;
-        const root = obj.querySelector<HTMLElement>('.radial-list');
-        if (!root) return;
-        root.classList.toggle('is-turning', !settled);
-        const i = turnList(root, o, listLook());
-        const id = listIds[i];
-        if (id) setHTML(root.querySelector<HTMLElement>('.list-center-orbit')!, listCenter(listItem(id)));
-      };
-      unbuild = listControls(obj, { count: () => listIds.length, offset: () => listOffset, set: (o) => turn(o, false), settle: (o) => turn(o, true) });
+      body.innerHTML = `<div class="stage list-stage queue-stage"><div class="one"></div><div class="queue-foot"></div></div>`;
     } else if (boardMode === 'orbit') {
       // The whole orbit is one Orbit system: the universe is the space left, the
       // pulse is the center satellite and the systems, satellites of orbit-10
@@ -601,7 +615,7 @@ function board(ctx: ViewContext) {
       body.innerHTML = `<div class="stage orbit-stage"><div class="obj"><div class="bigbang"><div class="gravity-spot depth outer-perspective">
         <div class="orbit-0 hub-orbit layer-front"><div class="satellite at-center"><div class="capsule">
           <div class="hub"><div class="hub-ring-slot"></div>
-            <div class="hub-face" aria-live="polite"><div class="hub-slide"></div></div><nav class="hub-dots" aria-label="${t.alerts}"></nav></div>
+            <div class="hub-face" aria-live="polite"><div class="hub-slide"></div></div></div>
         </div></div></div>
         <div class="orbit-${tune.orbit} orbit-tiles" data-depth="1"></div></div></div></div></div>`;
     } else if (boardMode === 'layers') {
@@ -619,8 +633,12 @@ function board(ctx: ViewContext) {
   // fractional depth, which Orbit turns into its distance and its size.
   const paintLayers = (all: string[]) => {
     const depth = body.querySelector<HTMLElement>('.depth')!;
-    const n = Math.max(1, Math.min(all.length, layersShown()));
-    const ids = all.slice(0, n), rest = all.slice(n);
+    // Folded, only what calls is drawn (and the one picked by hand); the calm
+    // wait under the object behind one button.
+    const folded = calmFolds(all) && !calmOpen();
+    const shown = folded ? all.filter((id) => worst(id) || id === boardPick) : all;
+    const n = Math.max(1, Math.min(shown.length, layersShown()));
+    const ids = shown.slice(0, n), rest = all.filter((id) => !ids.includes(id));
     const grow = n > 1 ? Math.min(tune.layerGrow, 0.96 / (n - 1)) : tune.layerGrow;
     const ease = Math.pow(2, tune.layerEase * 1.5);
     depth.style.setProperty('--o-depth-grow', grow.toFixed(3));
@@ -656,34 +674,33 @@ function board(ctx: ViewContext) {
     });
     const stage = body.querySelector<HTMLElement>('.board-stage')!;
     // Beside the object, the layers front to back, each a button; the ones past the cap hollow.
-    setHTML(stage.querySelector<HTMLElement>('.layer-index-slot')!, layerIndex(all.map((id, i) => ({ id, title: SYS[id].title, big: front(id).big, level: worst(id), off: i >= n })), 'data-bpick'));
+    setHTML(stage.querySelector<HTMLElement>('.layer-index-slot')!, layerIndex(urgencyOrder(IDS.filter((id) => all.includes(id))).map((id) => ({ id, title: SYS[id].title, big: front(id).big, level: worst(id), off: !ids.includes(id), front: id === ids[0] })), 'data-bpick'));
     const zoom = ids.some((id) => worst(id)) ? 'alert' : 'calm';
     if (stage.dataset.zoom !== zoom) stage.dataset.zoom = zoom;
-    // Under the object: the systems past the cap, then the latest changes (the headline is the front face).
-    setHTML(stage.querySelector<HTMLElement>('.board-strip')!, (rest.length ? `<span class="behind">${t.behind(rest.length)}: ${rest.map((id) =>
+    // Under the object: the systems past the cap, each a button that brings it to the front. No feed of changes.
+    const calm = all.filter((id) => !worst(id)), capped = rest.filter((id) => worst(id) || !folded);
+    setHTML(stage.querySelector<HTMLElement>('.board-strip')!, (capped.length ? `<span class="behind">${t.behind(capped.length)}: ${capped.map((id) =>
       `<button class="more" data-bpick="${id}" aria-label="${esc(t.bringToFront(SYS[id].title))}">${SYS[id].title}</button>`).join(', ')}</span>` : '')
-      + log.slice(0, PHONE ? 2 : 3).map((l) => `<span class="tick${l.level ? ` level-${l.level}` : ''}"><time>${time(l.at)}</time> ${esc(l.text)}</span>`).join(''));
+      + (calmFolds(all) ? calmToggle(calm.length) : ''));
   };
 
-  // The list: a system as an item of it, its mini ring and its front reading.
-  let listIds: string[] = [];
+  // The list: the systems as a queue on two rings (queueRings), what calls
+  // inside by urgency and the calm folded outside. The center holds the one
+  // in focus: the most serious, unless the viewer picked another.
   const listItem = (id: string): ListItem => {
     const f = front(id);
-    return { id, title: SYS[id].title, ring: ring(f.key, f.r, MINI_LANES, false, !f.r.alert), glyph: f.ch.glyph, big: f.big,
+    return { id, title: SYS[id].title, ring: ring(f.key, f.r, boardLanes(worst(id)), false, !f.r.alert), glyph: f.ch.glyph, big: f.big,
       label: f.a ? f.a.why : `${f.ch.name.toLowerCase()} · ${f.label}`, level: worst(id) };
   };
   const paintList = (ids: string[]) => {
-    const obj = body.querySelector<HTMLElement>('.list-stage .one')!;
-    listIds = ids;
-    const items = ids.map(listItem);
-    // Only a change of the items redraws; the ring itself turns in place.
-    const key = JSON.stringify(items);
-    if (drawn.get(obj) === key && obj.firstElementChild) return;
-    drawn.set(obj, key);
-    obj.innerHTML = radialList(items, listOffset, listLook());
+    const queue = urgencyOrder(ids), first = queue[0];
+    const focus = listFocus && queue.includes(listFocus) ? listFocus : first;
+    setHTML(body.querySelector<HTMLElement>('.queue-stage .one')!, queueRings(queue.map(listItem), { focus, open: calmOpen() }));
+    // Under the object: back to what matters when a calm one is in the center, and the fold once open.
+    const back = focus && !worst(focus) && first && worst(first)
+      ? `<button class="queue-back" data-qfocus="${first}"><span class="queue-back-dot"></span>${esc(t.needsYou(SYS[first].title))}</button>` : '';
+    setHTML(body.querySelector<HTMLElement>('.queue-foot')!, back + (calmFolds(queue) && calmOpen() ? calmToggle(queue.filter((id) => !worst(id)).length) : ''));
   };
-  // The list's measures, from the tuning panel in development (tune.list*).
-  const listLook = () => ({ orbit: tune.listOrbit, names: tune.listNames, item: tune.listItem, focus: tune.listFocus, center: tune.listCenter, fade: tune.listFade });
 
   const paint = () => {
     if (built !== boardMode) build();
@@ -698,11 +715,18 @@ function board(ctx: ViewContext) {
     err.textContent = ha.error;
     const ready = ha.status === 'live' || ha.states.size > 0;
     const ids = ready ? boardOrder() : [];
-    if (boardMode === 'grid') setHTML(body, `<div class="tiles">${IDS.filter((id) => ids.includes(id)).map(mini).join('')}</div>`);
+    if (boardMode === 'grid') {
+      // What calls first, by urgency; the calm folded into one tile while something calls.
+      const queue = urgencyOrder(IDS.filter((id) => ids.includes(id)));
+      const calm = queue.filter((id) => !worst(id));
+      const folds = calmFolds(queue);
+      setHTML(body, `<div class="tiles">${(folds && !calmOpen() ? queue.filter((id) => worst(id)) : queue).map(mini).join('')}${
+        folds ? calmTile(calm.length) : ''}</div>`);
+    }
     else if (boardMode === 'orbit') {
-      // The systems stay in their usual place: in the orbit what moves is the color, not the order.
+      // The systems queue by urgency, clockwise from the top: the most serious first (urgencyOrder).
       // Each part is replaced on its own: the carousel does not redraw the rings.
-      const fixed = IDS.filter((id) => ids.includes(id));
+      const fixed = urgencyOrder(IDS.filter((id) => ids.includes(id)));
       const hubEl = body.querySelector<HTMLElement>('.hub')!;
       if (hubEl.hidden !== !ready) hubEl.hidden = !ready;
       setHTML(body.querySelector<HTMLElement>('.hub-ring-slot')!, ready ? hubRing(fixed) : '');
@@ -717,54 +741,25 @@ function board(ctx: ViewContext) {
     else if (ready) paintLayers(ids);
     beat = log[0];
     startVisuals(body, visuals);
-    // The latest changes under the grid and the list; the orbit's center and the layers' strip already show them.
-    el.querySelector('.ticker')!.innerHTML = !['grid', 'list'].includes(boardMode) ? '' : log.slice(0, PHONE ? 3 : 4).map((l) =>
-      `<li class="${l.level ? `level-${l.level}` : ''}"><time>${time(l.at)}</time> ${esc(l.text)}</li>`).join('');
   };
 
+  // The center of the orbit holds what matters most: the most serious alert,
+  // or the home's pulse when all is calm. The rest call from their tiles
+  // around it.
   const paintSlide = () => {
-    const list = hubSlides();
-    const at = Math.max(0, list.findIndex((x) => x.key === slideKey));
-    slideKey = list[at].key;
-    setHTML(body.querySelector<HTMLElement>('.hub-slide')!, list[at].html);
-    setHTML(body.querySelector<HTMLElement>('.hub-dots')!, list.length < 2 ? '' : list.map((x, i) =>
-      `<button class="hub-dot${x.level ? ` level-${x.level}` : ' pulse'}" data-slide="${x.key}" aria-current="${i === at}"
-        aria-label="${x.key === 'pulse' ? t.homePulse : t.alertNof(i + 1, list.length - 1)}"></button>`).join(''));
+    const first = hubSlides()[0];
+    setHTML(body.querySelector<HTMLElement>('.hub-slide')!, first.html);
   };
-  // Advances on its own, except with the pointer or the focus inside the center.
-  let held = false;
-  const advance = () => {
-    if (boardMode !== 'orbit' || held || app.getCurrentViewName() !== 'board') return;
-    const list = hubSlides();
-    if (list.length < 2) return;
-    slideKey = list[(list.findIndex((x) => x.key === slideKey) + 1) % list.length].key;
-    paintSlide();
-  };
-  let timer = window.setInterval(advance, SLIDE_MS);
-  ctx.onCleanup(() => clearInterval(timer));
 
   // The tuning panel (development only) changes the orbit or the layers: rebuild.
   const retune = () => { built = null; paint(); };
   window.addEventListener('pulse-tune', retune);
   ctx.onCleanup(() => window.removeEventListener('pulse-tune', retune));
-  const holdOn = (on: boolean) => (e: Event) => { if ((e.target as HTMLElement).closest?.('.hub')) held = on; };
-  el.addEventListener('pointerover', holdOn(true));
-  el.addEventListener('pointerout', holdOn(false));
-  el.addEventListener('focusin', holdOn(true));
-  el.addEventListener('focusout', holdOn(false));
 
   let locked = false;
   el.addEventListener('click', (e) => {
     const target = e.target as HTMLElement;
-    const slide = target.closest<HTMLElement>('[data-slide]')?.dataset.slide;
     const open = target.closest<HTMLElement>('[data-open]')?.dataset.open;
-    if (slide) {
-      slideKey = slide;
-      clearInterval(timer);
-      timer = window.setInterval(advance, SLIDE_MS);
-      paintSlide();
-      return;
-    }
     if (open) {
       const tile = body.querySelector<HTMLElement>(`.otile[data-system="${open}"]`);
       if (tile) void app.zoomIn(tile);
@@ -774,6 +769,10 @@ function board(ctx: ViewContext) {
     if (action) { options.onAction?.(action); return; }
     const mode = target.closest<HTMLElement>('[data-mode]')?.dataset.mode as BoardMode | undefined;
     const pick = target.closest<HTMLElement>('[data-bpick]')?.dataset.bpick;
+    if (target.closest('[data-calm]')) { setSettings({ calm: calmOpen() ? undefined : 'open' }); return; }
+    const qitem = target.closest<HTMLElement>('[data-qitem]')?.dataset.qitem;
+    if (qitem) { listFocus = qitem; paint(); return; }
+    if (target.closest('[data-qfocus]')) { listFocus = null; paint(); return; }
     if (mode && mode !== boardMode) {
       setSettings({ mode });
     } else if (pick && !locked) {
@@ -848,9 +847,9 @@ function board(ctx: ViewContext) {
       } else if (field === 'stack') {
         const n = Number(data.get('stack')) || undefined;
         setSettings({ stack: n === (frame.stack ?? STACK_DEFAULT) ? undefined : n });
-      } else if (field === 'dial' || field === 'day' || field === 'ends') {
+      } else if (field === 'dial' || field === 'day' || field === 'ends' || field === 'theme') {
         const next: Look = { ...local.look, [field]: String(data.get(field)) };
-        for (const k of ['dial', 'day', 'ends'] as const) if (next[k] === (frame.look?.[k] ?? LOOK_DEFAULT[k])) delete next[k];
+        for (const k of ['dial', 'day', 'ends', 'theme'] as const) if (next[k] === (frame.look?.[k] ?? LOOK_DEFAULT[k])) delete next[k];
         setSettings({ look: Object.keys(next).length ? next : undefined });
       }
     });
@@ -909,7 +908,9 @@ function settingsPanel() {
         <div class="settings-row" role="group" aria-label="${t.dayField}"><span class="settings-group-title">${t.dayField}</span>${DAYS.map((d) =>
           `<label><input type="radio" name="day" value="${d}"> ${t.dayLook[d]}</label>`).join('')}</div>
         <div class="settings-row" role="group" aria-label="${t.endsField}"><span class="settings-group-title">${t.endsField}</span>${ENDS.map((d) =>
-          `<label><input type="radio" name="ends" value="${d}"> ${t.endsLook[d]}</label>`).join('')}</div></fieldset>
+          `<label><input type="radio" name="ends" value="${d}"> ${t.endsLook[d]}</label>`).join('')}</div>
+        <label class="settings-theme"><span class="settings-group-title">${t.themeField}</span><select name="theme">${THEME_NAMES.map((n) =>
+          `<option value="${n}">${t.themeNames[n]}</option>`).join('')}</select></label></fieldset>
       <footer><button type="button" class="plain" data-settings-reset>${t.resetSettings}</button>
         <button type="button" class="primary" data-settings-close>${t.done}</button></footer>
     </form>
@@ -933,6 +934,7 @@ function syncSettings(form: HTMLFormElement) {
   for (const box of form.querySelectorAll<HTMLInputElement>('input[name="systems"]')) box.checked = CHOSEN.includes(box.value);
   const lk = look();
   for (const box of form.querySelectorAll<HTMLInputElement>('input[name="dial"], input[name="day"], input[name="ends"]')) box.checked = lk[box.name as keyof Look] === box.value;
+  form.querySelector<HTMLSelectElement>('select[name="theme"]')!.value = lk.theme;
   // Areas, grouped by floor, and the channels of the systems shown: built from
   // the registry and the readings, so only redrawn when they change (the panel
   // repaints with the house; a list rebuilt under the pointer would lose taps).

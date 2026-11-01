@@ -2,13 +2,13 @@
 // The values are kept in the browser; "Copy" puts on the clipboard the ones to
 // carry into the code once they convince.
 
+import { THEMES as CORE_THEMES, THEME_NAMES, type Theme } from '@zumer/pulse';
 import { t } from './strings.ts';
 
 export type Tune = {
   orbit: number; tile: number; align: number; hub: number; orbitStep: number;
   layerGrow: number; layerStep: number; layerZoom: number; layerOpacity: number;
   layerEase: number; layerStroke: number; layerBlur: number;
-  listOrbit: number; listNames: number; listItem: number; listFocus: number; listCenter: number; listFade: number;
 };
 
 // The values the code uses today.
@@ -16,7 +16,6 @@ export const DEFAULTS: Tune = {
   orbit: 10, tile: 3.5, align: 20, hub: 11, orbitStep: -110,
   layerGrow: 0.42, layerStep: -70, layerZoom: 1.1, layerOpacity: 0.6,
   layerEase: 0, layerStroke: 4, layerBlur: 0.5,
-  listOrbit: 10, listNames: 13, listItem: 3, listFocus: 4.4, listCenter: 8.6, listFade: 0.55,
 };
 
 type Control = { key: keyof Tune; label: string; min: number; max: number; step: number; unit?: string };
@@ -37,24 +36,13 @@ const GROUPS: [string, Control[]][] = [
     { key: 'layerZoom', label: 'Object zoom', min: 0.7, max: 1.5, step: 0.05 },
     { key: 'layerOpacity', label: 'Opacity of the layers behind', min: 0.2, max: 1, step: 0.05 },
   ]],
-  ['List', [
-    { key: 'listOrbit', label: 'Items orbit', min: 6, max: 12, step: 1 },
-    { key: 'listNames', label: 'Names orbit (the notch one past)', min: 11, max: 16, step: 1 },
-    { key: 'listItem', label: 'Item (lanes)', min: 2, max: 5, step: 0.1 },
-    { key: 'listFocus', label: 'Item at the top (lanes)', min: 3, max: 6, step: 0.1 },
-    { key: 'listCenter', label: 'Center (lanes)', min: 6, max: 11, step: 0.1 },
-    { key: 'listFade', label: 'Fade towards the bottom', min: 0, max: 0.9, step: 0.05 },
-  ]],
 ];
 
-// The seven tokens of the theme (packages/core/src/style.css), and the three
-// themes of the elements bench as a starting point for each.
-export type Colors = { bg: string; ink: string; muted: string; dim: string; line: string; minor: string; critical: string };
-export const THEMES: Record<string, Colors> = {
-  Graphite: { bg: '#0e1013', ink: '#f2f3f5', muted: '#9aa0a8', dim: '#3a3f47', line: '#262a31', minor: '#ffb020', critical: '#ff5a4f' },
-  Paper: { bg: '#f3f0e9', ink: '#1d1b18', muted: '#6c665c', dim: '#cfc7b8', line: '#e2dccf', minor: '#c46a00', critical: '#cf3a2d' },
-  Deep: { bg: '#0b1220', ink: '#e8eefb', muted: '#8ea0c2', dim: '#2a3a56', line: '#1a2740', minor: '#ffc452', critical: '#ff6e66' },
-};
+// The seven tokens of the theme (packages/core/src/style.css), and the
+// object's themes (packages/core/src/themes.ts) as a starting point for each.
+export type Colors = Theme;
+const title = (name: string) => name[0].toUpperCase() + name.slice(1);
+export const THEMES: Record<string, Colors> = Object.fromEntries(THEME_NAMES.map((name) => [title(name), CORE_THEMES[name]]));
 const COLOR_LABELS: Record<keyof Colors, string> = { bg: 'Background', ink: 'Ink', muted: 'Muted', dim: 'Dim', line: 'Line', minor: 'Minor alert', critical: 'Critical alert' };
 export const colors: Colors = { ...THEMES.Graphite };
 

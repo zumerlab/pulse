@@ -69,6 +69,8 @@ export const t = {
   dayLook: { plain: 'Bars only', marks: 'With hour marks' } as Record<string, string>,
   endsField: 'Ring ends',
   endsLook: { flat: 'Square', rounded: 'Rounded' } as Record<string, string>,
+  themeField: 'Theme',
+  themeNames: { graphite: 'Graphite', paper: 'Paper', deep: 'Deep', slate: 'Slate (light, blue-grey)', mist: 'Mist (light, bluer)', fog: 'Fog (light, greyer)', night: 'Night (dark, blue-grey)' } as Record<string, string>,
   resetSettings: 'Back to defaults',
   done: 'Done',
   close: 'Close',

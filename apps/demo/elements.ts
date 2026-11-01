@@ -6,7 +6,7 @@ import '@zumer/orbit';
 import '@zumer/pulse/style.css';
 import {
   DOT_LANES, GROW, LANE, MINI_LANES, SIZE, STROKE, backLayer, calmStrip, clockRim, colorArcs, colorWheel, dots, face, icon,
-  labelAt, layerIndex, monthRing, radialList, ring, ringCenter, scrollList, timeRing, timeline, type RingReading,
+  labelAt, layerIndex, monthRing, queueRings, radialList, ring, ringCenter, scrollList, THEMES, THEME_NAMES, timeRing, timeline, type RingReading,
 } from '@zumer/pulse';
 import { systems } from './systems.ts';
 
@@ -69,6 +69,13 @@ const listItems = ids.map((id) => {
   const r: RingReading = ch.type === 'p' ? { kind: 'p', v: ch.ok.v } : { kind: 's', segs: Array.from({ length: ch.segs ?? 4 }, (_, k) => ({ label: '', on: k < (ch.ok.on ?? 0) })) };
   return { id, title: sys.title, ring: ring(key, r, MINI_LANES, { muted: true }), glyph: ch.glyph, big: ch.ok.big, label: `${ch.name.toLowerCase()} · ${ch.ok.label}` };
 });
+// The same systems as a queue: the car critical, the second one minor, the rest calm.
+const queueItems = ids.map((id, i) => {
+  const sys = systems[id], key = sys.front[0], ch = sys.ch[key], level = id === 'car' ? 2 : i === 1 ? 1 : 0;
+  const r: RingReading = ch.type === 'p' ? { kind: 'p', v: ch.ok.v } : { kind: 's', segs: Array.from({ length: ch.segs ?? 4 }, (_, k) => ({ label: '', on: k < (ch.ok.on ?? 0) })) };
+  return { id, title: sys.title, ring: ring(key, level ? { ...r, alert: { level } } : r, MINI_LANES * [0.6, 1, 1.35][level], { muted: !level }),
+    glyph: ch.glyph, big: ch.ok.big, label: `${ch.name.toLowerCase()} · ${ch.ok.label}`, level };
+}).sort((a, b) => b.level - a.level);
 const sources = ['Spotify', 'Radio', 'Bluetooth', 'HDMI 1', 'HDMI 2', 'AirPlay', 'Chromecast', 'TV', 'Vinyl', 'CD', 'Tuner', 'Aux', 'USB', 'Podcasts', 'Audiobooks'];
 
 const samples: [string, string][] = [
@@ -102,6 +109,8 @@ const samples: [string, string][] = [
   ['color-arcs', `<div class="bigbang detail-ring"><div class="gravity-spot">${ring('l', tinted, lanes, { controls: true, name: 'Brightness' })}${colorArcs('l', [28, 76], { name: 'Ceiling light' })}${ringCenter('80%', 'brightness', 13, 'hsl(28 100% 62%)')}</div></div>`],
   ['color-wheel', colorWheel([28, 76], 'l', 'Color of the ceiling light')],
   ['radial-list', `<div class="list-stage" style="width:340px;margin:36px 40px">${radialList(listItems, 0)}</div>`],
+  ['queue-rings', `<div class="list-stage" style="width:340px;margin:36px 110px">${queueRings(queueItems, { focus: 'car', open: false })}</div>`],
+  ['queue-rings-open', `<div class="list-stage" style="width:340px;margin:36px 110px">${queueRings(queueItems, { focus: 'car', open: true })}</div>`],
   ['scroll-list', scrollList(sources.map((label, i) => ({ label, on: i === 2, act: true })), { offset: 1, focus: 2 }, { key: 'src', name: 'Source' })],
   ['clock-rim', universe(`<div class="orbit-12" style="--o-size-ratio:.5; --o-gap:30">${['var(--minor)', 'var(--dim)', 'var(--dim)', 'var(--dim)', 'var(--critical)', 'var(--dim)', 'var(--dim)'].map((c) => `<o-arc style="--o-fill:${c}"></o-arc>`).join('')}</div>${
     clockRim([{ at: at(9, 12), text: 'Kitchen light on' }, { at: at(11, 40), level: 1, text: 'Backyard left on' }, { at: at(14, 5), text: 'Thermostat 23.5°' }, { at: at(16, 20), level: 2, text: 'Bathroom window open' }], now)}`, 160)],
@@ -110,12 +119,9 @@ const samples: [string, string][] = [
   ['glyph', ['bulb', 'drop', 'shield', 'bolt'].map(() => '').join('') + `<div style="display:flex;gap:18px;color:var(--ink)">${[home.ch.lights, home.ch.climate, home.ch.security, car.ch.battery, home.ch.cameras].map((ch) => icon(ch.glyph, 32)).join('')}</div>`],
 ];
 
-// ─── Themes: the same object, three sets of the seven tokens ───
-const themes: [string, string][] = [
-  ['Graphite', ''],
-  ['Paper', '--bg:#f3f0e9; --ink:#1d1b18; --muted:#6c665c; --dim:#cfc7b8; --line:#e2dccf; --minor:#c46a00; --critical:#cf3a2d'],
-  ['Deep', '--bg:#0b1220; --ink:#e8eefb; --muted:#8ea0c2; --dim:#2a3a56; --line:#1a2740; --minor:#ffc452; --critical:#ff6e66'],
-];
+// ─── Themes: the same object, each set of the seven tokens ───
+const themes: [string, string][] = THEME_NAMES.map((name) => [name[0].toUpperCase() + name.slice(1),
+  name === 'graphite' ? '' : Object.entries(THEMES[name]).map(([k, v]) => `--${k}:${v}`).join('; ')]);
 
 document.querySelector('.elements')!.innerHTML = samples.map(([name, html]) =>
   `<section class="sample" data-shot="${name}"><div class="sample-box">${html}</div><p class="sample-name">${name}</p></section>`).join('')

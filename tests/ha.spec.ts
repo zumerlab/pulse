@@ -9,6 +9,10 @@ import { HA } from '../playwright.config.ts';
 const current = (page: Page) => page.locator('.z-view.is-current-view');
 
 test.beforeEach(async ({ page }) => {
+  // While something calls, the board folds the calm systems away; most tests
+  // reach into a calm one, so they start with the calm open (as a viewer who
+  // opened it once). The tests of the fold start from empty settings.
+  await page.addInitScript(() => { if (!localStorage.getItem('pulse-ha-settings')) localStorage.setItem('pulse-ha-settings', '{"calm":"open"}'); });
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
@@ -196,7 +200,7 @@ test('the gear goes one level down: areas by floor, the channels of each system,
   const view = page.locator('.z-view.is-current-view');
   await expect(view.locator('.layer[data-ch]')).toHaveCount(2);
   await expect(view.locator('.layer[data-ch="brightness"]')).toContainText('Bedside lamp brightness');
-  expect(JSON.parse(await page.evaluate(() => localStorage.getItem('pulse-ha-settings')!))).toEqual({
+  expect(JSON.parse(await page.evaluate(() => localStorage.getItem('pulse-ha-settings')!))).toMatchObject({
     channels: { lights: ['plugs'] }, entities: { 'lights/brightness': 'light.bedside_lamp' } });
 });
 
@@ -479,10 +483,13 @@ test('the board groups by room too: each area one object, what has no area in it
   await expect(tiles).toHaveCount(7);
   const ids = await tiles.evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.system));
   expect(ids.every((id) => id!.startsWith('room:'))).toBe(true);
-  // Floor by floor (the ground floor first), then the room of what has no area.
-  expect(ids[0]).toBe('room:entrance');
-  expect(ids[ids.length - 1]).toBe('room:');
-  await expect(tiles.last().locator('.tile-title')).toHaveText('No area');
+  // What calls first, by urgency; within a level, floor by floor (the ground floor first), then the room of what has no area.
+  const levels = await tiles.evaluateAll((els) => els.map((e) => Number(/level-(\d)/.exec(e.className)?.[1] ?? 0)));
+  expect(levels).toEqual([...levels].sort((a, b) => b - a));
+  const calm = ids.filter((_, i) => !levels[i]);
+  expect(calm[calm.length - 1]).toBe('room:');
+  expect(ids).toContain('room:entrance');
+  await expect(page.locator('.tile[data-system="room:"] .tile-title')).toHaveText('No area');
   // A room is an object like a system: its channels are the systems' channels, read within the area.
   await page.locator('.tile[data-system="room:kitchen"]').click();
   await expect(current(page).locator('.sys-title')).toHaveText('Kitchen');
@@ -505,8 +512,9 @@ test('on the rooms axis the areas chosen are the rooms shown', async ({ page }) 
   await page.goto(`${HA}?demo=home&axis=rooms&areas=kitchen,bedroom`);
   const tiles = page.locator('.tile[data-system]');
   await expect(tiles).toHaveCount(2);
-  await expect(tiles.first()).toHaveAttribute('data-system', 'room:kitchen');
-  await expect(tiles.last()).toHaveAttribute('data-system', 'room:bedroom');
+  // The bedroom calls: it comes first.
+  await expect(tiles.first()).toHaveAttribute('data-system', 'room:bedroom');
+  await expect(tiles.last()).toHaveAttribute('data-system', 'room:kitchen');
 });
 
 test('the scenes of the home are a choice on a ring: tapping one activates it and it comes out as the one on', async ({ page }) => {
@@ -580,7 +588,9 @@ test('the layers view lists its layers beside the object, front to back, each br
   const third = ids[2]!;
   await items.nth(2).click();
   await expect(page.locator('.board .layer-front')).toHaveAttribute('data-system', third);
-  await expect(items.first()).toHaveAttribute('data-bpick', third);
+  // The index keeps its order (by urgency); the one in front is marked.
+  await expect(items.nth(2)).toHaveAttribute('data-bpick', third);
+  await expect(items.nth(2)).toHaveAttribute('aria-current', 'true');
   // Capped from the gear: the ones past the cap stay listed, hollow.
   await page.locator('.gear').click();
   await page.locator('select[name="layers"]').selectOption('2');
@@ -691,24 +701,86 @@ test('the wheel over a view never moves the navigation: no zoom out, no scrub of
   expect(await moved()).toBe(false);
 });
 
-test('the list puts the systems on a ring that turns: arrows bring the next to the top, and the center opens it', async ({ page }) => {
+// Empty settings on the first load only: a reload keeps what the test chose.
+const folded = (page: Page) => page.addInitScript(() => {
+  if (!sessionStorage.getItem('folded')) { localStorage.setItem('pulse-ha-settings', '{}'); sessionStorage.setItem('folded', '1'); }
+});
+
+test('the list is a queue on two rings: what calls inside by urgency, the calm folded outside, the center on the most serious', async ({ page }) => {
+  await folded(page);
   await page.goto(`${HA}?demo=home&mode=list`);
-  const list = page.locator('.radial-list');
-  await expect(list).toHaveAttribute('role', 'listbox');
-  await expect(list.locator('[role="option"]')).toHaveCount(7);
-  await expect(list.locator('[role="option"][aria-selected="true"]')).toHaveAttribute('aria-label', 'Lights');
-  await expect(list.locator('.list-center .face-name')).toHaveText('Lights');
-  await list.focus();
-  await page.keyboard.press('ArrowDown');
-  await expect(list.locator('[role="option"][aria-selected="true"]')).toHaveAttribute('aria-label', 'Climate');
-  await expect(list.locator('.list-center .face-name')).toHaveText('Climate');
-  // The last one comes before the first: the ring has no ends.
-  await page.keyboard.press('ArrowUp');
-  await page.keyboard.press('ArrowUp');
-  await expect(list.locator('.list-center .face-name')).toHaveText('Maintenance');
-  await page.keyboard.press('Enter');
-  await expect(current(page).locator('.system')).toBeVisible();
-  await expect(current(page).locator('.sys-title')).toHaveText('Maintenance');
+  const rings = page.locator('.queue-rings');
+  const items = rings.locator('.queue-item');
+  await expect(rings).toBeVisible();
+  const calling = await items.count();
+  expect(calling).toBeGreaterThan(0);
+  expect(calling).toBeLessThan(7);
+  await expect(rings.locator('.queue-item:not(.level-1):not(.level-2)')).toHaveCount(0);
+  // The calm, folded into one button on the outer ring.
+  const fold = rings.locator('.queue-fold [data-calm]');
+  await expect(fold).toHaveAttribute('aria-expanded', 'false');
+  // The center holds the first of the queue, the most serious.
+  const first = await items.first().locator('.queue-title').textContent();
+  await expect(rings.locator('.list-center .face-name')).toHaveText(first!);
+  // Open: every system on the rings, all of one size; the fold goes under the object.
+  await fold.click();
+  await expect(items).toHaveCount(7);
+  const sizes = await items.evaluateAll((els) => [...new Set(els.map((e) => (e.querySelector('.queue-hit') as HTMLElement).offsetWidth))]);
+  expect(sizes).toHaveLength(1);
+  await expect(page.locator('.queue-foot .calm-toggle')).toHaveText('Fold the calm');
+  // A calm one in the center offers the way back to what matters.
+  const calm = rings.locator('.queue-item:not(.level-1):not(.level-2)').first();
+  const name = await calm.locator('.queue-title').textContent();
+  await calm.locator('[data-qitem]').click();
+  await expect(rings.locator('.list-center .face-name')).toHaveText(name!);
+  await page.locator('.queue-back').click();
+  await expect(rings.locator('.list-center .face-name')).toHaveText(first!);
+  await rings.locator('.list-center').click();
+  await expect(current(page).locator('.sys-title')).toHaveText(first!);
+});
+
+test('while something calls the grid folds the calm into one tile, the orbit queues by urgency, and the choice to open them is kept', async ({ page }) => {
+  await folded(page);
+  await page.goto(`${HA}?demo=home&mode=grid`);
+  const tiles = page.locator('.tile[data-system]');
+  const fold = page.locator('.tile.calm-fold');
+  await expect(fold).toHaveAttribute('aria-expanded', 'false');
+  const n = await tiles.count();
+  expect(n).toBeLessThan(7);
+  expect(await page.locator('.tile[data-system].has-alert').count()).toBe(n);
+  // What calls never grows: no transform on its ring, a wave leaves it instead.
+  const ring = page.locator('.tile.has-alert .mini-ring').first();
+  expect(await ring.evaluate((el) => getComputedStyle(el).transform)).toBe('none');
+  expect(await ring.evaluate((el) => getComputedStyle(el, '::after').animationName)).toBe('wave');
+  await fold.click();
+  await expect(tiles).toHaveCount(7);
+  await page.reload();
+  await expect(tiles).toHaveCount(7);
+  // In the orbit the most serious comes first, clockwise from the top.
+  await page.goto(`${HA}?demo=home&mode=orbit`);
+  const levels = await page.locator('.otile').evaluateAll((els) => els.map((e) => Number(/level-(\d)/.exec(e.className)?.[1] ?? 0)));
+  expect(levels).toEqual([...levels].sort((a, b) => b - a));
+  expect(levels[0]).toBeGreaterThan(0);
+  // The head is the same in every view: the switch, then the headline.
+  for (const mode of ['Grid', 'Orbit', 'Layers', 'List']) {
+    await page.locator('.board .modes .mode', { hasText: mode }).click();
+    await expect(page.locator('.board-head h1')).toBeVisible();
+  }
+});
+
+test('the gear picks a theme: the original three and the blue-grey ones that tell an alert by tone', async ({ page }) => {
+  await page.goto(`${HA}?demo=home`);
+  await page.locator('.gear').click();
+  const select = page.locator('select[name="theme"]');
+  await expect(select.locator('option')).toHaveCount(7);
+  await select.selectOption('slate');
+  await page.keyboard.press('Escape');
+  const canvas = page.locator('[data-theme="slate"]');
+  await expect(canvas).toHaveCount(1);
+  expect(await canvas.evaluate((el) => getComputedStyle(el).getPropertyValue('--bg').trim())).toBe('#e4e9ef');
+  expect(await canvas.evaluate((el) => getComputedStyle(el).getPropertyValue('--critical').trim())).toBe('#1d3654');
+  await page.reload();
+  await expect(page.locator('[data-theme="slate"]')).toHaveCount(1);
 });
 
 test('Media carries its sound visual in its tile and in its face while something plays', async ({ page }) => {
@@ -719,16 +791,16 @@ test('Media carries its sound visual in its tile and in its face while something
   await expect(current(page).locator('.layer-front .face-name')).toHaveText('Playing');
 });
 
-test("the orbit's center carries the clock's rim: the hours, now, and the time in the pulse", async ({ page }) => {
+test("the orbit's center holds the most serious alert, or the home's pulse with the time", async ({ page }) => {
   await page.goto(`${HA}?demo=home&mode=orbit`);
-  const hub = page.locator('.hub-ring');
-  await expect(hub.locator('.clock-tick')).toHaveCount(12);
-  await expect(hub.locator('.clock-now')).toHaveCount(1);
-  const now = new Date(), angle = (now.getHours() % 12) * 30 + now.getMinutes() * 0.5;
-  const from = await hub.locator('.clock-now-orbit').evaluate((el) => parseFloat(el.style.getPropertyValue('--o-from')));
-  expect(Math.abs(from - angle)).toBeLessThan(1.5);
-  // The pulse slide names the time.
-  await page.locator('.hub-dot.pulse').click();
+  // A segment per system around the center, and no clock's rim inside it.
+  await expect(page.locator('.hub-ring o-arc')).toHaveCount(7);
+  await expect(page.locator('.hub-ring .clock-tick')).toHaveCount(0);
+  // The center holds the most serious alert, with no dots to page through the rest.
+  await expect(page.locator('.hub-slide .slide')).toHaveClass(/level-[12]/);
+  await expect(page.locator('.hub-dot')).toHaveCount(0);
+  // All calm, the center is the home's pulse, and it names the time.
+  await page.goto(`${HA}?demo=sections&mode=orbit`);
   await expect(page.locator('.hub-slide .eyebrow')).toHaveText(/^Pulse · \d\d:\d\d$/);
 });
 

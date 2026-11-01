@@ -54,4 +54,11 @@ export const t = {
   saturationOf: (name: string) => `Saturation of ${name}`,
   nOptions: (n: number) => count(n, 'option'),
   scrollbarOf: (name: string) => `Scroll ${name}`,
+
+  // What is fine, folded away while something calls
+  calmN: (n: number) => `${n} calm`,
+  showCalm: 'Show',
+  foldCalm: 'Fold the calm',
+  showTheCalm: (n: number) => `Show the ${n} that are calm`,
+  needsYou: (name: string) => `${name} needs you`,
 };

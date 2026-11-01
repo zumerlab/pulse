@@ -20,10 +20,10 @@
 
       <h2>Four views</h2>
       <div class="shots">
-        <figure class="shot"><img src="images/board-grid.png" alt="Grid: a mini ring per system in a row" loading="lazy"><figcaption><strong>Grid.</strong> A mini ring per system, the headline above, the latest changes below. Reads fast.</figcaption></figure>
-        <figure class="shot"><img src="images/board-orbit.png" alt="Orbit: the pulse in the center, the systems around it" loading="lazy"><figcaption><strong>Orbit.</strong> The home's pulse in the center, the systems around it. The center cycles through the alerts and the latest changes; its ring shows which system calls; inside it, a clock's rim.</figcaption></figure>
-        <figure class="shot"><img src="images/board-layers.png" alt="Layers: one object, one system per layer" loading="lazy"><figcaption><strong>Layers.</strong> One object, one system per layer, the one calling the most in front. The list beside it names them front to back.</figcaption></figure>
-        <figure class="shot"><img src="images/board-list.png" alt="List: the systems on a ring that turns" loading="lazy"><figcaption><strong>List.</strong> The systems on a ring, like the lists of a watch: every one named along the outside, a tick between them, a notch at the top. Turn it and the one under the notch shows its face in the center, which opens it.</figcaption></figure>
+        <figure class="shot"><img src="images/board-grid.png" alt="Grid: a mini ring per system in a row" loading="lazy"><figcaption><strong>Grid.</strong> A mini ring per system, what calls first. While something calls, the calm ones fold into one quiet tile. Reads fast.</figcaption></figure>
+        <figure class="shot"><img src="images/board-orbit.png" alt="Orbit: the pulse in the center, the systems around it" loading="lazy"><figcaption><strong>Orbit.</strong> The home's pulse in the center, the systems around it, the most serious first, clockwise from the top. The center holds the alert that matters most; its ring shows which system calls.</figcaption></figure>
+        <figure class="shot"><img src="images/board-layers.png" alt="Layers: one object, one system per layer" loading="lazy"><figcaption><strong>Layers.</strong> One object, one system per layer, the one calling the most in front. While something calls, only what calls is drawn and the calm wait under the object. The list beside it names them all, by urgency.</figcaption></figure>
+        <figure class="shot"><img src="images/board-list.png" alt="List: what calls on the inner ring, the calm folded on the outer one" loading="lazy"><figcaption><strong>List.</strong> A queue on two rings: what calls inside, in order, each named beside it; what is fine on the outer ring, folded into one button. The center holds the most serious and opens it.</figcaption></figure>
       </div>
 
       <h2>Two axes</h2>
@@ -38,10 +38,19 @@
       </figure>
 
       <h2>The pulse</h2>
-      <p>The center of the orbit is the home's pulse. It counts what calls and cycles through the alerts, one at a time, each with a way in. With nothing calling, it shows the latest changes. Its ring has one segment per system, painted when that system calls, and inside it the rim of a clock: the hours, now, and the latest changes as dots at their minute.</p>
+      <p>The center of the orbit is the home's pulse. With something calling, it holds the most serious alert and a way in; the rest call from their own rings around it. With nothing calling, it shows the latest changes. Its ring has one segment per system, painted when that system calls.</p>
+
+      <h2>The same head everywhere</h2>
+      <p>Every view keeps its head in the same place: the view switch, and under it the headline, what calls or that all is calm. The connection sits in the bottom left corner, the gear in the top right one. Nothing under the object feeds the latest changes; the orbit's center shows them when there is nothing else to say.</p>
 
       <h2>Order</h2>
-      <p>Without alerts, the order is the one you chose by tapping, then the usual one. With alerts, the ones calling go first, the most serious first. A new alert cancels the choice made by hand. A critical alert opens its system on its own.</p>
+      <p>Every view queues by urgency: the ones calling first, the most serious first, then the usual order. Picking one by hand puts it in the center or in front, but nothing else moves to make room. A critical alert opens its system on its own.</p>
+
+      <h2>What is fine, folded</h2>
+      <p>While something calls, the systems that are fine fold away: one quiet tile in the grid, one button under the layers, one button on the list's outer ring. Open them once and that screen remembers. With nothing calling there is nothing to fold.</p>
+
+      <h2>How an alert looks</h2>
+      <p>What calls never changes size. Its ring is drawn heavier, in its alert's tone, and a wave leaves it and fades, quicker when it is serious. What is fine is a thin line in a quiet tone.</p>
 
       <h2>The gear</h2>
       <p>Whoever looks at a screen can tune it without touching the setup: the gear at the top right opens a small panel. Changes apply as they are made and are kept in that browser only, so the tablet in the kitchen and the phone in a pocket can show different things from the same source.</p>
@@ -58,6 +67,7 @@
         <tr><td>Open inside</td><td>The board, or a system to start in</td></tr>
         <tr><td>Layers</td><td>How many systems the layers view stacks; how many channels a system stacks</td></tr>
         <tr><td>Look</td><td>The dial full or open at the bottom; the day ring bare or with hour marks; ring ends square or rounded</td></tr>
+        <tr><td>Theme</td><td>Graphite, Paper or Deep, which tell an alert by hue; or Slate, Mist, Fog and Night, which keep to one blue-grey family and tell it by tone</td></tr>
       </table>
       <p>The host sets the frame: which systems and areas the gear may offer, and the defaults. "Back to defaults" returns to what the host said.</p>
 

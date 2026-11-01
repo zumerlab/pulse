@@ -41,7 +41,7 @@
         <tr><td>Stable</td><td>The one in front stays. Only a more serious one displaces it. The others wait in order of arrival.</td></tr>
         <tr><td>One wave</td><td>Only the front alert calls. The ones waiting are their layers behind, in their color, named.</td></tr>
         <tr><td>Seen</td><td>An alert you have seen goes behind and stops calling. It comes back if its text changes.</td></tr>
-        <tr><td>Summary</td><td>With many alerts, the board's center counts them and cycles through them; you open one, resolve it, come back.</td></tr>
+        <tr><td>Summary</td><td>With many alerts, the board queues them by urgency and its center holds the most serious; you open one, resolve it, come back.</td></tr>
         <tr><td>Locked</td><td>After a layer change the controls lock for a moment, so a nervous tap does not resolve two things.</td></tr>
       </table>
 
@@ -52,7 +52,7 @@
         <li><strong>Only the front layer has a face and a full disc.</strong> Behind: a ring and a label.</li>
         <li><strong>The front stroke is twice the one behind.</strong> The hierarchy reads without color.</li>
         <li><strong>Labels are staggered</strong>, never on the same line.</li>
-        <li><strong>Color belongs to the alert</strong>: ring, segment, label. The disc is never painted.</li>
+        <li><strong>The alert carries the weight</strong>: a deeper tone, a heavier ring, a wave, on the ring, the segment or the label. The disc is never painted, and nothing that calls grows.</li>
         <li><strong>In segments, only the failing one is painted</strong>, and the call comes out of there.</li>
         <li><strong>Never two layers at the same radius.</strong> Each step grows by at least 42 percent.</li>
         <li><strong>The 3D container takes no clicks.</strong> The layers do. Tapping a ring brings it forward.</li>
@@ -75,6 +75,7 @@
         <tr><td>Zoom between levels</td><td>800 ms</td></tr>
         <tr><td>A minor alert calls</td><td>every 1.6 s</td></tr>
         <tr><td>A critical alert calls</td><td>every 0.9 s</td></tr>
+        <tr><td>A system calls on the board</td><td>a wave every 2.6 s, or 1.5 s if critical</td></tr>
       </table>
       <p>Nothing moves without a cause: a reading changed, something is urgent, you went somewhere. With <code>prefers-reduced-motion</code> the calls and the travel are gone; the hierarchy stays, by contrast and position.</p>
 

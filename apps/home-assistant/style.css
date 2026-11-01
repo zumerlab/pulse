@@ -10,7 +10,17 @@
 .error { color: var(--critical); text-align: center; max-width: 46ch; }
 
 /* Board: seven systems and the home's latest pulse */
-.board { gap: 28px; overflow-y: auto; align-content: safe center; }
+/* Every view of the board has the same head in the same place: the view
+   switch, then the headline (what calls, or that all is calm). The connection
+   sits in the bottom left corner and the gear in the top right one; nothing under
+   the object feeds the latest changes. */
+.board { position: relative; grid-template-rows: auto minmax(0, 1fr); grid-template-columns: minmax(0, 1fr);
+  align-content: stretch; justify-items: stretch; gap: 16px; padding: 14px 16px 16px; overflow: hidden; }
+.board-head { justify-items: center; gap: 14px; padding: 0 56px; }
+.board-head h1 { font-size: clamp(18px, 2.4vw, 26px); }
+.board-head .conn-slot { position: absolute; bottom: 14px; left: 16px; z-index: 1; }
+.board.mode-grid .board-body { overflow-y: auto; align-content: safe center; }
+.tile:not(.has-alert) .tile-big, .otile:not(.has-alert) .tile-big { color: var(--muted); }
 .tile { height: 160px; position: relative; }
 /* Media's sound, in the tile: the visual's canvas over the mini ring. */
 .tile .face-visual { position: absolute; top: 0; left: 50%; width: 84px; height: 84px; transform: translateX(-50%); z-index: 0; }
@@ -18,9 +28,14 @@
 .tile-big { font-size: 12px; color: var(--ink); max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tile.level-1 .tile-title, .tile.level-1 .tile-big { color: var(--minor); }
 .tile.level-2 .tile-title, .tile.level-2 .tile-big { color: var(--critical); }
-.tile.has-alert .mini-ring { animation: tile-call 1.6s ease-in-out infinite; }
-.tile.level-2 .mini-ring { animation-duration: .9s; }
-@keyframes tile-call { 50% { transform: scale(1.06); } }
+/* What calls never changes size: a wave leaves its ring and fades (quicker for
+   the more serious), and the ring itself is drawn heavier (boardLanes). */
+.tile.has-alert .mini-ring, .otile.has-alert .otile-ring { position: relative; }
+.tile.has-alert .mini-ring::after, .otile.has-alert .otile-ring::after {
+  content: ""; position: absolute; inset: 0; border-radius: 50%; pointer-events: none;
+  border: 1.5px solid var(--minor); animation: wave 2.6s ease-out infinite;
+}
+.tile.level-2 .mini-ring::after, .otile.level-2 .otile-ring::after { border-color: var(--critical); animation-duration: 1.5s; }
 .ticker { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; min-height: 100px; width: min(420px, 100%); font-size: 12px; color: var(--muted); }
 .ticker:empty { min-height: 0; }
 .ticker li { display: flex; gap: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; animation: tick-in .5s ease-out; }
@@ -77,13 +92,13 @@
   .tile-big { font-size: 10px; max-width: 64px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .is-pending, .tile.has-alert .mini-ring, .conn-live .conn-dot, .face-wait { animation: none; }
+  .is-pending, .conn-live .conn-dot, .face-wait { animation: none; }
 }
 
 /* ─── Board: view selector ─────────────────────────────── */
 .modes { display: inline-flex; flex-wrap: wrap; justify-content: center; max-width: 100%; justify-self: center; gap: 2px; padding: 3px; border-radius: 24px; border: 1px solid var(--line); margin-top: 6px; }
 .mode { border: 0; background: none; padding: 6px 14px; border-radius: 999px; font-size: 12px; color: var(--muted); cursor: pointer; }
-.mode[aria-pressed="true"] { background: rgba(255,255,255,.08); color: var(--ink); }
+.mode[aria-pressed="true"] { background: color-mix(in srgb, var(--ink) 8%, transparent); color: var(--ink); }
 .board.mode-orbit, .board.mode-layers, .board.mode-list, .board.mode-clock, .board.mode-calendar {
   grid-template-rows: auto minmax(0, 1fr) auto; grid-template-columns: minmax(0, 1fr);
   align-content: stretch; justify-items: stretch; gap: 12px;
@@ -108,15 +123,14 @@
 .orbit-stage .hub-orbit, .orbit-stage .hub-orbit * { pointer-events: none; }
 .orbit-stage .hub-face, .orbit-stage .hub-face *, .orbit-stage .hub-dots, .orbit-stage .hub-dots * { pointer-events: auto; }
 /* In the orbit, what calls is already in the center: the headline is redundant. */
-.board.mode-orbit .board-head h1, .board.mode-orbit .ticker { display: none; }
 /* The center scales with its own size (cqw units), not with the screen: it
    never overflows, even when the orbit shrinks it. */
 .hub { position: relative; width: 100%; aspect-ratio: 1; container-type: inline-size; }
 .hub-ring-slot, .hub-ring { position: absolute; inset: 0; width: 100%; }
 .hub.beat .hub-ring { animation: hub-beat .7s ease-out; }
-@keyframes hub-beat { 30% { transform: scale(1.04); opacity: .6; } }
+@keyframes hub-beat { 30% { opacity: .6; } }
 .hub-face {
-  position: absolute; inset: 9%; border-radius: 50%; overflow: hidden; background: color-mix(in srgb, var(--bg) 94%, #fff);
+  position: absolute; inset: 9%; border-radius: 50%; overflow: hidden; background: color-mix(in srgb, var(--bg) 94%, var(--ink));
   display: grid; place-items: center; padding: 14% 12% 24%;
 }
 .slide { display: grid; justify-items: center; gap: 2cqw; text-align: center; min-width: 0; animation: slide-in .45s ease-out; }
@@ -160,8 +174,7 @@
 .otile .tile-big { font-size: clamp(10px, calc(var(--S) * .019), 12px); }
 .otile.level-1 .tile-title, .otile.level-1 .tile-big { color: var(--minor); }
 .otile.level-2 .tile-title, .otile.level-2 .tile-big { color: var(--critical); }
-.otile.has-alert .otile-ring { animation: tile-call 1.6s ease-in-out infinite; }
-.otile.level-2 .otile-ring { animation-duration: .9s; }
+
 
 /* ─── Layers: a single object, one system per layer ────── */
 .board-stage { position: absolute; inset: 0; }
@@ -172,8 +185,10 @@
 .board-stage .layer:not(.layer-front) > .orbit-12 :is(o-arc, o-progress) { --o-stroke: color-mix(in srgb, var(--o-fill, var(--muted)) 30%, transparent); --o-stroke-width: var(--halo, 0); }
 .board-stage .face-label { max-width: 150px; }
 
-@media (prefers-reduced-motion: reduce) { .hub.beat .hub-ring, .otile.has-alert .otile-ring, .slide { animation: none; } }
-.board.mode-layers .ticker, .board.mode-layers .board-head h1 { display: none; }
+@media (prefers-reduced-motion: reduce) {
+  .hub.beat .hub-ring, .slide { animation: none; }
+  .tile.has-alert .mini-ring::after, .otile.has-alert .otile-ring::after { animation: none; opacity: .35; transform: scale(1.12); }
+}
 .ticker li { justify-content: center; }
 /* Under the object in layers: the latest changes, and the systems past the cap. */
 .board-strip { display: grid; justify-items: center; gap: 2px; font-size: 12px; color: var(--muted); }
@@ -212,7 +227,7 @@
 .login-lead, .login-hint { color: var(--muted); }
 .login-hint { font-size: 12px; }
 .login label { display: grid; gap: 6px; font-size: 13px; color: var(--muted); }
-.login input, .login select { min-height: 44px; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--dim); background: rgba(255,255,255,.04); color: var(--ink); font: inherit; }
+.login input, .login select { min-height: 44px; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--dim); background: color-mix(in srgb, var(--ink) 4%, transparent); color: var(--ink); font: inherit; }
 .login input:focus, .login select:focus { border-color: var(--muted); outline: none; }
 .login select option { background: var(--bg); }
 .login-demo { display: grid; gap: 10px; padding-top: 14px; border-top: 1px solid var(--line); }
@@ -227,8 +242,8 @@
 .gallery-lead { color: var(--muted); max-width: 60ch; }
 .home-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
 .home-card { display: grid; align-content: start; gap: 10px; padding: 18px; border-radius: 16px; border: 1px solid var(--line);
-  background: rgba(255,255,255,.025); color: var(--ink); text-decoration: none; transition: border-color .2s, background .2s; }
-.home-card:hover, .home-card:focus-visible { border-color: var(--muted); background: rgba(255,255,255,.05); outline: none; }
+  background: color-mix(in srgb, var(--ink) 2.5%, transparent); color: var(--ink); text-decoration: none; transition: border-color .2s, background .2s; }
+.home-card:hover, .home-card:focus-visible { border-color: var(--muted); background: color-mix(in srgb, var(--ink) 5%, transparent); outline: none; }
 .home-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; font-size: 17px; }
 .home-open { font-size: 12px; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px; }
 .home-lead, .home-foot { font-size: 13px; color: var(--muted); }
@@ -274,6 +289,7 @@
 /* A small box (a card in a section, a narrow window): the board tightens. */
 .compact .board { gap: 14px; }
 .compact .board-head { padding: 0 40px; }
+.compact .board-head .conn-slot { position: static; order: 3; }
 .compact .board-head h1 { font-size: 18px; letter-spacing: -.3px; }
 .compact .gear { width: 34px; height: 34px; top: 8px; right: 8px; }
 .compact .modes { margin-top: 0; }
@@ -299,7 +315,7 @@
   .list-center .face-label { -webkit-line-clamp: 1; }
   .list-center .list-open { display: none; }
 }
-.board.mode-list .board-head h1, .board.mode-clock .board-head h1, .board.mode-clock .ticker, .board.mode-calendar .board-head h1 { display: none; }
+
 /* The wheel turns to its new place when it settles (items, names, ticks and the capsules turning back, all
    by the same rotation); while the pointer turns it they follow at once. */
 .radial-list :is(.list-orbit, .list-name-orbit, .list-ticks, .list-item .capsule) { transition: rotate .35s cubic-bezier(.2, .8, .2, 1), opacity .35s; }
@@ -310,3 +326,24 @@
 .list-center .face-big { font-size: clamp(18px, 12cqw, 30px); }
 .list-center .face-label { max-width: 86cqw; white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 @media (prefers-reduced-motion: reduce) { .radial-list :is(.list-orbit, .list-name-orbit, .list-ticks, .list-item .capsule, .list-orbit > .satellite) { transition: none; } }
+
+/* ─── The calm, folded while something calls ─────────────── */
+/* In the grid, one tile: a faint ring with a dot per calm system. */
+.calm-fold { cursor: pointer; }
+.calm-ring { position: relative; width: 84px; aspect-ratio: 1; border-radius: 50%; border: 1px solid var(--line);
+  display: flex; align-items: center; justify-content: center; gap: 5px; }
+.calm-ring i { width: 6px; height: 6px; border-radius: 50%; background: var(--dim); }
+.calm-fold.is-open .calm-ring { border-style: dashed; }
+.calm-fold:hover .calm-ring, .calm-fold:focus-visible .calm-ring { border-color: var(--muted); }
+@media (max-width: 600px) { .calm-ring { width: 56px; gap: 3px; } .calm-ring i { width: 4px; height: 4px; } }
+/* Under the layers and the list: one quiet button. */
+.calm-toggle { min-height: 36px; padding: 6px 14px; border-radius: 999px; border: 1px solid var(--line); background: none; color: var(--muted); font-size: 13px; cursor: pointer; }
+.calm-toggle:hover, .calm-toggle:focus-visible { color: var(--ink); border-color: var(--muted); }
+
+/* ─── List: the queue on two rings ──────────────────────── */
+/* Room on both sides for the names beside the items. */
+.queue-stage .one { width: min(calc(var(--S) * .78), 520px); }
+.queue-foot { position: absolute; left: 0; right: 0; bottom: 4px; display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
+.queue-back { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 6px 14px; border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--critical) 45%, transparent); background: none; color: var(--critical); font-size: 13px; cursor: pointer; }
+.queue-back-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--critical); }

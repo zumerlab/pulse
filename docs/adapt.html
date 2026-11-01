@@ -146,7 +146,7 @@ if (PHONE) await startInside(app, mostUrgent());  // a phone starts inside a sys
       <p>Three implementations exist in the repository: over Home Assistant's WebSocket, over the <code>hass</code> object of a card, and over the demo homes, which answer commands in the browser. A fourth would be yours.</p>
 
       <h2>8. Theme</h2>
-      <p>The look is seven custom properties on <code>:root</code> (and <code>:host</code>, for a shadow root). The core ships Graphite; another theme is another set of seven. Everything else, strokes, sizes, motion, is the grammar and does not change with the theme.</p>
+      <p>The look is seven custom properties on <code>:root</code> (and <code>:host</code>, for a shadow root). The stylesheet is Graphite. The core ships seven themes in <code>THEMES</code>: Graphite, Paper and Deep tell an alert by hue, amber and red; Slate, Mist and Fog (light) and Night (dark) keep to one blue-grey family and tell it by tone, the most urgent the deepest (the brightest on Night). <code>applyTheme(el, 'slate')</code> puts one on an element and everything inside follows. Another theme is another set of seven. Everything else, strokes, sizes, motion, is the grammar and does not change with the theme.</p>
 <pre><code>:root {
   color-scheme: dark;
   --bg: #0e1013;        /* the page and the discs' ground */
@@ -158,8 +158,8 @@ if (PHONE) await startInside(app, mostUrgent());  // a phone starts inside a sys
   --critical: #ff5a4f;  /* a level 2 alert */
 }</code></pre>
       <figure class="shot">
-        <img src="images/el-themes.png" alt="The same object with three themes: Graphite dark, Paper light, Deep blue" loading="lazy">
-        <figcaption>The same object under Graphite, a light Paper and a blue Deep: the seven tokens, nothing else. The two extra palettes are in the elements bench.</figcaption>
+        <img src="images/el-themes.png" alt="The same object under the seven themes" loading="lazy">
+        <figcaption>The same object under each theme: the seven tokens, nothing else.</figcaption>
       </figure>
 
       <h2>9. Strings and language</h2>

@@ -3,3 +3,4 @@
 // whoever mounts it (the demo simulates it, the Home Assistant app reads it live).
 export * from './radial.ts';
 export * from './i18n.ts';
+export * from './themes.ts';

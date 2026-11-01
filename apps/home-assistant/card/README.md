@@ -153,6 +153,7 @@ strategy alike.
 | `dial` | `full`, `open` | `full` | How a band (a thermostat, brightness, volume) is drawn: a full ring, or three quarters open at the bottom, its ends named (min and max) and a mark where the measurement is when the band is a target. |
 | `day` | `plain`, `marks` | `plain` | The ring of the last 24 hours in a detail (humidity, power, carbon monoxide): bars only, or with a tick per hour and "6 h ago", "12 h ago", "18 h ago" around it. |
 | `ends` | `flat`, `rounded` | `flat` | The ends of a band and of each segment of a ring: square, or rounded. |
+| `theme` | `graphite`, `paper`, `deep`, `slate`, `mist`, `fog`, `night` | `graphite` | The colors. Graphite, Paper and Deep tell an alert by hue (amber, red). Slate, Mist and Fog (light) and Night (dark) keep to one blue-grey family: the most urgent is the deepest tone (the brightest on Night), with a heavier ring and a quicker wave. |
 
 A card with a wrong value refuses to render and says why ("Unknown system
 "climat". One of: lights, climate, …").
@@ -166,7 +167,7 @@ or more), the channels of each system and, for a channel that follows one
 entity (a brightness dial, the humidity, a window), which entity it follows,
 then the board view, where it opens next time and the look (the dial full or
 open at the bottom, the day ring bare or with hour marks, the ring ends square or
-rounded). Changes apply as they are
+rounded, the theme). Changes apply as they are
 made and are kept in that browser only, so the tablet in the kitchen and the
 phone in a pocket can show different things from the same card. "Back to
 defaults" returns to what the card's options say.
@@ -181,16 +182,18 @@ set `settings: false`.
 
 **The board.** One ring per system, each with the one reading that matters
 (lights on, temperature, alarm state, power), the headline with what calls
-("4 things calling · poorly installed door did not finish locking.") and the
-latest changes of your entities. Four ways to look at it, switchable at the
-top:
+("4 things calling · poorly installed door did not finish locking."), the same
+in every view. What calls comes first, the most serious first; while something
+calls, the systems that are fine fold into one quiet element you can open. What
+calls never grows: its ring is heavier, its tone deeper, and a wave leaves it.
+Four ways to look at it, switchable at the top:
 
 | View | What it is |
 |---|---|
-| **Grid** | A mini ring per system in a row, the log below. Reads fast. |
-| **Orbit** | The home's pulse in the center, the systems around it. The center cycles through the alerts and the latest changes; its ring shows which system calls, and inside it a clock's rim: the hours, now, and the latest changes as dots at their minute. |
-| **Layers** | One object, one system per layer, the one calling the most in front. Tap a band to bring that system forward, the center to enter. |
-| **List** | The systems on a ring, like the lists of a watch: turn it (wheel, drag, arrows) and the one at the top is named in the center; tap the center to enter. |
+| **Grid** | A mini ring per system in a row, what calls first and the calm folded into one tile. Reads fast. |
+| **Orbit** | The home's pulse in the center, the systems around it, the most serious first, clockwise from the top. The center holds the alert that matters most (the latest changes when all is calm); its ring shows which system calls. |
+| **Layers** | One object, one system per layer, the one calling the most in front; while something calls, only what calls is drawn. Tap a band to bring that system forward, the center to enter. |
+| **List** | A queue on two rings: what calls inside, in order, each named beside it; the calm on the outer ring, folded into one button. The center holds the most serious; tap another to see it there, tap the center to enter. |
 
 ![The orbit view](images/dashboard-orbit.png)
 

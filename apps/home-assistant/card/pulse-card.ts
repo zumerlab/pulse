@@ -12,6 +12,7 @@ import pulseCss from '@zumer/pulse/style.css?inline';
 import appCss from '../style.css?inline';
 import { mountPulse, AXES, BOARD_MODES, DAYS, DIALS, ENDS, type Axis, type BoardMode, type PulseHandle } from '../app.ts';
 import { systems } from '../model.ts';
+import { THEME_NAMES, type ThemeName } from '@zumer/pulse';
 import { HassSource } from './hass-source.ts';
 import type { CardConfig, ConfigForm, FormSchema, HomeAssistant, LovelaceCard } from './hass.ts';
 
@@ -43,11 +44,13 @@ export type PulseCardConfig = CardConfig & {
   day?: 'plain' | 'marks';
   // The ends of a band and of each segment: `flat` (square) or `rounded`.
   ends?: 'flat' | 'rounded';
+  // The colors: graphite (the default), paper, deep, or the blue-grey ones that tell an alert by tone, not by hue: slate, mist, fog (light) and night (dark).
+  theme?: ThemeName;
 };
 
 const SYSTEM_IDS = systems.map((s) => s.id);
 const MODE_LABELS: Record<BoardMode, string> = { grid: 'Grid', orbit: 'Orbit', layers: 'Layers', list: 'List' };
-const LABELS: Record<string, string> = { systems: 'Systems', areas: 'Areas', mode: 'Board view', axis: 'Group by', start: 'Open inside', layers: 'Layers', stack: 'Layers in a system', settings: 'Viewer settings (the gear)', dial: 'Dial', day: 'Day ring', ends: 'Ring ends' };
+const LABELS: Record<string, string> = { systems: 'Systems', areas: 'Areas', mode: 'Board view', axis: 'Group by', start: 'Open inside', layers: 'Layers', stack: 'Layers in a system', settings: 'Viewer settings (the gear)', dial: 'Dial', day: 'Day ring', ends: 'Ring ends', theme: 'Theme' };
 const HELPERS: Record<string, string> = {
   systems: 'Leave empty for all of them.',
   areas: 'Only what is in these areas; leave empty for the whole home. An entity with no area stays out.',
@@ -60,6 +63,7 @@ const HELPERS: Record<string, string> = {
   dial: 'A full ring, or open at the bottom with its ends named and a mark at the measurement.',
   day: 'The last 24 hours in a detail: bars only, or with hour marks around.',
   ends: 'The ends of a band and of each segment of a ring: square, or rounded.',
+  theme: 'The colors. Slate, Mist, Fog and Night keep to one blue-grey family and tell an alert by tone and weight instead of red and amber.',
 };
 
 const FORM: FormSchema[] = [
@@ -74,6 +78,7 @@ const FORM: FormSchema[] = [
   { name: 'dial', selector: { select: { mode: 'dropdown', options: [{ value: 'full', label: 'Full ring' }, { value: 'open', label: 'Open at the bottom' }] } } },
   { name: 'day', selector: { select: { mode: 'dropdown', options: [{ value: 'plain', label: 'Bars only' }, { value: 'marks', label: 'With hour marks' }] } } },
   { name: 'ends', selector: { select: { mode: 'dropdown', options: [{ value: 'flat', label: 'Square' }, { value: 'rounded', label: 'Rounded' }] } } },
+  { name: 'theme', selector: { select: { mode: 'dropdown', options: THEME_NAMES.map((value) => ({ value, label: value[0].toUpperCase() + value.slice(1) })) } } },
 ];
 
 function assertConfig(config: PulseCardConfig) {
@@ -90,14 +95,15 @@ function assertConfig(config: PulseCardConfig) {
   if (config.dial !== undefined && !DIALS.includes(config.dial)) throw new Error(`dial must be one of ${DIALS.join(', ')}`);
   if (config.day !== undefined && !DAYS.includes(config.day)) throw new Error(`day must be one of ${DAYS.join(', ')}`);
   if (config.ends !== undefined && !ENDS.includes(config.ends)) throw new Error(`ends must be one of ${ENDS.join(', ')}`);
+  if (config.theme !== undefined && !THEME_NAMES.includes(config.theme)) throw new Error(`theme must be one of ${THEME_NAMES.join(', ')}`);
 }
 
 // A strategy's `generate` receives its own `strategy:` object (`type` and the
 // options next to it); the card's options go through to the card.
 function cardConfig(strategy: Record<string, unknown> = {}): PulseCardConfig {
-  const { systems, areas, mode, axis, start, layers, stack, settings, dial, day, ends } = strategy as PulseCardConfig;
+  const { systems, areas, mode, axis, start, layers, stack, settings, dial, day, ends, theme } = strategy as PulseCardConfig;
   return { type: 'custom:pulse-card', ...(systems ? { systems } : {}), ...(areas?.length ? { areas } : {}), ...(mode ? { mode } : {}), ...(axis ? { axis } : {}), ...(start ? { start } : {}),
-    ...(layers ? { layers } : {}), ...(stack ? { stack } : {}), ...(settings === false ? { settings } : {}), ...(dial ? { dial } : {}), ...(day ? { day } : {}), ...(ends ? { ends } : {}) };
+    ...(layers ? { layers } : {}), ...(stack ? { stack } : {}), ...(settings === false ? { settings } : {}), ...(dial ? { dial } : {}), ...(day ? { day } : {}), ...(ends ? { ends } : {}), ...(theme ? { theme } : {}) };
 }
 
 // Orbit 2.2 registers its @property declarations itself (CSS.registerProperty
@@ -146,12 +152,12 @@ class PulseCard extends HTMLElement implements LovelaceCard {
     const root = this.shadowRoot ?? this.attachShadow({ mode: 'open' });
     root.adoptedStyleSheets = sheets;
     root.innerHTML = '<div class="zumly-canvas" tabindex="0"></div>';
-    const { systems, areas, mode, axis, start, layers, stack, settings, dial, day, ends } = this.config;
+    const { systems, areas, mode, axis, start, layers, stack, settings, dial, day, ends, theme } = this.config;
     // The viewer's choices are kept per card config: a card set up differently
     // starts afresh.
     const key = `pulse-card:${JSON.stringify({ systems, areas, mode, axis, start })}`;
     this.pulse = mountPulse(root.querySelector<HTMLElement>('.zumly-canvas')!, { source: this.source, systems, areas, mode, axis, start, layers, stack, settings: settings === false ? false : key,
-      look: dial || day || ends ? { dial, day, ends } : undefined });
+      look: dial || day || ends || theme ? { dial, day, ends, theme } : undefined });
   }
 
   private unmount() {

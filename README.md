@@ -24,7 +24,9 @@ the zoom between levels is [Zumly](https://zumerlab.com/zumly/).
   own. Nothing else moves in z.
 - **Three layers at most.** The rest are counted and named, not drawn. Only the
   front layer has a face and a full disc; behind, a ring and a label.
-- **Color belongs to the alert.** A segment, a band, a label. Never the disc.
+- **The alert carries the weight.** A deeper tone, a heavier ring, a wave, on a
+  segment, a band or a label. Never the disc, and nothing that calls grows. What
+  is fine stays thin and quiet, folded away while something calls.
 - **The ring is the control.** A band you drag, segments you tap, names along
   the ring you choose from. A control resolved on the face opens no detail.
 - **What is shown is what was confirmed.** A command beats on its way and
@@ -111,7 +113,8 @@ source and returns one of three rings, a value, a line, and optionally an alert
 with its action. [Your own source](docs/sources.html) has the shape of it and
 [In your project](docs/adapt.html) the steps, from the imports to the theme;
 `apps/demo/` is the smallest example, and `apps/demo/elements.html` draws every
-element alone with sample data, under three themes.
+element alone with sample data, under each of the seven themes (`THEMES` in the
+core: Graphite, Paper, Deep, and the blue-grey Slate, Mist, Fog and Night).
 
 ## Language
 

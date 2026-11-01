@@ -92,7 +92,7 @@
         </figure>
         <figure class="element">
           <img src="images/el-dots.png" alt="Five small rings, one of them beating" loading="lazy">
-          <figcaption><strong>Dots</strong> <code>dots(list, currentId)</code>. The systems as mini rings under the object on a phone; the one with an alert beats. A tap goes sideways.</figcaption>
+          <figcaption><strong>Dots</strong> <code>dots(list, currentId)</code>. The systems as mini rings under the object on a phone; the one with an alert sends out a wave, at its own size. A tap goes sideways.</figcaption>
         </figure>
         <figure class="element">
           <img src="images/el-tile.png" alt="A tile: a ring, a glyph, the name Car" loading="lazy">
@@ -116,7 +116,7 @@
         </figure>
         <figure class="element">
           <img src="images/el-clock-rim.png" alt="Twelve ticks, dots at the minute of the latest changes, now brighter" loading="lazy">
-          <figcaption><strong>Clock rim</strong> <code>clockRim(marks, now)</code>. Inside a ring: twelve hour ticks, the latest changes as dots at their minute in their level's color, now as a brighter dot. The center of the board's orbit.</figcaption>
+          <figcaption><strong>Clock rim</strong> <code>clockRim(marks, now)</code>. Inside a ring: twelve hour ticks, the latest changes as dots at their minute in their level's color, now as a brighter dot. In the core; the board does not use it for now.</figcaption>
         </figure>
       </div>
 
@@ -137,6 +137,14 @@
         <figure class="element">
           <img src="images/el-radial-list.png" alt="Five systems on a ring, Home at the top named in the center" loading="lazy">
           <figcaption><strong>Radial list</strong> <code>radialList(items, offset)</code> + <code>listControls</code>. Items on a ring, like the lists of a watch, each named along the outside, a tick between them and a notch at the top: the one under the notch shows its face in the center, which opens it; the wheel, a drag or the arrows turn the ring. Up to twelve share the circle; past that, a window of them.</figcaption>
+        </figure>
+        <figure class="element">
+          <img src="images/el-queue-rings.png" alt="What calls on an inner ring, the car first; the calm folded into one button on the outer ring" loading="lazy">
+          <figcaption><strong>Queue</strong> <code>queueRings(items, { focus, open })</code>. The systems as a queue on two rings: what calls inside, by urgency, clockwise from the top, each named beside it; what is fine on the left half of the outer ring, folded into one button (<code>data-calm</code>) or each one there. All the same size; the center is <code>listCenter</code> of the one in <code>focus</code>. The host handles <code>data-qitem</code> and <code>data-calm</code>.</figcaption>
+        </figure>
+        <figure class="element">
+          <img src="images/el-queue-rings-open.png" alt="The same queue with the calm open on the outer ring" loading="lazy">
+          <figcaption><strong>Queue, open</strong>. The same with <code>open: true</code>: the calm ones each on the outer ring, quiet.</figcaption>
         </figure>
         <figure class="element">
           <img src="images/el-scroll-list.png" alt="Sources along the right side of a ring, Bluetooth on, a curved scrollbar outside" loading="lazy">
