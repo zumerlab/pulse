@@ -27,6 +27,8 @@ const card = (href: string, title: string, lead: string, body: string, foot: str
     <span class="home-foot">${esc(foot)}</span>
   </a>`;
 
+// The links name index.html: a static host that does not serve a folder as its
+// index (Home Assistant's /local/, for one) still reaches the app.
 // One mini ring per system the home fills: the channel calling the most, or the first.
 function preview(source: DemoSource) {
   const tiles: string[] = [];
@@ -51,14 +53,14 @@ async function homeCard(home: Home) {
   await source.start(home.id);
   const tiles = preview(source), entities = source.states.size;
   source.stop(false);
-  return card(`./?demo=${home.id}`, home.name, `${home.author} · ${home.description}`,
+  return card(`./index.html?demo=${home.id}`, home.name, `${home.author} · ${home.description}`,
     `<span class="tiles">${tiles.join('')}</span>`,
     t.homeFoot(entities, tiles.length), 'home-card-demo');
 }
 
 root.innerHTML = `<h1>Pulse</h1><p class="gallery-lead">${t.galleryLead}</p>
   <section class="home-cards">
-    ${card('./', t.yourHA, t.yourHALead, '', t.signIn, 'home-card-live')}
+    ${card('./index.html', t.yourHA, t.yourHALead, '', t.signIn, 'home-card-live')}
     ${DEMO_APP ? card(DEMO_APP, t.demoApp, t.demoAppLead, '', t.openShort, 'home-card-app') : ''}
   </section>
   <h2>${t.demoHomes}</h2><p class="gallery-lead">${t.demoHomesLead}</p>
