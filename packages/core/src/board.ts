@@ -339,7 +339,7 @@ function headline() {
     .sort((a, b) => b.a.level - a.a.level);
   if (!calling.length) return t.allCalm;
   if (calling.length === 1) return `${calling[0].a.why}.`;
-  return `${t.thingsCalling(calling.length, calling[0].a.why.toLowerCase())}.`;
+  return `${t.thingsCalling(calling.length, calling[0].a.why)}.`;
 }
 
 // The connection line is the shell's (sign out, leave the demo); a card has none.

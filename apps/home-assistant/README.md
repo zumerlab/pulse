@@ -18,10 +18,16 @@ one of the six homes of demo.home-assistant.io (see "Demo homes" below).
 
 ## Files
 
-- `app.ts`: the object (board, systems, detail) over a `PulseSource`, mounted
-  on an element: `mountPulse(canvas, { source, status, onAction, onStatus })`.
+- `app.ts`: `mountPulse(canvas, { source, status, onAction, onStatus })`: the
+  core's board (`mountBoard`, `@zumer/pulse`) over the host `host.ts` makes of
+  a `PulseSource`, with Home Assistant's words (areas, entities) translated to
+  the board's (groups, picks). The board itself (grid, orbit, layers, the
+  gear, the system view, the detail) lives in the core.
+- `host.ts`: a `PulseSource` as the core's `PulseHost`: the seven systems of
+  `model.ts` bound to the source, entity ids as things, service calls as
+  actions, names and states as Home Assistant says them.
 - `main.ts`: the standalone shell: sign-in, the WebSocket source, the demo
-  homes, the tuning panel.
+  homes, the core's tuning panel.
 - `source.ts`: `PulseSource` and `WebSocketSource`. `demo/`: `DemoSource` and
   the demo homes (`demo/scripts/import-homes.py` regenerates them from the
   frontend repo). `card/`: `HassSource`, the card and the strategies, and the
@@ -315,7 +321,7 @@ of the systems, center pulse, distance in 3D, growth, distance, zoom and opacity
 of the layers, and tilt. The values are kept in the browser; the colored number
 is the one that moved from the code's value. "Copy" puts the list on the
 clipboard to carry into the code; "Back to code values" discards them. It does
-not appear in the build (`tune.ts`).
+not appear in the build (the core's `tune.ts`).
 
 ## Alerts: rules over the state
 

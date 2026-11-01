@@ -13,6 +13,8 @@
   "scripts": {
     "dev": "npm run dev -w pulse-demo -- --port 5173",
     "dev:ha": "npm run dev -w pulse-home-assistant -- --port 5174",
+    "dev:homelab": "npm run dev -w pulse-homelab -- --port 5175",
+    "collect": "node apps/homelab/collector/collector.mjs",
     "build": "tsc --noEmit && npm run build --workspaces --if-present",
     "build:card": "npm run build:card -w pulse-home-assistant",
     "lint": "eslint .",
