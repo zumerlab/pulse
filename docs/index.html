@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pulse · What matters now, in front</title>
+  <meta name="description" content="Pulse is a radial interface for states that compete for attention: one circular object per system, with layers in depth. Home Assistant is its first source.">
+  <link rel="preload" href="assets/roboto-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+<header data-site-head></header>
+
+<main class="home page">
+  <section class="hero">
+    <div>
+      <h1>What matters now, in front.</h1>
+      <p class="lede">Pulse shows a home, a car, a server, whatever has states that compete for your attention, as one round object per system. Each object has layers: the one that matters sits in front with its control on the ring; the rest wait behind, visible and named. An alert brings its layer forward. Resolved, it goes back.</p>
+      <div class="actions">
+        <a class="button primary" href="principles.html">Why it is round</a>
+        <a class="button" href="home-assistant.html">See it on Home Assistant</a>
+      </div>
+    </div>
+    <figure class="shot">
+      <img src="images/board-orbit.png" alt="The board of a home: the pulse in the center, seven systems around it, one of them calling in amber" width="2400" height="1600">
+    </figure>
+  </section>
+
+  <h2>Three uses of depth</h2>
+  <p class="lede">A layer behind is not hidden. It is further away. Depth has to mean something, or it is decoration.</p>
+  <ul class="terms">
+    <li><strong>What is active</strong><p>The front layer is the one you read and use. Its face holds the value; its ring holds the control.</p></li>
+    <li><strong>What is urgent</strong><p>An alert raises its layer and colors only what fails: a segment, a band, a label. Never the disc.</p></li>
+    <li><strong>How much room</strong><p>Zoom in to a system when something needs you; zoom out to the board when nothing does.</p></li>
+  </ul>
+
+  <h2>One grammar, three levels</h2>
+  <div class="shots">
+    <figure class="shot"><img src="images/board-layers.png" alt="The board as one object: each system a layer, named front to back on the left" loading="lazy"><figcaption>The board. Every system is a layer of one object; the list on the left names them front to back.</figcaption></figure>
+    <figure class="shot"><img src="images/system-climate.png" alt="The climate system: a temperature dial in front, the mode and a fan behind" loading="lazy"><figcaption>A system. The channel in front has its control on the ring: here a thermostat, dragged.</figcaption></figure>
+    <figure class="shot"><img src="images/system-alert.png" alt="A battery alert in front, in amber, with its action under the object" loading="lazy"><figcaption>An alert. It came to the front on its own, with what to do about it.</figcaption></figure>
+    <figure class="shot"><img src="images/detail-humidity.png" alt="The detail of a humidity sensor: the last 24 hours as a ring" loading="lazy"><figcaption>A detail, only when it adds something: a day of readings, a picture, a long list.</figcaption></figure>
+  </div>
+
+  <h2>Not a dashboard</h2>
+  <p class="lede">A dashboard shows everything at once and leaves the sorting to you. Pulse sorts first. Three layers at most are drawn; the rest are counted and named. Color belongs to the alert. Nothing moves without a cause.</p>
+  <p>The rules are short and they are written down: <a href="principles.html">Why</a>.</p>
+
+  <h2>Home Assistant, as the first source</h2>
+  <p class="lede">Pulse is the interface. It does not own data and it does not control devices: a source feeds it readings and takes its commands. Home Assistant is the first real source and the most thorough demonstration: a custom card, a dashboard strategy, a standalone app. Every home builds a different object from what it has.</p>
+  <ul class="cards">
+    <li><a class="card" href="home-assistant.html"><img src="images/board-rooms.png" alt="" loading="lazy"><strong>Home Assistant</strong><span>The card, the strategies, the app. By system or by room.</span></a></li>
+    <li><a class="card" href="sources.html"><img src="images/demo-car.png" alt="" loading="lazy"><strong>Your own source</strong><span>A car, a boat, a server: one interface, a small contract.</span></a></li>
+    <li><a class="card" href="elements.html"><img src="images/el-color-arcs.png" alt="" loading="lazy"><strong>Elements</strong><span>Every ring, face, day and list, drawn alone, with what it takes.</span></a></li>
+    <li><a class="card" href="adapt.html"><img src="images/el-themes.png" alt="" loading="lazy"><strong>In your project</strong><span>Mount it, describe your systems, feed readings, set a theme.</span></a></li>
+  </ul>
+
+  <h2>Built on two small libraries</h2>
+  <p>The rings, the arcs and the layers in depth are <a href="https://zumerlab.com/orbit/">Orbit</a>, a CSS layout system for things that grow around a center. The zoom between the board, a system and its detail is <a href="https://zumerlab.com/zumly/">Zumly</a>. Pulse adds the grammar: what a layer means, when a ring is a control, when a detail opens.</p>
+
+  <p class="closing">Pulse is open source, MIT. Made by <a href="https://zumerlab.com">ZumerLab</a>. Source on <a href="https://github.com/zumerlab/pulse">GitHub</a>.</p>
+</main>
+
+<script src="assets/site.js"></script>
+</body>
+</html>

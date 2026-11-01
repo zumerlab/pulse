@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Home Assistant · Pulse</title>
+  <meta name="description" content="Pulse on Home Assistant: a custom card, a dashboard strategy and a standalone app over your own entities, with no entity list to write.">
+  <link rel="preload" href="assets/roboto-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+<header data-site-head></header>
+<div class="site">
+  <nav class="site-nav" data-site-nav></nav>
+  <main class="page">
+    <article class="prose">
+      <p class="eyebrow">In use</p>
+      <h1>Home Assistant</h1>
+      <p class="lede">Home Assistant is the first real source of Pulse, and the most thorough demonstration of it. Pulse reads the states Home Assistant already pushes to the dashboard. There is no entity list to write: each channel picks its entities by domain, device class or capability, and a channel with nothing to show stays out. Every home builds a different object.</p>
+
+      <figure class="shot">
+        <img src="images/board-orbit.png" alt="The orbit of a Home Assistant home" loading="lazy">
+        <figcaption>One of the demo homes of demo.home-assistant.io, as Pulse sees it.</figcaption>
+      </figure>
+
+      <h2>Three ways in</h2>
+      <ul class="terms">
+        <li><strong>The card</strong><p><code>custom:pulse-card</code>, from the Add card dialog of any dashboard, with a visual editor. Pulse inside a dashboard you already have.</p></li>
+        <li><strong>The strategies</strong><p>A dashboard type, Pulse, that is one full-screen object; and a section strategy to drop a Pulse into a sections view.</p></li>
+        <li><strong>The app</strong><p>A standalone page that signs in with Home Assistant's own login and talks over its WebSocket. For a kiosk, a round screen, a tablet on the wall.</p></li>
+      </ul>
+      <p>The card is a single JavaScript module, a dashboard resource only: no integration, no add-on, nothing on the server. Install, options and troubleshooting are in the <a href="https://github.com/zumerlab/pulse/blob/main/apps/home-assistant/card/README.md">card's README</a>.</p>
+
+      <h2>The systems</h2>
+      <table>
+        <tr><th>System</th><th>What it looks for</th></tr>
+        <tr><td>Lights</td><td>Every light as a segment; the first dimmable one as a dial, in its color, with a color wheel in the detail; switches as plugs</td></tr>
+        <tr><td>Climate</td><td>The thermostat as a dial; its mode and its preset as choices; a second thermostat; a fan; a comfort range with a knob at each end; the humidity with its day</td></tr>
+        <tr><td>Security</td><td>The alarm as a choice; cameras in the face, live in the detail; sirens, locks; doors, windows, smoke, gas, water, motion</td></tr>
+        <tr><td>Openings</td><td>Covers with a position as dials; the garage door; valves</td></tr>
+        <tr><td>Media</td><td>Players, with the artwork of what plays; a source list; the volume</td></tr>
+        <tr><td>Energy</td><td>Power, with its day; carbon monoxide; the water heater; the meter's month in the detail</td></tr>
+        <tr><td>Scenes</td><td>Every scene on a ring, the last activated marked; tapping one activates it</td></tr>
+        <tr><td>Maintenance</td><td>Updates to install, vacuums, batteries running low, devices reporting a problem, the repairs Home Assistant raised</td></tr>
+      </table>
+      <p>By room, each area of the registry is one object with those channels read within it, floor by floor; a scene counts in a room when something it sets is there.</p>
+
+      <h2>Alerts are rules over states</h2>
+      <p>The interesting ones cross systems. Motion, or something open, with the alarm armed. Heating with a window open. The garage open at night. A lock that did not finish locking. A battery under twenty percent. Carbon monoxide past a threshold. Each alert comes with its action, a real service call: lock it, close the windows, disarm, install, or just "Got it".</p>
+      <figure class="shot">
+        <img src="images/system-alert.png" alt="A battery alert, in amber, with its action under the object" loading="lazy">
+      </figure>
+
+      <h2>What is shown is what was confirmed</h2>
+      <p>A control beats while the service call is on its way and settles when Home Assistant reports the new state. A refused call keeps a red outline and a Retry. Numbers and times follow the language of your Home Assistant profile, and the states in the pulse's list of changes come in your language from Home Assistant itself.</p>
+
+      <h2>Try it without a Home Assistant</h2>
+      <p>The repository carries the six homes of demo.home-assistant.io as a source that behaves: lights that turn on, a thermostat that heats, a scene that activates. The tests run over them, and so can you: <code>npm run dev:ha</code>, then open the gallery.</p>
+      <figure class="shot">
+        <img src="images/system-scenes.png" alt="The scenes of a demo home on a ring: Movie Time, Morning Lights" loading="lazy">
+        <figcaption>The scenes of one of the demo homes. Movie Time was just activated.</figcaption>
+      </figure>
+    </article>
+    <nav data-pager></nav>
+  </main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

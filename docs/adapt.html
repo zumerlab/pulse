@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>In your project · Pulse</title>
+  <meta name="description" content="How to put Pulse over your own data: mount it, describe your systems, feed readings, wire the controls, keep a source, set a theme and your strings.">
+  <link rel="preload" href="assets/roboto-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+<header data-site-head></header>
+<div class="site">
+  <nav class="site-nav" data-site-nav></nav>
+  <main class="page">
+    <article class="prose">
+      <p class="eyebrow">In use</p>
+      <h1>In your project</h1>
+      <p class="lede">Pulse is a set of primitives and a grammar, not a widget with a config file. You describe your systems as data, write the function that turns your state into readings, and mount the views. The demo app in the repository, <code>apps/demo/</code>, is the smallest complete example; this page walks through it.</p>
+
+      <h2>1. Install and import</h2>
+      <p>The core is <code>@zumer/pulse</code>, with Orbit and Zumly as peer dependencies. It is not on npm yet: today it lives in the repository's workspace, and a project starts from a clone of it. Four imports bring the styles and the runtimes, then the primitives.</p>
+<pre><code>import Zumly, { type ViewContext } from 'zumly';
+import 'zumly/style.css';
+import '@zumer/orbit/style';
+import '@zumer/orbit';
+import '@zumer/pulse/style.css';
+import { ring, face, backLayer, layerIndex, calmStrip, dialControls,
+         zumlyOptions, startInside, SIZE, STROKE, LANE, PHONE, t } from '@zumer/pulse';</code></pre>
+      <p>The page needs one element to mount on: a shell that fills the viewport and the Zumly canvas inside it.</p>
+<pre><code>&lt;div class="shell"&gt;&lt;div id="canvas" class="zumly-canvas"&gt;&lt;/div&gt;&lt;/div&gt;</code></pre>
+
+      <h2>2. Describe your systems as data</h2>
+      <p>A system is a title and two to four channels that compete for attention, ordered front to back. A channel has a name, a glyph, a kind, a level (1 minor, 2 critical), and what it looks like when calm and when it calls. Whatever your shape, keep it plain data: a new system is only a new entry.</p>
+<pre><code>const car = {
+  title: 'Car', front: ['battery', 'tires'],
+  ch: {
+    battery: { name: 'Battery', glyph: bolt, type: 'p', level: 1,
+      ok: { v: 0.74, big: '74%', label: '310 km' },
+      al: { v: 0.12, big: '12%', label: '45 km', why: 'Not enough charge for tomorrow', verb: 'Schedule charging' } },
+    tires: { name: 'Tires', glyph: disk, type: 's', segs: 4, level: 2,
+      ok: { on: 4, big: '32 psi', label: '4 of 4' },
+      al: { on: 4, seg: 2, big: '21 psi', label: 'rear left', why: 'Losing pressure', verb: 'Find a tire shop' } },
+  },
+};</code></pre>
+
+      <h2>3. Turn your state into readings</h2>
+      <p>The object draws a <code>RingReading</code> per channel, plus what the face and the strip say. Write one function from your state to that: it is the only place that knows your data. The reading carries the ring's kind and value, the dial if the ring is a control, the segments with their labels and actions, and the alert if any.</p>
+<pre><code>function reading(id, key): RingReading &amp; { big: string; label: string; alert?: Alert } {
+  const ch = systems[id].ch[key], alert = state[id].alerts.includes(key);
+  const base = alert ? ch.al : ch.ok;
+  return {
+    kind: ch.type, v: base.v,
+    segs: ch.type === 's' ? segmentsOf(ch, base) : undefined,       // { label, on, act }
+    dial: ch.dial ? { ...ch.dial, value: valueOf(ch, base.v) } : undefined,
+    big: base.big, label: base.label,
+    alert: alert ? { level: ch.level, fail: failingSegment(ch, base), why: ch.al.why, verb: ch.al.verb } : undefined,
+  };
+}</code></pre>
+      <p>Order is the grammar: alerts first, the most serious first; then the one the viewer tapped; then the usual order. A new alert cancels the viewer's choice.</p>
+<pre><code>function order(id) {
+  const alerts = state[id].alerts.sort((a, b) =&gt; level(b) - level(a));
+  const rest = systems[id].front.filter((c) =&gt; !alerts.includes(c));
+  if (!alerts.length &amp;&amp; state[id].pick) rest.sort((a, b) =&gt; Number(b === state[id].pick) - Number(a === state[id].pick));
+  return [...alerts, ...rest];
+}</code></pre>
+
+      <h2>4. The system view</h2>
+      <p>A Zumly view per system. <code>systemShell</code> gives the skeleton: the stage with the universe, the slot for the index, the strip, the footer. One layer per channel is created once; a repaint only changes <code>data-depth</code>, so Orbit animates the reorder. The front layer gets the ring with controls and the face; the ones behind, a ring and an arc label.</p>
+<pre><code>function system(ctx: ViewContext, id: string) {
+  const el = ctx.target;
+  el.innerHTML = systemShell(null, viewToggle());
+  const depth = el.querySelector('.depth')!, strip = el.querySelector('.strip')!;
+  const layers = new Map(systems[id].front.map((key) =&gt; {
+    const layer = document.createElement('div');
+    layer.className = 'gravity-spot layer'; layer.dataset.ch = key; depth.append(layer);
+    return [key, layer];
+  }));
+
+  const paint = () =&gt; {
+    const ord = order(id);
+    ord.forEach((key, i) =&gt; {
+      const layer = layers.get(key)!, ch = systems[id].ch[key], r = reading(id, key);
+      const d = Math.min(i, SIZE.length - 1), grow = SIZE[d];
+      layer.hidden = i &gt;= SIZE.length;                  // past the cap: named, not drawn
+      layer.dataset.depth = String(d);
+      layer.classList.toggle('layer-front', i === 0);
+      layer.classList.toggle('is-alert', !!r.alert);
+      layer.dataset.level = String(ch.level);
+      layer.innerHTML = ring(key, r, STROKE[d] / grow / LANE, { name: ch.name, controls: i === 0, call: !!r.alert })
+        + (i === 0
+          ? face({ glyph: ch.glyph, name: ch.name, big: r.big, label: r.label, aria: ch.name,
+                   to: detailAdds(r) ? 'detail' : undefined, props: { system: id, channel: key } })
+          : backLayer({ text: `${ch.name} · ${r.big}`, at: labelAt(i), grow, stroke: STROKE[d], hit: 12,
+                        pick: { attr: 'data-pick', value: key, aria: t.bringToFront(ch.name) } }));
+    });
+    el.querySelector('.layer-index-slot')!.innerHTML = layerIndex(ord.map((key, i) =&gt; ({
+      id: key, title: systems[id].ch[key].name, big: reading(id, key).big,
+      level: reading(id, key).alert?.level ?? 0, off: i &gt;= SIZE.length })), 'data-pick');
+    const front = reading(id, ord[0]);
+    strip.innerHTML = front.alert
+      ? `&lt;strong&gt;${name}:&lt;/strong&gt; ${front.alert.why}. &lt;button class="primary" data-resolve="${ord[0]}"&gt;${front.alert.verb}&lt;/button&gt;`
+      : calmStrip(systems[id].title, name, ord.slice(SIZE.length).map((k) =&gt; ({ key: k, name: systems[id].ch[k].name })));
+  };
+  paint();
+}</code></pre>
+      <p>The stage sizes the object to what it has: observe the stage and set <code>--fit</code> from <code>fitFor(width, height, alert)</code>. The strip under the object is the only place for text that is not on the object itself.</p>
+
+      <h2>5. Controls</h2>
+      <p>Taps arrive as data attributes: <code>data-pick</code> on a ring behind or an index item brings that layer forward; <code>data-seg</code> on a segment toggles it; <code>data-resolve</code> on the strip's button resolves the alert. After a layer change, lock the controls for <code>LOCK_MS</code> so a nervous second tap does nothing. The dial is wired once per view with <code>dialControls</code>; it updates the ring in place, since a repaint would recreate the band and cut the drag.</p>
+<pre><code>ctx.onCleanup(dialControls(el, {
+  locked: () =&gt; locked,
+  ringOf: (key) =&gt; layers.get(key)?.querySelector('.orbit-12') ?? null,
+  current: (key) =&gt; reading(id, key).v ?? 0,          // fraction 0..1
+  stepOf: (key) =&gt; { const d = dialOf(key); return d.step / (d.max - d.min); },
+  set: (key, v) =&gt; { send(key, v); updateRingInPlace(key, v); },
+  activate: 'o-arc[data-pick], o-arc[data-seg]',       // Enter and Space on these
+}));</code></pre>
+      <p>What is shown is what was confirmed. While a command is on its way, pass <code>pending</code> to <code>ring</code> and the band beats; when the source reports the new state, repaint. If the command is refused, pass <code>failed</code>: the control keeps a red outline and the strip gets a Retry.</p>
+
+      <h2>6. The board and the detail</h2>
+      <p>The board is one more view: a tile per system with its front ring small, each tile a Zumly trigger (<code>.zoom-me[data-to="sys-car"][data-system="car"]</code>). The detail is a view that receives the system and the channel as props, and exists only when it adds something the face does not have: a day, a picture, a long list, a month. Then mount.</p>
+<pre><code>const app = new Zumly(zumlyOptions({
+  board, detail,
+  ...Object.fromEntries(ids.map((id) =&gt; [`sys-${id}`, (ctx) =&gt; system(ctx, id)])),
+}, 'board'));
+app.on('afterZoomOut', () =&gt; repaintAll());      // the views behind do not re-render on their own
+await app.init();
+if (PHONE) await startInside(app, mostUrgent());  // a phone starts inside a system</code></pre>
+      <p><code>zumlyOptions</code> carries the decisions of the grammar: 800 ms with an ease-out, the back button named after where it goes, pinch and follow, never the wheel, and on a phone the lateral swipe between systems.</p>
+
+      <h2>7. Keep a source</h2>
+      <p>Put your data behind one interface, so the views never talk to a device or a server directly. The Home Assistant app's <code>PulseSource</code> is a good shape to copy.</p>
+      <table>
+        <tr><th>Member</th><th>What it is</th></tr>
+        <tr><td><code>states</code></td><td>A map of entity id to state, with attributes</td></tr>
+        <tr><td><code>onChange(fn)</code></td><td>Called with the ids that changed; the views repaint</td></tr>
+        <tr><td><code>call(command)</code></td><td>Sends a command; resolves when accepted, rejects when refused</td></tr>
+        <tr><td><code>status</code>, <code>onStatus(fn)</code></td><td>Live, offline, error; the board says so</td></tr>
+        <tr><td><code>language</code>, <code>stateText(e)</code></td><td>The user's language for numbers and times; a state's text in it</td></tr>
+        <tr><td><code>history(id, hours)</code></td><td>Optional: hourly means, for the time ring</td></tr>
+        <tr><td><code>changes(ids, hours)</code></td><td>Optional: state changes, for the timeline</td></tr>
+        <tr><td><code>statistics(id)</code></td><td>Optional: a value per day, for the month ring</td></tr>
+        <tr><td><code>stream(id)</code></td><td>Optional: a live picture, for a camera's face</td></tr>
+      </table>
+      <p>Three implementations exist in the repository: over Home Assistant's WebSocket, over the <code>hass</code> object of a card, and over the demo homes, which answer commands in the browser. A fourth would be yours.</p>
+
+      <h2>8. Theme</h2>
+      <p>The look is seven custom properties on <code>:root</code> (and <code>:host</code>, for a shadow root). The core ships Graphite; another theme is another set of seven. Everything else, strokes, sizes, motion, is the grammar and does not change with the theme.</p>
+<pre><code>:root {
+  color-scheme: dark;
+  --bg: #0e1013;        /* the page and the discs' ground */
+  --ink: #f2f3f5;       /* text, the front ring, the knob */
+  --muted: #9aa0a8;     /* labels, the rings behind */
+  --dim: #3a3f47;       /* tracks, what is off */
+  --line: #262a31;      /* borders */
+  --minor: #ffb020;     /* a level 1 alert */
+  --critical: #ff5a4f;  /* a level 2 alert */
+}</code></pre>
+      <figure class="shot">
+        <img src="images/el-themes.png" alt="The same object with three themes: Graphite dark, Paper light, Deep blue" loading="lazy">
+        <figcaption>The same object under Graphite, a light Paper and a blue Deep: the seven tokens, nothing else. The two extra palettes are in the elements bench.</figcaption>
+      </figure>
+
+      <h2>9. Strings and language</h2>
+      <p>The object's own words live in the core's dictionary, <code>t</code>; an app spreads it and adds its own. Numbers and times follow the locale set with <code>setLocale(tag)</code>, which a source reports. Another language is another dictionary with the same keys.</p>
+<pre><code>import { t as core, setLocale } from '@zumer/pulse';
+export const t = { ...core, allCalm: 'All calm, unless something calls.' };
+setLocale(source.language);</code></pre>
+
+      <h2>10. Inside a shadow root</h2>
+      <p>A custom element, like the Home Assistant card, mounts the same views on its own canvas: adopt the four stylesheets in the shadow root, keep the tokens on <code>:host</code>, and pass the mount element to <code>zumlyOptions(views, 'board', canvas)</code>. Orbit registers its properties itself; nothing else is needed. The card's source is <code>apps/home-assistant/card/</code>.</p>
+
+      <h2>On a phone</h2>
+      <p><code>PHONE</code> is decided on load. Two layers instead of three, less growth, the systems as dots under the object, a lateral swipe between them, and the one calling the most opens first. Set <code>touch-action: pan-y</code> on the view so the browser leaves the horizontal gesture to Zumly.</p>
+    </article>
+    <nav data-pager></nav>
+  </main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

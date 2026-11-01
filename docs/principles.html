@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Why · Pulse</title>
+  <meta name="description" content="Why Pulse is round, what depth means, and the rules that keep layers from confusing anyone.">
+  <link rel="preload" href="assets/roboto-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+<header data-site-head></header>
+<div class="site">
+  <nav class="site-nav" data-site-nav></nav>
+  <main class="page">
+    <article class="prose">
+      <p class="eyebrow">Pulse</p>
+      <h1>Why</h1>
+      <p class="lede">States compete for attention. A home has lights, heating, locks, a media player, batteries running down; a car has a battery and tires; a server has load and disks. Most interfaces answer with a grid of cards and leave the sorting to you. Pulse sorts first, and uses shape to say what it sorted.</p>
+
+      <h2>The idea in one sentence</h2>
+      <p>Each system is a radial object with a few channels. The active channel sits in front; the others wait behind, larger and fainter. An alert brings its channel to the front and, once resolved, sends it back. A new system is only data.</p>
+
+      <h2>Why round</h2>
+      <p>A circle has a center and an edge, and that is all Pulse needs. The center holds the present: the name, the value, one line that says why. The edge holds the control: a band you drag, segments you tap, names along the ring you choose from. There is no corner to put a menu in, so nothing permanent competes with what is in front.</p>
+      <p>Round things also stack. Put a larger ring behind a smaller one and the eye reads depth without a shadow or a blur. That is the whole trick: the layers of a system are rings of growing size, each one a bit further back.</p>
+
+      <h2>Depth has to mean something</h2>
+      <p>Pulse uses depth for three things, in this order of importance.</p>
+      <ol>
+        <li><strong>What is active.</strong> The front layer is the one you read and use.</li>
+        <li><strong>What is urgent.</strong> An alert raises its layer. A more serious one displaces it; a resolved one goes back on its own.</li>
+        <li><strong>How much room.</strong> A system comes closer when something needs focus, and steps back when nothing does.</li>
+      </ol>
+      <p>Anything else that moves in z is decoration, and decoration is what tires people. There is no parallax for its own sake, no breathing for its own sake. The pointer tilts the object a few degrees so the layers read as layers, and that is all.</p>
+
+      <h2>Several alerts</h2>
+      <p>One alert is easy. Three at once is where interfaces usually start to shout. Pulse has five cumulative rules for that.</p>
+      <table>
+        <tr><th>Rule</th><th>What it does</th></tr>
+        <tr><td>Stable</td><td>The one in front stays. Only a more serious one displaces it. The others wait in order of arrival.</td></tr>
+        <tr><td>One wave</td><td>Only the front alert calls. The ones waiting are their layers behind, in their color, named.</td></tr>
+        <tr><td>Seen</td><td>An alert you have seen goes behind and stops calling. It comes back if its text changes.</td></tr>
+        <tr><td>Summary</td><td>With many alerts, the board's center counts them and cycles through them; you open one, resolve it, come back.</td></tr>
+        <tr><td>Locked</td><td>After a layer change the controls lock for a moment, so a nervous tap does not resolve two things.</td></tr>
+      </table>
+
+      <h2>Against layer confusion</h2>
+      <p>Layers in depth are easy to overdo. These are the rules that keep them readable, and the code enforces them.</p>
+      <ol>
+        <li><strong>At most three visible layers.</strong> The rest are counted and named, not drawn. The viewer can raise it to five on a large screen.</li>
+        <li><strong>Only the front layer has a face and a full disc.</strong> Behind: a ring and a label.</li>
+        <li><strong>The front stroke is twice the one behind.</strong> The hierarchy reads without color.</li>
+        <li><strong>Labels are staggered</strong>, never on the same line.</li>
+        <li><strong>Color belongs to the alert</strong>: ring, segment, label. The disc is never painted.</li>
+        <li><strong>In segments, only the failing one is painted</strong>, and the call comes out of there.</li>
+        <li><strong>Never two layers at the same radius.</strong> Each step grows by at least 42 percent.</li>
+        <li><strong>The 3D container takes no clicks.</strong> The layers do. Tapping a ring brings it forward.</li>
+      </ol>
+
+      <h2>A control resolved on the face has no detail</h2>
+      <p>A disc opens a detail only when the detail adds something the face does not have: a day of readings, a picture, a long list, a color wheel, a month, several entities to name. A dial you can drag on the ring, a mode you can pick on the ring, an alarm you can arm on the ring: those are done where they are. Opening something that repeats the face is a tap wasted and a step to come back.</p>
+
+      <h2>What is shown is what was confirmed</h2>
+      <p>A control beats while a command is on its way and settles when the source reports the new state. If the command is refused, the value comes back, the control keeps a red outline and a Retry appears. Pulse never pretends.</p>
+
+      <h2>Two registers</h2>
+      <p>A ring can be a gauge or an instrument. A gauge is read: thin strokes, tabular numbers, high contrast. An instrument is felt: filled arcs, overlap, asymmetry. Pulse is a gauge in front and an instrument behind: the layers behind are the ambient, the front layer is the data.</p>
+
+      <h2>Motion</h2>
+      <table>
+        <tr><th>What</th><th>How long</th></tr>
+        <tr><td>Hover, focus, press</td><td>150 to 200 ms</td></tr>
+        <tr><td>A layer comes forward</td><td>800 ms, easing out</td></tr>
+        <tr><td>Zoom between levels</td><td>800 ms</td></tr>
+        <tr><td>A minor alert calls</td><td>every 1.6 s</td></tr>
+        <tr><td>A critical alert calls</td><td>every 0.9 s</td></tr>
+      </table>
+      <p>Nothing moves without a cause: a reading changed, something is urgent, you went somewhere. With <code>prefers-reduced-motion</code> the calls and the travel are gone; the hierarchy stays, by contrast and position.</p>
+
+      <h2>How we got here</h2>
+      <ol>
+        <li>Composite icons: a glyph and two related rings, not two random data points.</li>
+        <li>Depth has to mean something: active, urgent, room.</li>
+        <li>Layers seen head-on; the tilt only explains.</li>
+        <li>Four domains, a home, a car, a pet, a server, and one engine for all of them.</li>
+        <li>Waves instead of shakes: what needs attention calls.</li>
+        <li>Several alerts, five rules.</li>
+        <li>Home Assistant as the first real source, and everything it taught: rooms, scenes, the gear, the card.</li>
+      </ol>
+    </article>
+    <nav data-pager></nav>
+  </main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The board · Pulse</title>
+  <meta name="description" content="The board of Pulse: four ways to see every system at once, two axes to group a home by, and the gear where each screen chooses its own.">
+  <link rel="preload" href="assets/roboto-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+<header data-site-head></header>
+<div class="site">
+  <nav class="site-nav" data-site-nav></nav>
+  <main class="page">
+    <article class="prose">
+      <p class="eyebrow">Pulse</p>
+      <h1>The board</h1>
+      <p class="lede">One level out from a system is the board: every system at once, each with the one reading that matters, the one calling the most in front. Four ways to look at it, over the same data.</p>
+
+      <h2>Four views</h2>
+      <div class="shots">
+        <figure class="shot"><img src="images/board-grid.png" alt="Grid: a mini ring per system in a row" loading="lazy"><figcaption><strong>Grid.</strong> A mini ring per system, the headline above, the latest changes below. Reads fast.</figcaption></figure>
+        <figure class="shot"><img src="images/board-orbit.png" alt="Orbit: the pulse in the center, the systems around it" loading="lazy"><figcaption><strong>Orbit.</strong> The home's pulse in the center, the systems around it. The center cycles through the alerts and the latest changes; its ring shows which system calls; inside it, a clock's rim.</figcaption></figure>
+        <figure class="shot"><img src="images/board-layers.png" alt="Layers: one object, one system per layer" loading="lazy"><figcaption><strong>Layers.</strong> One object, one system per layer, the one calling the most in front. The list beside it names them front to back.</figcaption></figure>
+        <figure class="shot"><img src="images/board-list.png" alt="List: the systems on a ring that turns" loading="lazy"><figcaption><strong>List.</strong> The systems on a ring, like the lists of a watch: every one named along the outside, a tick between them, a notch at the top. Turn it and the one under the notch shows its face in the center, which opens it.</figcaption></figure>
+      </div>
+
+      <h2>Two axes</h2>
+      <p>A home can be grouped by what things do or by where they are. Pulse has both, over the same four views.</p>
+      <ul>
+        <li><strong>By system.</strong> Lights, climate, security, openings, media, energy, scenes, maintenance. Each system's channels are its layers.</li>
+        <li><strong>By room.</strong> Each area is one object. Its channels are the systems' channels read within that room: the kitchen's lights, its plugs, its humidity, its speaker. Floor by floor. What has no area is a room of its own.</li>
+      </ul>
+      <figure class="shot">
+        <img src="images/board-rooms.png" alt="The orbit by room: Entrance, Kitchen, Living room, Bedroom, Office, Garden and No area around the pulse" loading="lazy">
+        <figcaption>The same home, by room.</figcaption>
+      </figure>
+
+      <h2>The pulse</h2>
+      <p>The center of the orbit is the home's pulse. It counts what calls and cycles through the alerts, one at a time, each with a way in. With nothing calling, it shows the latest changes. Its ring has one segment per system, painted when that system calls, and inside it the rim of a clock: the hours, now, and the latest changes as dots at their minute.</p>
+
+      <h2>Order</h2>
+      <p>Without alerts, the order is the one you chose by tapping, then the usual one. With alerts, the ones calling go first, the most serious first. A new alert cancels the choice made by hand. A critical alert opens its system on its own.</p>
+
+      <h2>The gear</h2>
+      <p>Whoever looks at a screen can tune it without touching the setup: the gear at the top right opens a small panel. Changes apply as they are made and are kept in that browser only, so the tablet in the kitchen and the phone in a pocket can show different things from the same source.</p>
+      <figure class="shot">
+        <img src="images/gear.png" alt="The gear's panel over the board: systems, areas, view, group by, layers, look" loading="lazy">
+      </figure>
+      <table>
+        <tr><th>Setting</th><th>What it chooses</th></tr>
+        <tr><td>Systems</td><td>Which systems the board shows</td></tr>
+        <tr><td>Areas</td><td>Only what is in these areas, grouped by floor</td></tr>
+        <tr><td>Channels</td><td>Which channels each system shows, and for a channel that follows one entity, which one</td></tr>
+        <tr><td>Board view</td><td>Grid, orbit, layers or list</td></tr>
+        <tr><td>Group by</td><td>Systems or rooms</td></tr>
+        <tr><td>Open inside</td><td>The board, or a system to start in</td></tr>
+        <tr><td>Layers</td><td>How many systems the layers view stacks; how many channels a system stacks</td></tr>
+        <tr><td>Look</td><td>The dial full or open at the bottom; the day ring bare or with hour marks; ring ends square or rounded</td></tr>
+      </table>
+      <p>The host sets the frame: which systems and areas the gear may offer, and the defaults. "Back to defaults" returns to what the host said.</p>
+
+      <h2>On a phone</h2>
+      <p>A phone looks at one system at a time: two visible layers, the systems as dots under the object to move sideways, and the one calling the most opens first. The board is one step out.</p>
+    </article>
+    <nav data-pager></nav>
+  </main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

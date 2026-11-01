@@ -1,26 +1,85 @@
 # Pulse
 
-A radial interface for states that compete for attention: one circular object
-per system, with layers in depth. What matters now sits in front; the rest waits
-behind. Built with [Zumly](https://github.com/zumerlab/zumly) (zoom navigation)
-and [Orbit](https://github.com/zumerlab/orbit) (rings and layers).
+What matters now, in front.
 
-Pulse is the UI. It does not control devices or own the data: whoever mounts it
-feeds it readings. Home Assistant is the first real source and a thorough
-demonstration of it, not what Pulse is.
+Pulse is a radial interface for states that compete for attention. Each system
+is one round object with a few channels as layers in depth: the one that matters
+sits in front with its control on the ring; the rest wait behind, visible and
+named. An alert brings its layer forward. Resolved, it goes back.
+
+Pulse is the interface. It does not own data and it does not control devices:
+a source feeds it readings and takes its commands. Home Assistant is the first
+real source and the most thorough demonstration of it.
+
+Site: [zumerlab.com/pulse](https://zumerlab.com/pulse/) (the pages are in
+[`docs/`](docs/)). Rings and layers are [Orbit](https://zumerlab.com/orbit/);
+the zoom between levels is [Zumly](https://zumerlab.com/zumly/).
+
+![The board of a home: the pulse in the center, the systems around it](docs/images/board-orbit.png)
+
+## The idea
+
+- **Depth means something.** The front layer is what is active. An alert raises
+  its layer; a more serious one displaces it; a resolved one goes back on its
+  own. Nothing else moves in z.
+- **Three layers at most.** The rest are counted and named, not drawn. Only the
+  front layer has a face and a full disc; behind, a ring and a label.
+- **Color belongs to the alert.** A segment, a band, a label. Never the disc.
+- **The ring is the control.** A band you drag, segments you tap, names along
+  the ring you choose from. A control resolved on the face opens no detail.
+- **What is shown is what was confirmed.** A command beats on its way and
+  settles when the source reports; a refused one keeps a red outline and a Retry.
+
+The rules, the anatomy and the primitives: [Why](docs/principles.html),
+[The object](docs/object.html), [Elements](docs/elements.html) (each one drawn
+alone, with what it takes), [The board](docs/board.html).
+
+## Home Assistant, as the example
+
+Pulse reads the states Home Assistant already pushes to the dashboard. There is
+no entity list to write: each channel picks its entities by domain, device class
+or capability, and a channel with nothing to show stays out. Every home builds a
+different object.
+
+| | |
+|---|---|
+| ![Climate: a thermostat dial in front, the mode and a fan behind](docs/images/system-climate.png) | ![A battery alert in front, in amber, with its action](docs/images/system-alert.png) |
+| A system. The thermostat in front, dragged on the ring. | An alert. It came forward on its own, with what to do. |
+| ![The board by room](docs/images/board-rooms.png) | ![The gear: what each screen chooses](docs/images/gear.png) |
+| The same home by room, each area an object. | The gear: what this screen shows, kept in this browser. |
+
+Three ways in, all from one JavaScript module and nothing on the server:
+
+- **The card**, `custom:pulse-card`, from the Add card dialog, with a visual
+  editor.
+- **The strategies**: a dashboard that is one full-screen Pulse, and a section
+  strategy for a sections view.
+- **The app**: a standalone page that signs in with Home Assistant's own login
+  and talks over its WebSocket, for a kiosk or a wall tablet.
+
+Eight systems (lights, climate, security, openings, media, energy, scenes,
+maintenance) and the alerts that cross them: motion with the alarm armed,
+heating with a window open, the garage open at night, a lock that did not
+finish locking, a battery running low, carbon monoxide. Numbers, times and
+states come in the language of your Home Assistant profile.
+
+Install, options and troubleshooting:
+[`apps/home-assistant/card/README.md`](apps/home-assistant/card/README.md).
+The repository also carries the six homes of demo.home-assistant.io as a source
+that behaves, so everything can be tried without a Home Assistant.
 
 ## Layout
 
 ```text
-packages/core/          @zumer/pulse: the radial object (rings, layers, dial, Zumly setup, strings, theme)
-apps/demo/              the object with simulated data; what the tests run against
-apps/home-assistant/    the object over a live Home Assistant (sign-in with HA's OAuth, WebSocket, three board views), over the homes of demo.home-assistant.io, and as a custom card + dashboard and section strategies (card/, with the README for Home Assistant users)
+packages/core/          @zumer/pulse: the radial object (rings, layers, dial, Zumly setup, strings, theme); knows nothing about any source
+apps/demo/              the object with simulated data (a home, a car, a pet, a server); what the tests run against; elements.html, every element alone
+apps/home-assistant/    the object over Home Assistant: the app (OAuth sign-in, WebSocket), the demo homes, the card + strategies (card/, with the README for HA users)
 tests/                  Playwright tests
-docs/                   cookbook of the radial system, the brief for the detail design, the Home Assistant integration options
+docs/                   the site (index.html and the pages), the cookbook of the radial system, the brief for the detail, the Home Assistant integration options
 ```
 
-The core knows nothing about Home Assistant; the apps depend on the core
-through the npm workspace. Each app and the core have their own README.
+Apps import the core as `@zumer/pulse` through the npm workspace. What is UI of
+the object goes in the core; what is about a data source goes in its app.
 
 ## Run
 
@@ -30,7 +89,7 @@ Requires Node.js 22.18+ or 24+ and npm.
 npm ci
 npm run dev        # demo, http://127.0.0.1:5173
 npm run dev:ha     # Home Assistant, http://127.0.0.1:5174; sign in with your Home Assistant account
-                   # index of the demo homes: http://127.0.0.1:5174/gallery.html
+                   # the demo homes, no HA needed: http://127.0.0.1:5174/gallery.html
 ```
 
 ```sh
@@ -38,13 +97,29 @@ npm run typecheck   # TypeScript, whole workspace
 npm run lint        # ESLint
 npm test            # Playwright: the demo app, and the Home Assistant app over its demo homes
 npm run build:card  # the Home Assistant card + strategies as one module: apps/home-assistant/dist-card/pulse-card.js
-                    # install and options: apps/home-assistant/card/README.md; bench without HA: http://127.0.0.1:5174/card.html
+                    # bench without HA: http://127.0.0.1:5174/card.html
 npm run build       # typecheck and build both apps
 ```
+
+## Your own source
+
+A source holds the states, tells the object when they change, and takes its
+commands: the `PulseSource` interface in `apps/home-assistant/source.ts`,
+implemented over Home Assistant's WebSocket, over the card's `hass` object and
+over the demo homes. A system is a title and a few channels; a channel reads the
+source and returns one of three rings, a value, a line, and optionally an alert
+with its action. [Your own source](docs/sources.html) has the shape of it and
+[In your project](docs/adapt.html) the steps, from the imports to the theme;
+`apps/demo/` is the smallest example, and `apps/demo/elements.html` draws every
+element alone with sample data, under three themes.
 
 ## Language
 
 Everything in the repository is in English: code, comments, commits and docs.
 The object's strings live in `packages/core/src/i18n.ts`, each app adds its own
-in `strings.ts`, and the demo data (`systems.ts`, `model.ts`) carries the names
-and alert texts, so another language is another set of dictionaries.
+in `strings.ts`; numbers and times follow the language the source reports.
+Another language is another set of dictionaries.
+
+## License
+
+[MIT](LICENSE). Made by [ZumerLab](https://zumerlab.com).

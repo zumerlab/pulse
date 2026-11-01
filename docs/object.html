@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The object · Pulse</title>
+  <meta name="description" content="The anatomy of a Pulse object: layers, faces, rings as controls, the strip, the detail, and the few primitives they are made of.">
+  <link rel="preload" href="assets/roboto-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+<header data-site-head></header>
+<div class="site">
+  <nav class="site-nav" data-site-nav></nav>
+  <main class="page">
+    <article class="prose">
+      <p class="eyebrow">Pulse</p>
+      <h1>The object</h1>
+      <p class="lede">A system is one round object. Its channels are layers of that object. This page names the parts and the few primitives they are made of.</p>
+
+      <figure class="shot">
+        <img src="images/system-lights.png" alt="The lights system: a brightness dial in front, the lights and the plugs as rings behind, the layers named on the left" loading="lazy">
+        <figcaption>Lights. The brightness dial in front; the lights and the plugs behind, as rings with their label; the layers named on the left, front to back.</figcaption>
+      </figure>
+
+      <h2>Anatomy</h2>
+      <table>
+        <tr><th>Part</th><th>What it is</th><th>What it shows</th></tr>
+        <tr><td>Layer</td><td>One channel of the system</td><td>A disc with its ring</td></tr>
+        <tr><td>Disc</td><td>The layer's circle</td><td>Only the front one has a full disc and a face</td></tr>
+        <tr><td>Face</td><td>Center of the front layer</td><td>Channel name, glyph, the big value, one line</td></tr>
+        <tr><td>Ring</td><td>Edge of the layer</td><td>A band, segments, or a choice; on the front layer, the control</td></tr>
+        <tr><td>Edge label</td><td>Arc text on the layers behind</td><td><code>Channel · value</code>, staggered so they never overlap</td></tr>
+        <tr><td>Layer index</td><td>The list beside the object</td><td>Every layer front to back, a dot in its level's color; the ones past the cap hollow</td></tr>
+        <tr><td>Strip</td><td>Under the object</td><td>What is in front, why, the action, who waits; a Retry when a command was refused</td></tr>
+        <tr><td>Detail</td><td>One level deeper</td><td>Only when it adds something the face does not have</td></tr>
+      </table>
+
+      <h2>Three kinds of ring</h2>
+      <p>Every channel reads as one of three rings. On the front layer the ring is also the control.</p>
+      <ul class="terms">
+        <li><strong>A band</strong><p>Progress from 0 to 1. With a dial, you drag it: brightness, a thermostat, a volume, a fan. A band with two knobs is a range: a comfort range of a thermostat. When the band is a target, a mark shows the measurement.</p></li>
+        <li><strong>Switches</strong><p>Two to eight segments, one per entity. Each one toggles. Only a failing segment is painted, and the call comes out of there.</p></li>
+        <li><strong>A choice</strong><p>One of N, with the names along the ring. The thermostat's mode, the alarm's state, a player's source, a scene. More than eight options scroll in the detail.</p></li>
+      </ul>
+      <p>A band may be drawn full, or open at the bottom with its ends named, like a dial. Ends may be square or rounded. The viewer chooses in the gear.</p>
+
+      <h2>The face</h2>
+      <p>The glyph, the channel's name, the big value and one line. With an alert, the line is why it calls. A camera, or the artwork of what plays, fills the face instead. A light's dial is tinted with the light's color.</p>
+
+      <h2>Depth</h2>
+      <table>
+        <tr><th>Layer</th><th>Size</th><th>Stroke</th><th>Shows</th></tr>
+        <tr><td>Front</td><td>1×</td><td>6 px</td><td>Full disc, face, control</td></tr>
+        <tr><td>Behind</td><td>1.42×</td><td>3 px</td><td>Ring and label</td></tr>
+        <tr><td>Further behind</td><td>1.84×</td><td>2.5 px</td><td>Ring and label</td></tr>
+        <tr><td>Past the cap</td><td>—</td><td>—</td><td>Named in the index and the strip</td></tr>
+      </table>
+      <p>The apparent size is the same flat and in 3D: in 3D the layer moves away and the scale compensates. Three layers are drawn by default, two on a phone; the gear raises it to five.</p>
+
+      <h2>The detail</h2>
+      <p>Tapping the face opens the detail, one level deeper, only when the detail has something the face does not. What a detail can hold:</p>
+      <ul>
+        <li><strong>A day.</strong> The last 24 hours of a sensor as sectors around a baseline: humidity, power, carbon monoxide.</li>
+        <li><strong>A timeline.</strong> A day per entity as concentric rings: when each light was on, each plug, the thermostat, a sensor. The moments that matter named on the rings.</li>
+        <li><strong>A month.</strong> An energy meter's calendar, one bar per day.</li>
+        <li><strong>A picture.</strong> A camera, round or square, live if the source can stream it.</li>
+        <li><strong>Color.</strong> A hue and saturation wheel for a color light.</li>
+        <li><strong>A long list.</strong> A choice with more options than the ring takes, on a ring that turns.</li>
+        <li><strong>The entities behind the channel</strong>, named, for whoever wants to know what Pulse is reading.</li>
+      </ul>
+      <figure class="shot">
+        <img src="images/detail-humidity.png" alt="The detail of a humidity sensor: the last 24 hours as a ring of bars around the current value" loading="lazy">
+        <figcaption>The detail of a sensor: a day as a ring. The face had the value; the detail adds the day.</figcaption>
+      </figure>
+
+      <h2>The primitives</h2>
+      <p>The core, <code>@zumer/pulse</code>, knows nothing about any source. It is a handful of primitives drawn with <a href="https://zumerlab.com/orbit/">Orbit</a>, each one entering the core only when two domains share it or it is radial by nature.</p>
+      <table>
+        <tr><th>Primitive</th><th>What it draws</th></tr>
+        <tr><td><code>ring</code></td><td>A channel's ring: a band with a dial or a range, switches, or a choice with its names</td></tr>
+        <tr><td><code>face</code></td><td>The center of the front layer, with an optional picture</td></tr>
+        <tr><td><code>backLayer</code></td><td>A layer behind: the ring and its arc label, as a button that brings it forward</td></tr>
+        <tr><td><code>layerIndex</code></td><td>The list of layers beside a stacked object</td></tr>
+        <tr><td><code>timeRing</code></td><td>The last 24 hours as sectors around a baseline</td></tr>
+        <tr><td><code>timeline</code></td><td>A day per entity as concentric rings</td></tr>
+        <tr><td><code>monthRing</code></td><td>A month as bars on a ring</td></tr>
+        <tr><td><code>colorWheel</code></td><td>Hue and saturation, with their controls</td></tr>
+        <tr><td><code>radialList</code></td><td>Items on a ring that turns, like the lists of a watch</td></tr>
+        <tr><td><code>clockRim</code></td><td>The hours, now, and the latest changes as dots at their minute</td></tr>
+        <tr><td><code>dots</code></td><td>The systems as small rings, for moving sideways on a phone</td></tr>
+      </table>
+      <p>Everything else is left to the source's own interface. What has no radial reading does not get one. Each primitive drawn alone, with its fields: <a href="elements.html">Elements</a>.</p>
+    </article>
+    <nav data-pager></nav>
+  </main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

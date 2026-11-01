@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Elements · Pulse</title>
+  <meta name="description" content="Every element of a Pulse object, one by one: the rings, the face, the layers, the index, the strip, the days, the lists, the wheel, drawn with sample data.">
+  <link rel="preload" href="assets/roboto-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+<header data-site-head></header>
+<div class="site">
+  <nav class="site-nav" data-site-nav></nav>
+  <main class="page">
+    <article class="prose">
+      <p class="eyebrow">Pulse</p>
+      <h1>Elements</h1>
+      <p class="lede">Each element of the object, drawn alone with sample data, and what it takes. All of them come from the core, <code>@zumer/pulse</code>, and return markup: a string you put inside an Orbit universe or a view. The bench that draws them is in the repository, <code>apps/demo/elements.html</code>.</p>
+
+      <h2>Rings</h2>
+      <p>A channel's ring sits on the edge of the layer. <code>ring(key, reading, lanes, options)</code> draws one from a <code>RingReading</code>: a <code>kind</code>, a value, and what the kind needs. Thickness is in lanes, one lane being a twelfth of the radius. With <code>controls</code> the ring is also the control.</p>
+
+      <div class="elements">
+        <figure class="element">
+          <img src="images/el-ring-band.png" alt="A band at 62 percent with a knob at its end" loading="lazy">
+          <figcaption><strong>Band</strong> <code>kind: 'p'</code>. Progress from 0 to 1 in <code>v</code>. With a <code>dial</code> (<code>min, max, step, unit, label, value</code>) and <code>controls</code>, a knob sits where the band ends and the ring is dragged, wheeled or stepped with the keys: a slider.</figcaption>
+        </figure>
+        <figure class="element">
+          <img src="images/el-ring-open.png" alt="An open dial from 16 to 30 degrees, a knob at 23.5 and a mark at the measurement" loading="lazy">
+          <figcaption><strong>Open dial</strong> <code>open: true</code>. The same band over 270 degrees, open at the bottom, its ends named. With <code>now</code>, a mark shows where the measurement sits against the target: the eye reads how far it is from its goal.</figcaption>
+        </figure>
+        <figure class="element">
+          <img src="images/el-ring-range.png" alt="A band from 20 to 25 degrees with a knob at each end" loading="lazy">
+          <figcaption><strong>Range</strong> <code>range: { lo, hi }</code>. A band from one fraction to another, with a knob at each end. Each knob is a slider; a drag on the track moves the nearer one.</figcaption>
+        </figure>
+        <figure class="element">
+          <img src="images/el-ring-switches.png" alt="Five segments, four of them lit" loading="lazy">
+          <figcaption><strong>Switches</strong> <code>kind: 's'</code>. One segment per entity in <code>segs</code> (<code>label, on, act</code>), two to eight. Each one with an action toggles on a tap.</figcaption>
+        </figure>
+        <figure class="element">
+          <img src="images/el-ring-failing.png" alt="The same switches with one segment in amber, calling" loading="lazy">
+          <figcaption><strong>A failing segment</strong> <code>alert: { level, fail: [i] }</code>. Only the segment that fails is painted, in the level's color, and with <code>call</code> the wave comes out of it. The rest stay as they were.</figcaption>
+        </figure>
+        <figure class="element">
+          <img src="images/el-ring-choice.png" alt="Four segments named Heat, Cool, Auto, Off, Heat selected" loading="lazy">
+          <figcaption><strong>Choice</strong> <code>kind: 'c'</code>. Segments of which exactly one is on, their names along the inside of the ring. A thermostat's mode, an alarm's state, a scene. A radio group.</figcaption>
+        </figure>
+        <figure class="element">
+          <img src="images/el-ring-tint.png" alt="A rounded band in warm orange" loading="lazy">
+          <figcaption><strong>Tint and rounded ends</strong> <code>tint</code> colors what is on when nothing is wrong: a light's color. <code>ends: 'rounded'</code> rounds the band's ends and each segment's.</figcaption>
+        </figure>
+        <figure class="element">
+          <img src="images/el-ring-mini.png" alt="A small ring with one amber segment" loading="lazy">
+          <figcaption><strong>Mini</strong>. The same ring in a tile, a dot or a list item: fewer lanes, no controls. With <code>muted</code> it is gray even in an alert.</figcaption>
+        </figure>
+      </div>
+
+      <h2>The face</h2>
+      <p><code>face({ glyph, name, big, label, aria, to?, props?, image?, extra? })</code>. The center of the front layer: the glyph, the channel's name, the big value and one line. With <code>to</code> the disc is the Zumly trigger of the detail; without it, the disc is only the face. With <code>image</code> a picture fills the disc and the text sits on a scrim.</p>
+
+      <h2>The object</h2>
+      <p>A system is its channels as layers: each one a nested Orbit universe with <code>data-depth</code>, in a container that moves them back in z and compensates the scale, so the apparent size is the same flat and in 3D. The front layer has the ring with its controls and the face; a layer behind is <code>backLayer({ text, at, grow, stroke, hit, pick })</code>: the arc label just outside its ring and a transparent interactive arc that brings it forward on a tap.</p>
+      <div class="elements two">
+        <figure class="element">
+          <img src="images/el-object-flat.png" alt="The object flat: climate in front, lights and security behind, the index on the left" loading="lazy">
+          <figcaption><strong>Flat.</strong> Three layers, the labels staggered, the index beside.</figcaption>
+        </figure>
+        <figure class="element">
+          <img src="images/el-object-3d.png" alt="The object in 3D, tilted, the layers behind with a halo" loading="lazy">
+          <figcaption><strong>In 3D.</strong> The layers behind soften with the distance, a halo of their color. Head-on it reads the same; the pointer tilts it.</figcaption>
+        </figure>
+        <figure class="element">
+          <img src="images/el-object-alert.png" alt="Security in front in red, Open, the failing segment painted" loading="lazy">
+          <figcaption><strong>With an alert.</strong> The alert's layer came to the front; its big value and its label take the level's color; the disc is never painted.</figcaption>
+        </figure>
+        <figure class="element">
+          <img src="images/el-layer-index.png" alt="The index: Batteries in amber, Lights, Climate, Security and Media hollow" loading="lazy">
+          <figcaption><strong>The index</strong> <code>layerIndex(list, attr)</code>. Every layer front to back: a dot in its level's color, the front one filled, the ones past the cap hollow. Each a button that brings its layer forward.</figcaption>
+        </figure>
+      </div>
+
+      <h2>Under and around the object</h2>
+      <div class="elements two">
+        <figure class="element">
+          <img src="images/el-strip-calm.png" alt="Home · Climate in front · +1 behind: Cameras" loading="lazy">
+          <figcaption><strong>The strip, calm</strong> <code>calmStrip(title, frontName, hidden)</code>. What is in front and the channels past the cap, each a button.</figcaption>
+        </figure>
+        <figure class="element">
+          <img src="images/el-strip-alert.png" alt="Security: Opened with the alarm armed. I closed it" loading="lazy">
+          <figcaption><strong>The strip, alert.</strong> Why it calls and the action, in the level's color. A refused command adds a Retry here.</figcaption>
+        </figure>
+        <figure class="element">
+          <img src="images/el-dots.png" alt="Five small rings, one of them beating" loading="lazy">
+          <figcaption><strong>Dots</strong> <code>dots(list, currentId)</code>. The systems as mini rings under the object on a phone; the one with an alert beats. A tap goes sideways.</figcaption>
+        </figure>
+        <figure class="element">
+          <img src="images/el-tile.png" alt="A tile: a ring, a glyph, the name Car" loading="lazy">
+          <figcaption><strong>Tile.</strong> A system on the board's grid: its front ring small, its glyph, its name. The Zumly trigger of the system.</figcaption>
+        </figure>
+      </div>
+
+      <h2>Days and months</h2>
+      <div class="elements two">
+        <figure class="element">
+          <img src="images/el-time-ring.png" alt="A ring of bars, one per half hour, the day's range in the center" loading="lazy">
+          <figcaption><strong>Time ring</strong> <code>timeRing({ values, label, unit, min, max, marks })</code>. The last 24 hours as sectors on a baseline, one value per hour, the current hour at the top in ink and the older fainter. The center gives the day's range. <code>marks</code> adds the hour ticks and "6 h ago".</figcaption>
+        </figure>
+        <figure class="element">
+          <img src="images/el-timeline.png" alt="Four concentric rings, one per light, with their names and two events" loading="lazy">
+          <figcaption><strong>Timeline</strong> <code>timeline({ hours, tracks, events, big, label, marks, names, aria })</code>. A day per entity as concentric rings, outermost first, up to eight: what was on is drawn, in ink or the alert's color; a ring on right now reaches the top and glows. Events sit outside at their hour.</figcaption>
+        </figure>
+        <figure class="element">
+          <img src="images/el-month-ring.png" alt="The days of October around, each with a bar, today marked" loading="lazy">
+          <figcaption><strong>Month ring</strong> <code>monthRing({ days, today, values, unit, title, big, label, aria })</code>. A calendar: the days around, today marked, the days to come faint, each day's value as a sector inside them.</figcaption>
+        </figure>
+        <figure class="element">
+          <img src="images/el-clock-rim.png" alt="Twelve ticks, dots at the minute of the latest changes, now brighter" loading="lazy">
+          <figcaption><strong>Clock rim</strong> <code>clockRim(marks, now)</code>. Inside a ring: twelve hour ticks, the latest changes as dots at their minute in their level's color, now as a brighter dot. The center of the board's orbit.</figcaption>
+        </figure>
+      </div>
+
+      <h2>Color</h2>
+      <div class="elements two">
+        <figure class="element">
+          <img src="images/el-color-arcs.png" alt="A brightness dial with a hue ring and a saturation ring inside it" loading="lazy">
+          <figcaption><strong>Color arcs</strong> <code>colorArcs(key, [h, s], { open, name })</code>. A light's color inside its brightness dial: the hue around, the saturation inside it, each a curved slider with a knob painted with the color it points at. <code>ringCenter</code> washes the center with the color.</figcaption>
+        </figure>
+        <figure class="element">
+          <img src="images/el-color-wheel.png" alt="A hue and saturation wheel with a handle" loading="lazy">
+          <figcaption><strong>Color wheel</strong> <code>colorWheel([h, s], key, label)</code> + <code>wheelControls</code>. Hue around, saturation outward, a handle that shows the color. Drag, tap or arrows.</figcaption>
+        </figure>
+      </div>
+
+      <h2>Lists</h2>
+      <div class="elements two">
+        <figure class="element">
+          <img src="images/el-radial-list.png" alt="Five systems on a ring, Home at the top named in the center" loading="lazy">
+          <figcaption><strong>Radial list</strong> <code>radialList(items, offset)</code> + <code>listControls</code>. Items on a ring, like the lists of a watch, each named along the outside, a tick between them and a notch at the top: the one under the notch shows its face in the center, which opens it; the wheel, a drag or the arrows turn the ring. Up to twelve share the circle; past that, a window of them.</figcaption>
+        </figure>
+        <figure class="element">
+          <img src="images/el-scroll-list.png" alt="Sources along the right side of a ring, Bluetooth on, a curved scrollbar outside" loading="lazy">
+          <figcaption><strong>Scroll list</strong> <code>scrollList(items, state, { key, name })</code> + <code>scrollControls</code>. A long choice in a circle: a window of seven along the right side, the one on marked with a dot, a curved scrollbar outside with a thumb that drags. A tap picks.</figcaption>
+        </figure>
+      </div>
+
+      <h2>Glyphs</h2>
+      <figure class="element">
+        <img src="images/el-glyph.png" alt="Five line glyphs: a bulb, a drop, a shield, a bolt, a camera" loading="lazy">
+        <figcaption><code>icon(path, size)</code>. A glyph is an SVG path on a 24 by 24 grid, one stroke, round caps. The source names the glyph of each channel.</figcaption>
+      </figure>
+
+      <h2>Gestures</h2>
+      <table>
+        <tr><th>Function</th><th>What it handles</th></tr>
+        <tr><td><code>dialControls(el, c)</code></td><td>Drag, wheel and keys on every dial inside <code>el</code>, a range's two knobs included; <code>locked</code> after a layer change; swallows the click that follows a drag so Zumly does not zoom. Returns the cleanup.</td></tr>
+        <tr><td><code>wheelControls(el, c)</code></td><td>The color wheel: drag, tap, arrows.</td></tr>
+        <tr><td><code>listControls(el, c)</code></td><td>Turning the radial list: wheel, drag around the center, arrows; settles on the nearest item.</td></tr>
+        <tr><td><code>scrollControls(el, c)</code></td><td>The scroll list: wheel, drag along the items, the thumb, arrows, Enter.</td></tr>
+        <tr><td><code>parallax(stage, obj, active)</code></td><td>A few degrees of tilt with the pointer, in 3D only, on the compositor.</td></tr>
+      </table>
+
+      <h2>Sizes</h2>
+      <table>
+        <tr><th>Constant</th><th>Value</th></tr>
+        <tr><td><code>UNIVERSE</code>, <code>LANE</code></td><td>240 px; a lane is a twelfth of the radius, 10 px</td></tr>
+        <tr><td><code>SIZE</code>, <code>GROW</code></td><td>Three layers (two on a phone), each 42 percent bigger (24 on a phone)</td></tr>
+        <tr><td><code>STROKE</code></td><td>6, 3 and 2.5 px, front to back</td></tr>
+        <tr><td><code>STACK_MAX</code></td><td>Five layers at most (three on a phone), the viewer's choice</td></tr>
+        <tr><td><code>LOCK_MS</code></td><td>800 ms of locked controls after a layer change</td></tr>
+        <tr><td><code>ZOOM</code></td><td>1.2 calm (1.1 on a phone), 1.35 in an alert; <code>fitFor</code> fills the stage</td></tr>
+        <tr><td><code>PHONE</code></td><td>Narrower than 600 px, decided on load</td></tr>
+      </table>
+    </article>
+    <nav data-pager></nav>
+  </main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>
