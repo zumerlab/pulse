@@ -7,7 +7,7 @@ import { WebSocketSource, type PulseSource } from './source.ts';
 import { DemoSource } from './demo/source.ts';
 import { mountLogin } from './login.ts';
 import { BOARD_MODES, mountPulse, type BoardMode } from './app.ts';
-import { mountTunePanel } from './tune.ts';
+import { mountTunePanel } from '@zumer/pulse';
 import { t } from './strings.ts';
 
 // The standalone app: the object (`app.ts`) on the page, over Home Assistant's

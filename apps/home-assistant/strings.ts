@@ -1,62 +1,17 @@
-import { listOf, t as core } from '@zumer/pulse';
+import { t as core } from '@zumer/pulse';
 
 // The Home Assistant app's own strings, on top of the object's.
 export const t = {
   ...core,
+  // The board's words, where Home Assistant has its own.
   connecting: 'Connecting to your home…',
-  allCalm: 'All calm.',
-  thingsCalling: (n: number, why: string) => `${n} things calling · ${why}`,
-  status: { 'signed-out': 'signed out', connecting: 'connecting', live: 'live', offline: 'offline, retrying', error: 'error' } as Record<string, string>,
-  modes: { grid: 'Grid', orbit: 'Orbit', layers: 'Layers' },
-  viewSelector: 'View',
-  latestChanges: 'Latest changes',
-  waitingChanges: 'Waiting for changes…',
-  alerts: 'Alerts',
-  pulse: 'Pulse',
-  homePulse: 'Home pulse',
-  alertNof: (i: number, n: number) => `Alert ${i} of ${n}`,
-  nAlerts: (n: number) => `${n} ${n === 1 ? 'alert' : 'alerts'}`,
-  openShort: 'Open',
   entitiesInHA: 'Entities in Home Assistant',
-  backyardCamera: 'Backyard camera',
-  showSquare: 'Show square',
-  showRound: 'Show round',
-  live: 'Live',
-  snapshot: 'Snapshot',
-  historyLoading: 'Loading the last 24 hours…',
-  historyNone: 'No history for the last 24 hours.',
-  outsideIn: (first: number) => first ? `The rings, outside in (the first ${first}):` : 'The rings, outside in:',
-  dayOf: (channel: string) => `The last 24 hours of ${channel}`,
-  colorOf: (name: string) => `Color of ${name}`,
-  lowOf: (label: string) => `Low ${label}`,
-  highOf: (label: string) => `High ${label}`,
   haError: (message: string) => `Home Assistant: ${message}`,
-  didNotRespond: (names: string[]) => `${listOf(names)} did not respond.`,
-  retry: 'Retry',
-  signOut: 'Sign out',
-
-  // The gear: what this screen shows
-  settings: 'Settings',
-  settingsLead: 'What this screen shows. Kept in this browser only.',
-  systemsField: 'Systems',
-  boardView: 'Board view',
-  openInside: 'Open inside',
-  theBoard: 'The board',
-  startHint: 'Where it opens the next time this screen loads.',
   areasField: 'Areas',
   areasHint: 'Only what is in the ticked areas; an entity with no area stays out.',
-  noFloor: 'No floor',
-  channelsField: 'Channels',
-  channelsHint: 'What each system shows, and the entity a channel follows when there is more than one.',
   entityFor: (channel: string) => `Entity for ${channel}`,
-  lookField: 'Look',
-  dialField: 'Dial',
-  dialLook: { full: 'Full ring', open: 'Open at the bottom, with its ends' } as Record<string, string>,
-  dayField: 'Day ring',
-  dayLook: { plain: 'Bars only', marks: 'With hour marks' } as Record<string, string>,
-  resetSettings: 'Back to defaults',
-  done: 'Done',
-  close: 'Close',
+  signOut: 'Sign out',
+  status: { 'signed-out': 'signed out', connecting: 'connecting', live: 'live', offline: 'offline, retrying', error: 'error' } as Record<string, string>,
 
   // Sign in
   loginLead: 'Your home, as one object per system. Sign in with your Home Assistant account to begin.',
@@ -89,10 +44,4 @@ export const t = {
   demoHomes: 'Demo homes',
   demoHomesLead: 'The six homes of demo.home-assistant.io, with entities that answer the ring. No Home Assistant needed.',
   homeFoot: (entities: number, systems: number) => `${entities} entities · ${systems} ${systems === 1 ? 'system' : 'systems'}`,
-
-  // Tuning panel (development only)
-  tuning: 'Tuning',
-  copy: 'Copy',
-  copied: 'Copied',
-  resetTuning: 'Back to code values',
 };

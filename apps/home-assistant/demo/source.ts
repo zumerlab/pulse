@@ -4,7 +4,8 @@
 // WebSocket: `states` in, `call` out.
 
 import type { HassEntity } from 'home-assistant-js-websocket';
-import { emptyRegistry, type Call, type Change, type HassState, type PulseSource, type Registry, type States, type Status } from '../source.ts';
+import type { StateChange } from '@zumer/pulse';
+import { emptyRegistry, type Call, type HassState, type PulseSource, type Registry, type States, type Status } from '../source.ts';
 import { t } from '../strings.ts';
 import { getEntity, type Area, type Floor, type MockEntity } from './entities.ts';
 import { energy } from './homes/energy.ts';
@@ -129,7 +130,7 @@ export class DemoSource implements PulseSource {
   // A day of changes made up the same way: a few flips between the current
   // state and its opposite, ending in the current one.
   async changes(entities: string[], hours: number) {
-    const out: Record<string, Change[]> = {};
+    const out: Record<string, StateChange[]> = {};
     for (const id of entities) {
       const e = this.states.get(id);
       if (!e) { out[id] = []; continue; }
@@ -138,7 +139,7 @@ export class DemoSource implements PulseSource {
       const flips = Math.floor(rand() * 5);
       const times = Array.from({ length: flips }, () => 0.3 + rand() * (hours - 1)).sort((a, b) => b - a);
       let state = flips % 2 === 0 ? e.state : other;
-      const list: Change[] = [{ state, ago: hours }];
+      const list: StateChange[] = [{ state, ago: hours }];
       for (const ago of times) { state = state === e.state ? other : e.state; list.push({ state, ago }); }
       out[id] = list;
     }

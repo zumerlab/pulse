@@ -8,11 +8,13 @@ import {
   ERR_INVALID_HTTPS_TO_HTTP, callService, createConnection, createLongLivedTokenAuth, getAuth,
   subscribeConfig, subscribeEntities, type AuthData, type Connection, type HassEntity,
 } from 'home-assistant-js-websocket';
+import { changesOf, hourly, type HistoryRow, type StateChange } from '@zumer/pulse';
 import { t } from './strings.ts';
 
 export type HassState = HassEntity;
 export type States = Map<string, HassState>;
-export type Call = { domain: string; service: string; data: Record<string, unknown> };
+// A service call: the core's Action (`ids`: the entities it touches) plus what Home Assistant needs.
+export type Call = { ids: string[]; domain: string; service: string; data: Record<string, unknown> };
 // signed-out: no credentials; the login is shown. The rest follow the socket.
 export type Status = 'signed-out' | 'connecting' | 'live' | 'offline' | 'error';
 
@@ -58,49 +60,13 @@ export interface PulseSource {
   // first, the current hour last; null where nothing is known.
   history?(entity: string, hours: number): Promise<(number | null)[]>;
   // The last `hours` hours of these entities as the moments their state
-  // changed (see Change), one list per entity.
-  changes?(entities: string[], hours: number): Promise<Record<string, Change[]>>;
+  // changed (see StateChange), one list per entity.
+  changes?(entities: string[], hours: number): Promise<Record<string, StateChange[]>>;
 }
 
-// What `history/history_during_period` returns with minimal_response and
-// no_attributes: per entity, the state and when it was last updated (seconds).
-export type HistoryRow = { s: string; lu: number };
-// Hourly means of a state history. A state holds until the next one, so an
-// hour with no change takes the state that was current when it began.
-export function hourly(rows: HistoryRow[], hours: number, now = Date.now()): (number | null)[] {
-  const end = now / 1000, start = end - hours * 3600;
-  const out: (number | null)[] = [];
-  let i = 0, last: number | null = null;
-  // The state in force at `start`: the last row before it.
-  while (i < rows.length && rows[i].lu <= start) { const v = Number(rows[i].s); last = Number.isFinite(v) ? v : last; i++; }
-  for (let h = 0; h < hours; h++) {
-    const t0 = start + h * 3600, t1 = t0 + 3600;
-    let sum = 0, weight = 0, at = t0, current = last;
-    while (i < rows.length && rows[i].lu < t1) {
-      const v = Number(rows[i].s);
-      if (current != null) { sum += current * (rows[i].lu - at); weight += rows[i].lu - at; }
-      at = rows[i].lu;
-      current = Number.isFinite(v) ? v : current;
-      i++;
-    }
-    if (current != null) { sum += current * (t1 - at); weight += t1 - at; }
-    out.push(weight > 0 ? sum / weight : null);
-    last = current;
-  }
-  return out;
-}
-// A state history as the moments it changed: the state in force when the
-// window began (ago = hours), then each change, oldest first, `ago` in hours.
-export type Change = { state: string; ago: number };
-export function changesOf(rows: HistoryRow[], hours: number, now = Date.now()): Change[] {
-  const end = now / 1000, start = end - hours * 3600;
-  const out: Change[] = [];
-  for (const r of rows) {
-    if (r.lu <= start) { out.length = 0; out.push({ state: r.s, ago: hours }); }
-    else out.push({ state: r.s, ago: (end - r.lu) / 3600 });
-  }
-  return out;
-}
+// `history/history_during_period` with minimal_response and no_attributes
+// returns, per entity, the state and when it was last updated (seconds): the
+// core's HistoryRow, which it turns into hourly means and state changes.
 export const cameraStream = (e: HassState | undefined) =>
   e && e.attributes.access_token ? `/api/camera_proxy_stream/${e.entity_id}?token=${String(e.attributes.access_token)}` : undefined;
 

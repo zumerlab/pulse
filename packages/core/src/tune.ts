@@ -2,7 +2,7 @@
 // The values are kept in the browser; "Copy" puts on the clipboard the ones to
 // carry into the code once they convince.
 
-import { t } from './strings.ts';
+import { t } from './i18n.ts';
 
 export type Tune = {
   orbit: number; tile: number; align: number; hub: number; orbitStep: number;
@@ -37,7 +37,7 @@ const GROUPS: [string, Control[]][] = [
   ]],
 ];
 
-const KEY = 'pulse-ha-tune';
+const KEY = 'pulse-tune';
 export const tune: Tune = { ...DEFAULTS };
 try { Object.assign(tune, JSON.parse(localStorage.getItem(KEY) ?? '{}')); } catch { /* no storage: code values */ }
 

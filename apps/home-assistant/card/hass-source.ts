@@ -1,6 +1,7 @@
 // PulseSource over the `hass` object a custom card receives: Home Assistant
 // already holds the connection and pushes a new `hass` on every change.
-import { cameraStream, changesOf, emptyRegistry, hourly, type Call, type HassState, type HistoryRow, type Issue, type PulseSource, type Registry, type States, type Status } from '../source.ts';
+import { changesOf, hourly, type HistoryRow } from '@zumer/pulse';
+import { cameraStream, emptyRegistry, type Call, type HassState, type Issue, type PulseSource, type Registry, type States, type Status } from '../source.ts';
 import { t } from '../strings.ts';
 import type { HomeAssistant } from './hass.ts';
 

@@ -1,5 +1,5 @@
-import { emptyRegistry, type Call, type Change, type HassState, type Registry, type States } from './source.ts';
-import { listOf, num } from '@zumer/pulse';
+import { emptyRegistry, type Call, type HassState, type Registry, type States } from './source.ts';
+import { listOf, num, type Alert, type Reading, type Seg, type TrackSpec } from '@zumer/pulse';
 
 // Every channel is read from Home Assistant's live state: there are no
 // hand-written "ok" and "alert" states. An alert comes out of a rule over the
@@ -9,44 +9,8 @@ import { listOf, num } from '@zumer/pulse';
 // ones are hidden or diagnostic (they stay out, as in Home Assistant's own
 // summaries), and the repairs Home Assistant raised.
 
-export type Seg = { label: string; on: boolean; entity: string; act?: Call };
-export type Dial = {
-  min: number; max: number; step: number; unit: string; label: string;
-  value: number; entity: string; set: (t: number) => Call;
-};
-export type Alert = {
-  level: 1 | 2; big: string; label: string; why: string;
-  verb: string; calls: Call[];      // without calls, the verb only marks the alert as seen
-  busy?: boolean;                   // already being resolved: no button until Home Assistant confirms
-  fail?: number[];                  // segments painted in the alert color
-};
-// A dial with two ends (a thermostat's comfort range): the band goes from lo to hi.
-export type Range = { lo: number; hi: number; set: (lo: number, hi: number) => Call };
-// A light's hue and saturation (null when it is off or white), and how to set them.
-export type Color = { hs: [number, number] | null; entity: string; set: (h: number, s: number) => Call };
-// A ring of the detail's timeline: when the entity's state counted as on.
-export type TrackSpec = { entity: string; on: (state: string) => boolean; tone?: 'warn' | 'critical'; act?: Call };
-export type EventSpec = { entity: string; text: string; tone?: 'warn' | 'critical' };
-export type Reading = {
-  kind: 'p' | 's' | 'c';            // the object's primitives: a band, switches, a choice (see @zumer/pulse)
-  v?: number;                       // progress 0..1
-  segs?: Seg[];
-  dial?: Dial;
-  range?: Range;
-  now?: number;                     // the measurement, in the dial's units, when the band is a target (a thermostat)
-  big: string; label: string;
-  name?: string;                    // replaces the channel's name when it follows the entity
-  alert?: Alert;
-  entities: string[];               // which entities it depends on (detail and "sending")
-  image?: { src: string; alt: string; entity: string };   // a picture for the face (relative URL: the source resolves it)
-  tint?: string;                    // CSS color of what is on (a light's color)
-  color?: Color;
-  history?: string;                 // a numeric entity worth a day's ring in the detail
-  tracks?: TrackSpec[];             // entities worth a day each in the detail, as rings (outermost first)
-  events?: EventSpec[];             // moments to name on those rings: since each entity last changed
-  choice?: string;                  // a channel that follows one entity: the one it follows…
-  choices?: string[];               // …and the others it could (the gear offers them)
-};
+// The readings are the core's (`Reading`, `Seg`, `Dial`, `Alert`…): every thing
+// is a Home Assistant entity id, every action a service call (`Call`).
 export type Channel = { key: string; name: string; glyph: string; read: (s: States, ctx: Context) => Reading | null };
 export type PulseSystem = { id: string; title: string; channels: Channel[] };
 export type Context = {
@@ -186,7 +150,7 @@ const ownName = (s: States, id: string) => id in short || /^(climate\.(heatpump|
 const isClass = (cls: string) => (e: HassState) => e.attributes.device_class === cls;
 const list = (names: string[]) => listOf(names.map((n) => n.toLowerCase()));
 const call = (domain: string, service: string, entity_id: string | string[], data = {}): Call =>
-  ({ domain, service, data: { entity_id, ...data } });
+  ({ ids: ([] as string[]).concat(entity_id), domain, service, data: { entity_id, ...data } });
 const busy = (state: string) => /ing$/.test(state) && state !== 'playing';
 const cap = (t: string) => t.replace(/^./, (c) => c.toUpperCase());
 const strs = (e: HassState, k: string) => ((e.attributes[k] as unknown[] | undefined) ?? []).map(String);
@@ -213,18 +177,19 @@ function thermostat(pick: (s: States) => string | undefined, domain: 'climate' |
     const cur = attr(e, 'current_temperature');
     const extra = more?.(s);
     return {
-      kind: 'p', v: clamp((t - min) / (max - min)), entities: [id],
-      dial: { min, max, step: attr(e, 'target_temp_step') ?? 1, unit: '°', label: 'target', value: t, entity: id,
+      kind: 'p', v: clamp((t - min) / (max - min)), ids: [id],
+      dial: { min, max, step: attr(e, 'target_temp_step') ?? 1, unit: '°', label: 'target', value: t, id,
         set: (x) => call(domain, 'set_temperature', id, { temperature: x }) },
       now: cur ?? undefined, big: cur != null ? `${num(cur)}${u.temp}` : `${num(t)}°`, label: label(e), alert: alert?.(s, e),
       name: ownName(s, id),
       // Its day: when it was running (its mode, not off), then whatever the channel adds.
-      tracks: [{ entity: id, on: (st) => !['off', 'unavailable', 'unknown'].includes(st) }, ...(extra?.tracks ?? [])],
+      tracks: [{ id, on: running, now: running(e.state) }, ...(extra?.tracks ?? [])],
       events: extra?.events,
     };
   };
 }
 
+const running = (st: string) => !['off', 'unavailable', 'unknown'].includes(st);
 const hvacAction: Record<string, string> = {
   heating: 'heating', cooling: 'cooling', idle: 'idle', off: 'off', drying: 'drying', fan: 'fan',
 };
@@ -248,17 +213,18 @@ const thermoLabel = (e: HassState) =>
 
 // The day of each switched entity, for the detail's rings: on is on.
 const isOn = (state: string) => state === 'on';
-const tracksOf = (segs: Seg[]): TrackSpec[] => segs.map((x) => ({ entity: x.entity, on: isOn, act: x.act }));
+const tracksOf = (segs: Seg[]): TrackSpec[] => segs.map((x) => ({ id: x.id, on: isOn, now: x.on, act: x.act }));
 
 // Segments of entities switched on and off with a tap.
 function switches(ids: string[], s: States, isOn: (e: HassState) => boolean, act: (e: HassState) => Call | undefined): Seg[] {
   const labels = labelsOf(s, ids);
-  return ids.map((id, i) => { const e = s.get(id)!; return { label: labels[i], on: isOn(e), entity: id, act: act(e) }; });
+  return ids.map((id, i) => { const e = s.get(id)!; return { label: labels[i], on: isOn(e), id, act: act(e) }; });
 }
 
 const windows = (s: States) => ofDomain(s, 'cover')
   .filter((id) => s.get(id)!.attributes.device_class !== 'garage' && id !== 'cover.pergola_roof');
-const openWindows = (s: States) => windows(s).filter((id) => ['open', 'opening', 'closing'].includes(s.get(id)!.state));
+const isOpen = (st: string) => ['open', 'opening', 'closing'].includes(st);
+const openWindows = (s: States) => windows(s).filter((id) => isOpen(s.get(id)!.state));
 
 // Covers with a position that are not the garage: the demo's two windows first.
 const positional = (s: States, n: number) => nth(s, 'cover', ['cover.living_room_window', 'cover.hall_window'],
@@ -269,8 +235,8 @@ function coverDial(pick: (s: States) => string | undefined) {
     if (!id || !e || attr(e, 'current_position') == null) return null;
     const p = attr(e, 'current_position')!;
     return {
-      kind: 'p', v: p / 100, entities: [id],
-      dial: { min: 0, max: 100, step: 10, unit: '%', label: 'open', value: p, entity: id,
+      kind: 'p', v: p / 100, ids: [id],
+      dial: { min: 0, max: 100, step: 10, unit: '%', label: 'open', value: p, id,
         set: (x) => call('cover', 'set_cover_position', id, { position: x }) },
       big: p === 0 ? 'Closed' : `${p}%`, label: busy(e.state) ? coverState[e.state] : p === 0 ? 'all the way' : 'open',
       name: ownName(s, id),
@@ -287,19 +253,6 @@ const SAFETY_WORDS: Record<string, string> = {
 };
 const LOW_BATTERY = 20;
 
-// A day of changes as the spans an entity was on, [from, to] in hours ago,
-// oldest first; the last one reaches 0 while it still is.
-export function spansOf(changes: Change[], on: (state: string) => boolean): [number, number][] {
-  const spans: [number, number][] = [];
-  let from: number | null = null;
-  for (const c of changes) {
-    if (on(c.state)) { if (from == null) from = c.ago; }
-    else if (from != null) { spans.push([from, c.ago]); from = null; }
-  }
-  if (from != null) spans.push([from, 0]);
-  return spans;
-}
-
 const SYSTEMS: PulseSystem[] = [
   { id: 'lights', title: 'Lights', channels: [
     { key: 'lights', name: 'Lights', glyph: g.bulb, read: (s) => {
@@ -307,7 +260,7 @@ const SYSTEMS: PulseSystem[] = [
       if (!ids.length) return null;
       const segs = switches(ids, s, (e) => e.state === 'on', (e) => call('light', 'toggle', e.entity_id));
       const on = segs.filter((x) => x.on);
-      return { kind: 's', segs, entities: ids, big: `${on.length} of ${segs.length}`,
+      return { kind: 's', segs, ids, big: `${on.length} of ${segs.length}`,
         label: on.length ? list(on.map((x) => x.label)) : 'all off', tracks: tracksOf(segs) };
     } },
     { key: 'brightness', name: 'Living room brightness', glyph: g.sun, read: (s) => {
@@ -318,11 +271,11 @@ const SYSTEMS: PulseSystem[] = [
       const pct = e.state === 'on' ? Math.round((attr(e, 'brightness') ?? 255) / 2.55) : 0;
       const colored = strs(e, 'supported_color_modes').some((m) => COLOR_MODES.includes(m));
       const hs = e.attributes.hs_color as [number, number] | null | undefined;
-      return { kind: 'p', v: pct / 100, entities: [id], big: pct ? `${pct}%` : 'Off', label: nameOf(s, id).toLowerCase(),
+      return { kind: 'p', v: pct / 100, ids: [id], big: pct ? `${pct}%` : 'Off', label: nameOf(s, id).toLowerCase(),
         name: ownName(s, id) && `${nameOf(s, id)} brightness`, tint: lightTint(e),
-        dial: { min: 0, max: 100, step: 5, unit: '%', label: 'brightness', value: pct, entity: id,
+        dial: { min: 0, max: 100, step: 5, unit: '%', label: 'brightness', value: pct, id,
           set: (x) => x ? call('light', 'turn_on', id, { brightness_pct: x }) : call('light', 'turn_off', id) },
-        color: colored ? { hs: e.state === 'on' && hs?.length === 2 && e.attributes.color_mode !== 'color_temp' ? [Math.round(hs[0]), Math.round(hs[1])] : null, entity: id,
+        color: colored ? { hs: e.state === 'on' && hs?.length === 2 && e.attributes.color_mode !== 'color_temp' ? [Math.round(hs[0]), Math.round(hs[1])] : null, id,
           set: (h, sat) => call('light', 'turn_on', id, { hs_color: [h, sat] }) } : undefined };
     } },
     { key: 'plugs', name: 'Plugs', glyph: g.plug, read: (s) => {
@@ -330,7 +283,7 @@ const SYSTEMS: PulseSystem[] = [
       if (!ids.length) return null;
       const segs = switches(ids, s, (e) => e.state === 'on', (e) => call('switch', 'toggle', e.entity_id));
       const on = segs.filter((x) => x.on);
-      return { kind: 's', segs, entities: ids, big: `${on.length} of ${segs.length}`,
+      return { kind: 's', segs, ids, big: `${on.length} of ${segs.length}`,
         label: on.length ? list(on.map((x) => x.label)) : 'all off', tracks: tracksOf(segs) };
     } },
   ] },
@@ -344,19 +297,19 @@ const SYSTEMS: PulseSystem[] = [
           if (e.attributes.hvac_action !== 'heating' || !open.length) return undefined;
           if (open.every((id) => s.get(id)!.state === 'closing')) {
             return { level: 1, big: 'Closing', label: `${open.length} windows`, why: 'The windows are closing',
-              verb: '', calls: [], busy: true };
+              verb: '', acts: [], busy: true };
           }
           return { level: 1, big: 'Windows', label: `${open.length} open`,
             why: `Heating with ${list(open.map((id) => nameOf(s, id)))} open`, verb: 'Close windows',
-            calls: [call('cover', 'close_cover', open)] };
+            acts: [call('cover', 'close_cover', open)] };
         },
         // The windows under the heating: each a ring of when it was open; the
         // ones open now are named at the moment they opened.
         (s) => {
           const ws = windows(s), open = openWindows(s);
           return {
-            tracks: ws.map((id) => ({ entity: id, on: (st) => ['open', 'opening', 'closing'].includes(st), tone: 'warn' as const })),
-            events: open.map((id) => ({ entity: id, text: `${nameOf(s, id)} open`, tone: 'warn' as const })),
+            tracks: ws.map((id) => ({ id, on: isOpen, now: open.includes(id), tone: 'warn' as const })),
+            events: open.map((id) => ({ id, text: `${nameOf(s, id)} open`, tone: 'warn' as const })),
           };
         }) },
     { key: 'mode', name: 'Mode', glyph: g.thermo, read: (s) => {
@@ -366,10 +319,10 @@ const SYSTEMS: PulseSystem[] = [
       if (!id || !e) return null;
       const modes = strs(e, 'hvac_modes').slice(0, 8);
       if (modes.length < 2) return null;
-      const segs = modes.map((m) => ({ label: cap(hvacMode[m] ?? m), on: e.state === m, entity: id,
+      const segs = modes.map((m) => ({ label: cap(hvacMode[m] ?? m), on: e.state === m, id,
         act: e.state === m ? undefined : call('climate', 'set_hvac_mode', id, { hvac_mode: m }) }));
       const action = hvacAction[String(e.attributes.hvac_action)];
-      return { kind: 'c', segs, entities: [id], big: cap(hvacMode[e.state] ?? e.state), name: ownName(s, id) && `${nameOf(s, id)} mode`,
+      return { kind: 'c', segs, ids: [id], big: cap(hvacMode[e.state] ?? e.state), name: ownName(s, id) && `${nameOf(s, id)} mode`,
         label: action && action !== hvacMode[e.state] ? action : nameOf(s, id).toLowerCase() };
     } },
     { key: 'ac', name: 'Air conditioning', glyph: g.fan, read: thermostat((s) => thermostat_(s, 1), 'climate', thermoLabel) },
@@ -378,8 +331,8 @@ const SYSTEMS: PulseSystem[] = [
       const e = id ? s.get(id) : undefined;
       if (!id || !e) return null;
       const pct = e.state === 'on' ? attr(e, 'percentage') ?? 100 : 0, step = attr(e, 'percentage_step') ?? 25;
-      return { kind: 'p', v: pct / 100, entities: [id], big: pct ? `${num(pct, 0)}%` : 'Off', label: nameOf(s, id).toLowerCase(), name: nameOf(s, id),
-        dial: { min: 0, max: 100, step: Math.max(1, Math.round(step)), unit: '%', label: 'speed', value: pct, entity: id,
+      return { kind: 'p', v: pct / 100, ids: [id], big: pct ? `${num(pct, 0)}%` : 'Off', label: nameOf(s, id).toLowerCase(), name: nameOf(s, id),
+        dial: { min: 0, max: 100, step: Math.max(1, Math.round(step)), unit: '%', label: 'speed', value: pct, id,
           set: (x) => x ? call('fan', 'set_percentage', id, { percentage: x }) : call('fan', 'turn_off', id) } };
     } },
     { key: 'ecobee', name: 'Ecobee', glyph: g.thermo, read: (s, u) => {
@@ -391,10 +344,10 @@ const SYSTEMS: PulseSystem[] = [
       const lo = attr(e, 'target_temp_low'), hi = attr(e, 'target_temp_high');
       const step = attr(e, 'target_temp_step') ?? 1;
       const set = (l: number, h: number) => call('climate', 'set_temperature', id, { target_temp_low: l, target_temp_high: h });
-      return { kind: 'p', v: clamp((cur - min) / (max - min)), entities: [id], big: `${num(cur)}${u.temp}`, name: ownName(s, id),
+      return { kind: 'p', v: clamp((cur - min) / (max - min)), ids: [id], big: `${num(cur)}${u.temp}`, name: ownName(s, id),
         label: lo != null && hi != null ? `between ${num(lo)}° and ${num(hi)}°` : hvacMode[e.state] ?? e.state,
         ...(lo != null && hi != null ? {
-          dial: { min, max, step, unit: '°', label: 'range', value: lo, entity: id, set: (x) => set(x, Math.max(x, hi)) },
+          dial: { min, max, step, unit: '°', label: 'range', value: lo, id, set: (x) => set(x, Math.max(x, hi)) },
           range: { lo, hi, set } } : {}) };
     } },
     { key: 'humidity', name: 'Humidity', glyph: g.drop, read: (s) => {
@@ -403,9 +356,9 @@ const SYSTEMS: PulseSystem[] = [
       if (!id) return null;
       const h = Number(s.get(id)!.state), dry = first(s, 'humidifier', ['humidifier.dehumidifier'], isClass('dehumidifier'));
       const dryOff = dry != null && s.get(dry)!.state === 'off';
-      return { kind: 'p', v: clamp(h / 100), entities: [id], big: `${num(h, 0)}%`, label: nameOf(s, id).toLowerCase(), history: id,
+      return { kind: 'p', v: clamp(h / 100), ids: [id], big: `${num(h, 0)}%`, label: nameOf(s, id).toLowerCase(), history: id,
         alert: h >= 70 ? { level: 1, big: `${num(h, 0)}%`, label: 'high humidity', why: 'Humidity went past 70%',
-          verb: dryOff ? 'Turn on dehumidifier' : 'Got it', calls: dryOff ? [call('humidifier', 'turn_on', dry!)] : [] }
+          verb: dryOff ? 'Turn on dehumidifier' : 'Got it', acts: dryOff ? [call('humidifier', 'turn_on', dry!)] : [] }
           : undefined };
     } },
   ] },
@@ -417,15 +370,15 @@ const SYSTEMS: PulseSystem[] = [
       const modes: [string, string, string][] = [
         ['disarmed', 'Disarmed', 'alarm_disarm'], ['armed_home', 'Home', 'alarm_arm_home'], ['armed_away', 'Away', 'alarm_arm_away']];
       const next = String(e.attributes.next_state ?? '');
-      const segs = modes.map(([st, label, service]) => ({ label, entity: id,
+      const segs = modes.map(([st, label, service]) => ({ label, id,
         on: e.state === st || (e.state === 'arming' && next === st),
         act: e.state === st ? undefined : call('alarm_control_panel', service, id, { code: ALARM_CODE }) }));
       const fired = e.state === 'triggered' || e.state === 'pending';
-      return { kind: 'c', segs, entities: [id], big: alarmState[e.state] ?? e.state,
+      return { kind: 'c', segs, ids: [id], big: alarmState[e.state] ?? e.state,
         label: e.state === 'arming' ? `switching to ${alarmState[next]?.toLowerCase() ?? 'armed'}` : nameOf(s, id).toLowerCase(),
         alert: fired ? { level: 2, big: alarmState[e.state], label: 'alarm', fail: [0, 1, 2],
           why: e.state === 'triggered' ? 'The alarm went off' : 'The alarm is about to sound', verb: 'Disarm',
-          calls: [call('alarm_control_panel', 'alarm_disarm', id, { code: ALARM_CODE })] } : undefined };
+          acts: [call('alarm_control_panel', 'alarm_disarm', id, { code: ALARM_CODE })] } : undefined };
     } },
     { key: 'cameras', name: 'Cameras', glyph: g.eye, read: (s) => {
       // One camera in the face (the gear picks another); the ring counts them all.
@@ -434,21 +387,21 @@ const SYSTEMS: PulseSystem[] = [
       if (!id || !e) return null;
       const all = ofDomain(s, 'camera').slice(0, 8);
       const names = labelsOf(s, all);
-      const segs = all.map((c, i) => ({ label: names[i], on: c === id, entity: c }));
+      const segs = all.map((c, i) => ({ label: names[i], on: c === id, id: c }));
       const src = picture(e), state = cameraState[e.state] ?? cap(e.state);
-      return { kind: 's', segs, entities: all.includes(id) ? all : [id, ...all], big: state, name: ownName(s, id) && nameOf(s, id),
+      return { kind: 's', segs, ids: all.includes(id) ? all : [id, ...all], big: state, name: ownName(s, id) && nameOf(s, id),
         label: placeOf(id)?.toLowerCase() ?? (all.length > 1 ? `${all.length} cameras` : 'camera'),
-        image: src ? { src, alt: nameOf(s, id), entity: id } : undefined };
+        image: src ? { src, alt: nameOf(s, id), id, live: true } : undefined };
     } },
     { key: 'sirens', name: 'Sirens', glyph: g.siren, read: (s) => {
       const ids = ofDomain(s, 'siren');
       if (!ids.length) return null;
       const segs = switches(ids, s, (e) => e.state === 'on', (e) => call('siren', e.state === 'on' ? 'turn_off' : 'turn_on', e.entity_id));
       const on = segs.filter((x) => x.on);
-      return { kind: 's', segs, entities: ids, big: on.length ? 'Sounding' : 'Silent', label: on.length ? list(on.map((x) => x.label)) : `${ids.length} sirens`,
+      return { kind: 's', segs, ids, big: on.length ? 'Sounding' : 'Silent', label: on.length ? list(on.map((x) => x.label)) : `${ids.length} sirens`,
         alert: on.length ? { level: 2, big: 'Sounding', label: list(on.map((x) => x.label)), fail: on.map((x) => segs.indexOf(x)),
           why: on.length > 1 ? 'Sirens are sounding' : 'A siren is sounding', verb: 'Turn off',
-          calls: [call('siren', 'turn_off', on.map((x) => x.entity))] } : undefined };
+          acts: [call('siren', 'turn_off', on.map((x) => x.id))] } : undefined };
     } },
     { key: 'locks', name: 'Locks', glyph: g.lock, read: (s) => {
       const ids = ofDomain(s, 'lock');
@@ -461,12 +414,12 @@ const SYSTEMS: PulseSystem[] = [
       let alert: Alert | undefined;
       if (jammed >= 0) {
         alert = { level: 2, big: 'Jammed', label: segs[jammed].label.toLowerCase(), fail: [jammed],
-          why: `${segs[jammed].label} did not finish locking`, verb: 'Retry', calls: [call('lock', 'lock', ids[jammed])] };
+          why: `${segs[jammed].label} did not finish locking`, verb: 'Retry', acts: [call('lock', 'lock', ids[jammed])] };
       } else if (armed(s) && open.length) {
         alert = { level: 1, big: 'Unlocked', label: list(open.map((x) => x.label)), fail: open.map((x) => segs.indexOf(x)),
-          why: 'Alarm armed with doors unlocked', verb: 'Lock', calls: [call('lock', 'lock', open.map((x) => x.entity))] };
+          why: 'Alarm armed with doors unlocked', verb: 'Lock', acts: [call('lock', 'lock', open.map((x) => x.id))] };
       }
-      return { kind: 's', segs, entities: ids, big: `${shut} of ${segs.length}`, label: 'locked', alert };
+      return { kind: 's', segs, ids, big: `${shut} of ${segs.length}`, label: 'locked', alert };
     } },
     { key: 'sensors', name: 'Sensors', glyph: g.eye, read: (s) => {
       // The binary sensors Home Assistant's own Security view watches (openings
@@ -481,7 +434,7 @@ const SYSTEMS: PulseSystem[] = [
       const ids = [...all.filter(on), ...all.filter((id) => !on(id))].slice(0, 8);
       // On = the sensor works; the one that detects something is the one painted.
       const names = labelsOf(s, ids);
-      const segs = ids.map((id, i) => ({ label: names[i], on: s.get(id)!.state !== 'unavailable', entity: id }));
+      const segs = ids.map((id, i) => ({ label: names[i], on: s.get(id)!.state !== 'unavailable', id }));
       const detecting = (classes: string[]) => all.filter((id) => on(id) && classes.includes(cls(id)));
       const where = (found: string[]) => list(found.map((id) => whereIs(s, id)));
       const fail = (found: string[]) => found.map((id) => ids.indexOf(id)).filter((i) => i >= 0);
@@ -490,18 +443,18 @@ const SYSTEMS: PulseSystem[] = [
       if (danger.length) {
         const big = SAFETY_WORDS[cls(danger[0])];
         alert = { level: cls(danger[0]) === 'tamper' ? 1 : 2, big, label: where(danger), fail: fail(danger),
-          why: `${big} detected: ${where(danger)}`, verb: 'Got it', calls: [] };
+          why: `${big} detected: ${where(danger)}`, verb: 'Got it', acts: [] };
       } else if (armed(s) && (moving.length || opened.length)) {
         const found = [...moving, ...opened];
         alert = { level: 2, big: moving.length ? 'Motion' : 'Open', label: where(found), fail: fail(found),
-          why: `${moving.length ? 'Motion' : 'Something open'} (${where(found)}) with the alarm armed`, verb: 'Got it', calls: [] };
+          why: `${moving.length ? 'Motion' : 'Something open'} (${where(found)}) with the alarm armed`, verb: 'Got it', acts: [] };
       }
       const active = [...danger, ...moving, ...opened];
-      return { kind: 's', segs, entities: all,
+      return { kind: 's', segs, ids: all,
         big: danger.length ? SAFETY_WORDS[cls(danger[0])] : moving.length ? 'Motion' : opened.length ? `${opened.length} open` : 'Still',
         label: active.length ? where(active.slice(0, 3)) : `${all.length} sensors`, alert,
         // Each sensor's day: when it detected something.
-        tracks: ids.map((id) => ({ entity: id, on: isOn, tone: SAFETY.includes(cls(id)) ? 'critical' as const : 'warn' as const })) };
+        tracks: ids.map((id) => ({ id, on: isOn, now: on(id), tone: SAFETY.includes(cls(id)) ? 'critical' as const : 'warn' as const })) };
     } },
   ] },
 
@@ -513,12 +466,12 @@ const SYSTEMS: PulseSystem[] = [
       if (!id || !e) return null;
       const open = e.state !== 'closed';
       const night = s.get('sun.sun')?.state === 'below_horizon';
-      return { kind: 's', entities: [id], big: coverState[e.state] ? cap(coverState[e.state]) : e.state,
+      return { kind: 's', ids: [id], big: coverState[e.state] ? cap(coverState[e.state]) : e.state,
         label: night ? 'it is night' : 'it is daytime',
-        segs: [{ label: nameOf(s, id), on: !open, entity: id, act: busy(e.state) ? undefined : call('cover', open ? 'close_cover' : 'open_cover', id) }],
+        segs: [{ label: nameOf(s, id), on: !open, id, act: busy(e.state) ? undefined : call('cover', open ? 'close_cover' : 'open_cover', id) }],
         alert: open && night ? { level: 1, big: busy(e.state) ? cap(coverState[e.state]) : 'Open', label: 'at night', fail: [0],
           why: e.state === 'closing' ? 'The garage door is closing' : 'The garage door was left open at night', busy: busy(e.state),
-          verb: 'Close', calls: [call('cover', 'close_cover', id)] } : undefined };
+          verb: 'Close', acts: [call('cover', 'close_cover', id)] } : undefined };
     } },
     { key: 'irrigation', name: 'Irrigation', glyph: g.sprout, read: (s) => {
       const ids = ofDomain(s, 'valve');
@@ -526,7 +479,7 @@ const SYSTEMS: PulseSystem[] = [
       const segs = switches(ids, s, (e) => ['open', 'opening'].includes(e.state),
         (e) => busy(e.state) ? undefined : call('valve', e.state === 'open' ? 'close_valve' : 'open_valve', e.entity_id));
       const on = segs.filter((x) => x.on);
-      return { kind: 's', segs, entities: ids, big: on.length ? `${on.length} watering` : 'Closed',
+      return { kind: 's', segs, ids, big: on.length ? `${on.length} watering` : 'Closed',
         label: on.length ? list(on.map((x) => x.label)) : `${ids.length} valves` };
     } },
   ] },
@@ -539,12 +492,12 @@ const SYSTEMS: PulseSystem[] = [
       const segs = switches(ids, s, (e) => e.state === 'playing',
         (e) => ['playing', 'paused'].includes(e.state) ? call('media_player', 'media_play_pause', e.entity_id) : undefined);
       const on = segs.filter((x) => x.on);
-      const lead = on.length ? s.get(on[0].entity)! : undefined;
+      const lead = on.length ? s.get(on[0].id)! : undefined;
       const title = String(lead?.attributes.media_title ?? '');
       const art = picture(lead);
-      return { kind: 's', segs, entities: ids, big: on.length ? `${on.length} of ${segs.length}` : 'Silence',
+      return { kind: 's', segs, ids, big: on.length ? `${on.length} of ${segs.length}` : 'Silence',
         label: on.length ? (title.length > 26 ? `${title.slice(0, 25)}…` : title || list(on.map((x) => x.label))) : 'all paused',
-        image: art && lead ? { src: art, alt: title || nameOf(s, lead.entity_id), entity: lead.entity_id } : undefined };
+        image: art && lead ? { src: art, alt: title || nameOf(s, lead.entity_id), id: lead.entity_id } : undefined };
     } },
     { key: 'source', name: 'Source', glyph: g.box, read: (s) => {
       // What a player plays from (TV inputs, a receiver's sources): one of its source_list.
@@ -553,18 +506,18 @@ const SYSTEMS: PulseSystem[] = [
       if (!id || !e) return null;
       const sources = strs(e, 'source_list').slice(0, 8), current = String(e.attributes.source ?? '');
       if (sources.length < 2) return null;
-      const segs = sources.map((src) => ({ label: src, on: src === current, entity: id,
+      const segs = sources.map((src) => ({ label: src, on: src === current, id,
         act: src === current ? undefined : call('media_player', 'select_source', id, { source: src }) }));
-      return { kind: 'c', segs, entities: [id], big: current || 'None', label: nameOf(s, id).toLowerCase(), name: `${nameOf(s, id)} source` };
+      return { kind: 'c', segs, ids: [id], big: current || 'None', label: nameOf(s, id).toLowerCase(), name: `${nameOf(s, id)} source` };
     } },
     { key: 'volume', name: 'Living room volume', glyph: g.volume, read: (s) => {
       const id = first(s, 'media_player', ['media_player.living_room'], (e) => attr(e, 'volume_level') != null);
       const e = id ? s.get(id) : undefined;
       if (!id || !e || attr(e, 'volume_level') == null) return null;
       const pct = Math.round(attr(e, 'volume_level')! * 100), where = nameOf(s, id).toLowerCase();
-      return { kind: 'p', v: pct / 100, entities: [id], big: `${pct}%`, label: e.state === 'playing' ? `${where}, playing` : where,
+      return { kind: 'p', v: pct / 100, ids: [id], big: `${pct}%`, label: e.state === 'playing' ? `${where}, playing` : where,
         name: ownName(s, id) && `${nameOf(s, id)} volume`,
-        dial: { min: 0, max: 100, step: 5, unit: '%', label: 'volume', value: pct, entity: id,
+        dial: { min: 0, max: 100, step: 5, unit: '%', label: 'volume', value: pct, id,
           set: (x) => call('media_player', 'volume_set', id, { volume_level: x / 100 }) } };
     } },
   ] },
@@ -576,9 +529,9 @@ const SYSTEMS: PulseSystem[] = [
         (e) => e.attributes.unit_of_measurement === 'W');
       if (!id) return null;
       const w = Number(s.get(id)!.state), capW = 3000;
-      return { kind: 'p', v: clamp(w / capW), entities: [id], big: `${num(w, 0)} W`, label: `of ${num(capW)} W`, history: id,
+      return { kind: 'p', v: clamp(w / capW), ids: [id], big: `${num(w, 0)} W`, label: `of ${num(capW)} W`, history: id,
         alert: w > 2000 ? { level: 1, big: `${num(w, 0)} W`, label: 'high consumption', why: 'Consumption went past 2000 W',
-          verb: 'Got it', calls: [] } : undefined };
+          verb: 'Got it', acts: [] } : undefined };
     } },
     { key: 'co', name: 'Carbon monoxide', glyph: g.air, read: (s) => {
       const id = first(s, 'sensor', ['sensor.carbon_monoxide'], isClass('carbon_monoxide')), e = id ? s.get(id) : undefined;
@@ -586,9 +539,9 @@ const SYSTEMS: PulseSystem[] = [
       const ppm = Number(e.state);
       // 35 ppm: the EPA's one-hour limit; 100 ppm is already dangerous.
       const level = ppm >= 100 ? 2 : ppm >= 35 ? 1 : 0;
-      return { kind: 'p', v: clamp(ppm / 150), entities: [id], big: `${num(ppm, 0)} ppm`, label: 'carbon monoxide', history: id,
+      return { kind: 'p', v: clamp(ppm / 150), ids: [id], big: `${num(ppm, 0)} ppm`, label: 'carbon monoxide', history: id,
         alert: level ? { level: level as 1 | 2, big: `${num(ppm, 0)} ppm`, label: 'carbon monoxide',
-          why: level === 2 ? 'Dangerous carbon monoxide: ventilate and leave' : 'Carbon monoxide above 35 ppm', verb: 'Got it', calls: [] }
+          why: level === 2 ? 'Dangerous carbon monoxide: ventilate and leave' : 'Carbon monoxide above 35 ppm', verb: 'Got it', acts: [] }
           : undefined };
     } },
     { key: 'water', name: 'Hot water', glyph: g.tap,
@@ -601,21 +554,21 @@ const SYSTEMS: PulseSystem[] = [
       const ids = ofDomain(s, 'update');
       if (!ids.length) return null;
       // On = up to date; the pending one is the one painted.
-      const segs = ids.map((id) => ({ label: String(s.get(id)!.attributes.title ?? nameOf(s, id)), on: true, entity: id }));
+      const segs = ids.map((id) => ({ label: String(s.get(id)!.attributes.title ?? nameOf(s, id)), on: true, id }));
       const pending = ids.filter((id) => s.get(id)!.state === 'on');
       const running = ids.find((id) => s.get(id)!.attributes.in_progress);
       if (running) {
         const p = s.get(running)!.attributes.update_percentage as number | null;
-        return { kind: 'p', v: (p ?? 0) / 100, entities: ids, big: p != null ? `${num(p, 0)}%` : 'Installing',
+        return { kind: 'p', v: (p ?? 0) / 100, ids, big: p != null ? `${num(p, 0)}%` : 'Installing',
           label: String(s.get(running)!.attributes.title ?? nameOf(s, running)) };
       }
       const installable = pending.filter((id) => (Number(s.get(id)!.attributes.supported_features) & 1) === 1);
-      return { kind: 's', segs, entities: ids, big: pending.length ? `${pending.length} pending` : 'Up to date',
+      return { kind: 's', segs, ids, big: pending.length ? `${pending.length} pending` : 'Up to date',
         label: `${ids.length - pending.length} of ${ids.length} up to date`,
         alert: pending.length ? { level: 1, big: `${pending.length} new`, label: 'updates', fail: pending.map((id) => ids.indexOf(id)),
           why: installable.length ? `${segs[ids.indexOf(installable[0])].label} has a new version` : 'There are new versions',
           verb: installable.length ? 'Install' : 'Got it',
-          calls: installable.length ? [call('update', 'install', installable[0])] : [] } : undefined };
+          acts: installable.length ? [call('update', 'install', installable[0])] : [] } : undefined };
     } },
     { key: 'vacuums', name: 'Vacuums', glyph: g.robot, read: (s) => {
       const ids = ofDomain(s, 'vacuum');
@@ -625,10 +578,10 @@ const SYSTEMS: PulseSystem[] = [
         const cleaning = e.state === 'cleaning';
         const act = cleaning ? (f & 16 ? call('vacuum', 'return_to_base', id) : f & 8 ? call('vacuum', 'stop', id) : undefined)
           : f & 8192 ? call('vacuum', 'start', id) : undefined;
-        return { label: `Floor ${i}`, on: cleaning, entity: id, act };
+        return { label: `Floor ${i}`, on: cleaning, id, act };
       });
       const on = segs.filter((x) => x.on);
-      return { kind: 's', segs, entities: ids, big: on.length ? `${on.length} cleaning` : 'Docked',
+      return { kind: 's', segs, ids, big: on.length ? `${on.length} cleaning` : 'Docked',
         label: on.length ? list(on.map((x) => x.label)) : `${ids.length} vacuums` };
     } },
     { key: 'batteries', name: 'Batteries', glyph: g.battery, read: (s) => {
@@ -639,13 +592,13 @@ const SYSTEMS: PulseSystem[] = [
       const byLevel = [...all].sort((a, b) => pct(a) - pct(b));
       const low = byLevel.filter((id) => pct(id) < LOW_BATTERY);
       const ids = [...low, ...all.filter((id) => !low.includes(id))].slice(0, 8);
-      const segs = ids.map((id) => ({ label: `${nameOf(s, id)} ${num(pct(id), 0)}%`, on: pct(id) >= LOW_BATTERY, entity: id }));
-      return { kind: 's', segs, entities: all, big: low.length ? `${low.length} low` : `${num(pct(byLevel[0]), 0)}% lowest`,
+      const segs = ids.map((id) => ({ label: `${nameOf(s, id)} ${num(pct(id), 0)}%`, on: pct(id) >= LOW_BATTERY, id }));
+      return { kind: 's', segs, ids: all, big: low.length ? `${low.length} low` : `${num(pct(byLevel[0]), 0)}% lowest`,
         label: low.length ? list(low.map((id) => whereIs(s, id))) : `${all.length} batteries`,
         alert: low.length ? { level: 1, big: `${num(pct(low[0]), 0)}%`, label: whereIs(s, low[0]).toLowerCase(),
           fail: low.map((id) => ids.indexOf(id)).filter((i) => i >= 0),
           why: low.length > 1 ? `${low.length} batteries under ${LOW_BATTERY}%: ${list(low.map((id) => nameOf(s, id)))}`
-            : `${nameOf(s, low[0])}${/battery/i.test(nameOf(s, low[0])) ? '' : ' battery'} at ${num(pct(low[0]), 0)}%`, verb: 'Got it', calls: [] } : undefined };
+            : `${nameOf(s, low[0])}${/battery/i.test(nameOf(s, low[0])) ? '' : ' battery'} at ${num(pct(low[0]), 0)}%`, verb: 'Got it', acts: [] } : undefined };
     } },
     { key: 'problems', name: 'Problems', glyph: g.warn, read: (s) => {
       // Devices that report a problem (binary sensors of class problem or battery).
@@ -653,12 +606,12 @@ const SYSTEMS: PulseSystem[] = [
       if (!all.length) return null;
       const on = all.filter((id) => s.get(id)!.state === 'on');
       const ids = [...on, ...all.filter((id) => !on.includes(id))].slice(0, 8);
-      const segs = ids.map((id) => ({ label: nameOf(s, id), on: s.get(id)!.state !== 'on', entity: id }));
-      return { kind: 's', segs, entities: all, big: on.length ? `${on.length} ${on.length === 1 ? 'problem' : 'problems'}` : 'No problems',
+      const segs = ids.map((id) => ({ label: nameOf(s, id), on: s.get(id)!.state !== 'on', id }));
+      return { kind: 's', segs, ids: all, big: on.length ? `${on.length} ${on.length === 1 ? 'problem' : 'problems'}` : 'No problems',
         label: on.length ? list(on.map((id) => whereIs(s, id))) : `${all.length} watched`,
         alert: on.length ? { level: 1, big: 'Problem', label: list(on.map((id) => nameOf(s, id))),
           fail: on.map((id) => ids.indexOf(id)).filter((i) => i >= 0),
-          why: `${list(on.map((id) => whereIs(s, id)))} ${on.length === 1 ? 'reports' : 'report'} a problem`, verb: 'Got it', calls: [] } : undefined };
+          why: `${list(on.map((id) => whereIs(s, id)))} ${on.length === 1 ? 'reports' : 'report'} a problem`, verb: 'Got it', acts: [] } : undefined };
     } },
     { key: 'repairs', name: 'Repairs', glyph: g.wrench, read: () => {
       // What Home Assistant itself asks to look at (Settings › Repairs), by integration.
@@ -667,11 +620,11 @@ const SYSTEMS: PulseSystem[] = [
       const rank: Record<string, 1 | 2> = { critical: 2, error: 1, warning: 1 };
       const level = Math.max(...issues.map((i) => rank[i.severity ?? 'warning'] ?? 1)) as 1 | 2;
       const domains = [...new Set(issues.map((i) => i.domain))];
-      const segs = domains.slice(0, 8).map((d) => ({ label: d, on: true, entity: '' }));
+      const segs = domains.slice(0, 8).map((d) => ({ label: d, on: true, id: `repairs.${d}` }));
       const n = issues.length, word = n === 1 ? 'repair' : 'repairs';
-      return { kind: 's', segs, entities: [], big: `${n} ${word}`, label: list(domains),
+      return { kind: 's', segs, ids: [], big: `${n} ${word}`, label: list(domains),
         alert: { level, big: `${n} ${word}`, label: list(domains), fail: segs.map((_, i) => i),
-          why: `Home Assistant has ${n} ${word} waiting: ${list(domains)}`, verb: 'Got it', calls: [] } };
+          why: `Home Assistant has ${n} ${word} waiting: ${list(domains)}`, verb: 'Got it', acts: [] } };
     } },
   ] },
 ];

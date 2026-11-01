@@ -7,10 +7,10 @@ import '@zumer/orbit/style';
 import '@zumer/orbit';
 import '@zumer/pulse/style.css';
 import './style.css';
-import { MINI_LANES, esc, icon, ring } from '@zumer/pulse';
+import { MINI_LANES, esc, icon, ring, type Reading } from '@zumer/pulse';
 import { DemoSource } from './demo/source.ts';
 import { homes, type Home } from './demo/homes/index.ts';
-import { systems, type Reading } from './model.ts';
+import { systems } from './model.ts';
 import { t } from './strings.ts';
 
 // The demo app runs beside this one in development; elsewhere, point to it
