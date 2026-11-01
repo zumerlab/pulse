@@ -7,7 +7,6 @@ import { WebSocketSource, type PulseSource } from './source.ts';
 import { DemoSource } from './demo/source.ts';
 import { mountLogin } from './login.ts';
 import { AXES, BOARD_MODES, mountPulse, type Axis, type BoardMode } from './app.ts';
-import { mountTunePanel } from './tune.ts';
 import { t } from './strings.ts';
 
 // The standalone app: the object (`app.ts`) on the page, over Home Assistant's
@@ -24,8 +23,7 @@ const canvas = document.querySelector<HTMLElement>('#canvas')!;
 const loginSlot = document.querySelector<HTMLElement>('#login')!;
 
 function status(ha: PulseSource) {
-  return `<span class="conn conn-${ha.status}"><span class="conn-dot"></span>Home Assistant${ha.version ? ` ${ha.version}` : ''} · ${t.status[ha.status]}
-    <button class="plain" data-action="signout">${ha === demo ? t.leaveDemo : t.signOut}</button></span>`;
+  return `<span class="conn conn-${ha.status}"><span class="conn-dot"></span>Home Assistant${ha.version ? ` ${ha.version}` : ''} · ${t.status[ha.status]}</span>`;
 }
 
 // `?systems=lights,climate&mode=orbit&axis=rooms&start=climate&areas=kitchen,living_room&layers=3`
@@ -43,6 +41,7 @@ const pulse = mountPulse(canvas, {
   start: query.get('start') ?? undefined,
   layers: Number(query.get('layers')) || undefined,
   status,
+  exit: (ha) => (ha.status === 'signed-out' ? null : ha === demo ? t.leaveDemo : t.signOut),
   onAction: (action) => { if (action === 'signout') void leave(); },
   // Signed out: the login covers the canvas; signed in: the object.
   onStatus: (s) => {
@@ -72,7 +71,6 @@ async function leave() {
 mountLogin(loginSlot, socket, startDemo);
 
 await pulse.ready;
-mountTunePanel();
 const wanted = new URLSearchParams(location.search).get('demo');
 if (wanted) startDemo(wanted);
 else { resumed = true; await socket.resume(); }

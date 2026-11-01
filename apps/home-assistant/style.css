@@ -16,8 +16,11 @@
    the object feeds the latest changes. */
 .board { position: relative; grid-template-rows: auto minmax(0, 1fr); grid-template-columns: minmax(0, 1fr);
   align-content: stretch; justify-items: stretch; gap: 16px; padding: 14px 16px 16px; overflow: hidden; }
-.board-head { justify-items: center; gap: 14px; padding: 0 56px; }
-.board-head h1 { font-size: clamp(18px, 2.4vw, 26px); }
+.board-head { justify-items: center; gap: 14px; padding: 0 104px; }
+.board-head h1 { font-size: clamp(14px, 1.5vw, 17px); font-weight: 500; letter-spacing: 0; color: var(--muted); }
+.board-head h1.level-2 { color: var(--critical); }
+/* In the orbit the center says what calls: the headline is only for screen readers. */
+.board.mode-orbit .board-head h1 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .board-head .conn-slot { position: absolute; bottom: 14px; left: 16px; z-index: 1; }
 .board.mode-grid .board-body { overflow-y: auto; align-content: safe center; }
 .tile:not(.has-alert) .tile-big, .otile:not(.has-alert) .tile-big { color: var(--muted); }
@@ -97,6 +100,7 @@
 
 /* ─── Board: view selector ─────────────────────────────── */
 .modes { display: inline-flex; flex-wrap: wrap; justify-content: center; max-width: 100%; justify-self: center; gap: 2px; padding: 3px; border-radius: 24px; border: 1px solid var(--line); margin-top: 6px; }
+.modes[hidden] { display: none; }
 .mode { border: 0; background: none; padding: 6px 14px; border-radius: 999px; font-size: 12px; color: var(--muted); cursor: pointer; }
 .mode[aria-pressed="true"] { background: color-mix(in srgb, var(--ink) 8%, transparent); color: var(--ink); }
 .board.mode-orbit, .board.mode-layers, .board.mode-list, .board.mode-clock, .board.mode-calendar {
@@ -121,7 +125,7 @@
    the round face takes the pointer: the square around it would cover the tiles. */
 .orbit-stage .hub-orbit { --o-size-ratio: var(--t-hub, 11); z-index: 2; }
 .orbit-stage .hub-orbit, .orbit-stage .hub-orbit * { pointer-events: none; }
-.orbit-stage .hub-face, .orbit-stage .hub-face *, .orbit-stage .hub-dots, .orbit-stage .hub-dots * { pointer-events: auto; }
+.orbit-stage .hub-face, .orbit-stage .hub-face *, .orbit-stage .hub-entry, .orbit-stage .hub-entry * { pointer-events: auto; }
 /* In the orbit, what calls is already in the center: the headline is redundant. */
 /* The center scales with its own size (cqw units), not with the screen: it
    never overflows, even when the orbit shrinks it. */
@@ -199,26 +203,6 @@
 .board-strip .tick.level-2 { color: var(--critical); }
 .board-strip time { font-variant-numeric: tabular-nums; opacity: .7; }
 
-/* ─── Tuning (development only) ────────────────────────── */
-.tune {
-  position: fixed; left: 12px; top: 12px; z-index: 50; width: min(300px, calc(100vw - 24px));
-  max-height: calc(100vh - 24px); overflow: auto; padding: 10px 12px;
-  background: color-mix(in srgb, var(--bg) 94%, transparent); border: 1px solid var(--line); border-radius: 12px; font-size: 12px; color: var(--muted);
-}
-.tune-theme, .tune-color { grid-template-columns: 1fr auto auto; align-items: center; }
-.tune-theme select { grid-column: 2 / -1; font-size: 12px; }
-.tune-color input { grid-column: auto; width: 28px; height: 20px; padding: 0; border: 1px solid var(--line); border-radius: 4px; background: none; }
-.tune:not([open]) { width: auto; opacity: .6; }
-.tune summary { cursor: pointer; color: var(--ink); }
-.tune fieldset { border: 0; margin: 10px 0 0; padding: 0; display: grid; gap: 8px; }
-.tune legend { color: var(--ink); padding: 0; margin-bottom: 4px; }
-.tune label { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; }
-.tune input { grid-column: 1 / -1; width: 100%; accent-color: var(--minor); }
-.tune output { font-variant-numeric: tabular-nums; }
-.tune output.changed { color: var(--minor); }
-.tune-actions { display: flex; gap: 8px; margin-top: 12px; }
-.tune-actions button { min-height: 0; padding: 4px 10px; font-size: 12px; }
-
 /* ─── Sign in ──────────────────────────────────────────── */
 .login-slot { position: absolute; inset: 0; display: grid; place-items: center; padding: 16px; overflow-y: auto; background: var(--bg); }
 .shell.signed-out .zumly-canvas, .shell.signed-out .z-depth-nav { visibility: hidden; }
@@ -262,36 +246,105 @@
 /* The gear and its panel: what this screen shows */
 .gear { position: absolute; top: 10px; right: 10px; z-index: 5; width: 40px; height: 40px; padding: 0; border-radius: 50%; border: 1px solid var(--line); background: var(--bg); color: var(--muted); display: grid; place-items: center; cursor: pointer; }
 .gear:hover, .gear[aria-expanded="true"] { color: var(--ink); border-color: var(--muted); }
-.settings-backdrop { position: absolute; inset: 0; z-index: 20; display: grid; place-items: center; padding: 16px; background: rgba(0, 0, 0, .55); }
+/* The way out (sign out, leave the demo): the same round button, left of the gear. */
+.exit { position: absolute; top: 10px; right: 10px; z-index: 5; width: 40px; height: 40px; min-height: 0; padding: 0; border-radius: 50%; border: 1px solid var(--line); background: var(--bg); color: var(--muted); display: grid; place-items: center; cursor: pointer; }
+.exit.with-gear { right: 58px; }
+.exit:hover, .exit:focus-visible { color: var(--ink); border-color: var(--muted); }
+.exit[hidden] { display: none; }
+.settings-side.settings-open .exit { visibility: hidden; }
+.settings-check { margin-top: 2px; }
+/* The panel: a dialog over the board, or (wide) a sheet at the side with the board moved over to stay in view. */
+.settings-backdrop { position: absolute; inset: 0; z-index: 20; display: grid; place-items: center; padding: 16px; background: color-mix(in srgb, #000 55%, transparent); }
 .settings-backdrop[hidden] { display: none; }
-.settings { width: min(440px, 100%); max-height: 100%; overflow: auto; background: var(--bg); border: 1px solid var(--line); border-radius: 14px; padding: 18px 20px 20px; display: grid; gap: 14px; text-align: left; }
-.settings header { display: flex; align-items: center; justify-content: space-between; }
-.settings h2 { font-size: 18px; font-weight: 550; margin: 0; }
+.settings { --sheet-pad: 20px; width: min(460px, 100%); height: min(720px, 100%); background: var(--bg); border: 1px solid var(--line); border-radius: 16px;
+  display: grid; grid-template-rows: auto auto minmax(0, 1fr) auto; text-align: left; overflow: hidden; }
+.settings-side .settings-backdrop { background: none; pointer-events: none; padding: 0; place-items: stretch end; }
+.settings-side .settings { pointer-events: auto; width: 400px; height: 100%; border-width: 0 0 0 1px; border-radius: 0; }
+.settings-side.settings-open .board { padding-right: 400px; transition: padding-right .25s ease; }
+.settings-side.settings-open .gear { visibility: hidden; }
+.settings header { display: flex; align-items: center; justify-content: space-between; padding: 16px var(--sheet-pad) 8px; }
+.settings h2 { font-size: 18px; font-weight: 600; margin: 0; }
 .settings-close { min-height: 0; width: 36px; height: 36px; padding: 0; border-radius: 50%; font-size: 20px; line-height: 1; }
-.settings-lead, .settings .hint { font-size: 12px; color: var(--muted); margin: 0; }
-.settings fieldset { border: 0; padding: 0; margin: 0; display: grid; gap: 8px; min-width: 0; }
-.settings legend { font-size: 12px; color: var(--muted); padding: 0; margin-bottom: 6px; }
-.settings-systems { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 4px 12px; }
-.settings label { display: flex; align-items: center; gap: 8px; font-size: 14px; min-height: 30px; cursor: pointer; }
+/* The tabs: the same pill as the board's views. */
+.settings-tabs { display: flex; gap: 2px; margin: 0 var(--sheet-pad) 4px; padding: 3px; border: 1px solid var(--line); border-radius: 999px; }
+.settings-tab { flex: 1; min-height: 0; padding: 7px 4px; border: 0; border-radius: 999px; background: none; color: var(--muted); font: inherit; font-size: 13px; cursor: pointer; white-space: nowrap; }
+.settings-tab:hover { color: var(--ink); }
+.settings-tab[aria-selected="true"] { background: var(--ink); color: var(--bg); }
+.settings-tab:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.settings-body { overflow-y: auto; overscroll-behavior: contain; padding: 8px var(--sheet-pad) 20px; }
+.settings-pane { display: grid; gap: 14px; }
+.settings-pane[hidden] { display: none; }
+.settings-lead { font-size: 13px; color: var(--muted); margin: 4px 0 2px; line-height: 1.4; }
+.settings .hint { font-size: 12px; color: var(--muted); margin: -6px 0 0; line-height: 1.4; }
+.settings fieldset .hint { margin: 0; }
+.settings-section { font-size: 14px; font-weight: 600; margin: 10px 0 -4px; padding-top: 14px; border-top: 1px solid var(--line); }
+.settings-pane > .settings-lead + .settings-section { border-top: 0; padding-top: 0; margin-top: 4px; }
+.settings fieldset { border: 0; padding: 0; margin: 0; display: grid; gap: 6px; min-width: 0; }
+.settings legend { font-size: 13px; color: var(--muted); padding: 0; margin-bottom: 4px; }
+.settings-systems { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 2px 12px; }
+.settings label { display: flex; align-items: center; gap: 8px; font-size: 14px; min-height: 32px; cursor: pointer; }
 .settings input[type="checkbox"], .settings input[type="radio"] { width: 18px; height: 18px; margin: 0; accent-color: var(--ink); }
-.settings-row { display: flex; gap: 16px; flex-wrap: wrap; }
-.settings-group { display: grid; gap: 2px; }
+.settings-row { display: flex; gap: 4px 16px; flex-wrap: wrap; }
+.settings-group { display: grid; gap: 0; }
 .settings-group + .settings-group { margin-top: 8px; }
-.settings-group-title { font-size: 12px; color: var(--muted); margin: 4px 0 2px; }
-.settings-areas-list .settings-group { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 4px 12px; }
+.settings-group-title { font-size: 12px; color: var(--muted); margin: 4px 0 0; }
+.settings-areas-list .settings-group { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 0 12px; }
 .settings-areas-list .settings-group-title { grid-column: 1 / -1; }
 .settings-channel { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
 .settings-channel select { min-width: 0; max-width: 100%; flex: 1 1 160px; padding: 5px 8px; font-size: 13px; }
-.settings select { font: inherit; font-size: 14px; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--dim); background: var(--bg); color: var(--ink); justify-self: start; min-width: 200px; }
-.settings footer { display: flex; justify-content: space-between; gap: 10px; margin-top: 4px; }
+/* A field with a menu: its name above, the menu the full width. */
+.settings-field { display: grid !important; gap: 6px !important; min-height: 0 !important; cursor: default !important; }
+.settings-field > span { font-size: 13px; color: var(--muted); }
+.settings select { font: inherit; font-size: 14px; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--dim); background: var(--bg); color: var(--ink); width: 100%; min-width: 0; }
+/* Themes as tiles: a small disc of each (its ground, a ring, its text and its two alerts) and its name. */
+.theme-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 8px; }
+.settings .theme-tile { position: relative; display: grid; grid-template-columns: auto 1fr; gap: 8px; align-items: center; padding: 8px; border: 1px solid var(--line); border-radius: 10px; min-height: 0; }
+.theme-tile input { position: absolute; opacity: 0; pointer-events: none; }
+.theme-tile:hover { border-color: var(--dim); }
+.theme-tile:has(input:checked) { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
+.theme-tile:has(input:focus-visible) { outline: 2px solid var(--ink); outline-offset: 2px; }
+.theme-name { display: grid; font-size: 13px; line-height: 1.2; }
+.theme-name small { font-size: 11px; color: var(--muted); }
+.theme-disc { position: relative; width: 30px; height: 30px; border-radius: 50%; background: var(--sw-bg, var(--bg)); box-shadow: inset 0 0 0 3px var(--sw-dim, var(--dim)), 0 0 0 1px var(--line); }
+.theme-disc i { position: absolute; width: 6px; height: 6px; border-radius: 50%; top: 12px; }
+.theme-disc i:nth-child(1) { left: 6px; background: var(--sw-ink, var(--ink)); }
+.theme-disc i:nth-child(2) { left: 12px; background: var(--sw-minor, var(--minor)); }
+.theme-disc i:nth-child(3) { left: 18px; background: var(--sw-critical, var(--critical)); }
+.color-grid { display: grid; gap: 0; }
+.settings .color-field { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; }
+.color-field input { width: 32px; height: 24px; padding: 0; border: 1px solid var(--line); border-radius: 6px; background: none; cursor: pointer; }
+.color-field output { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+/* Fine-tuning: a slider per value, the changed ones in ink, a reset per group once something changed. */
+.tune-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.tune-group { display: grid; gap: 4px; }
+.tune-group .settings-section { border-top: 0; padding-top: 0; margin: 0; }
+.tune-group + .tune-group { margin-top: 10px; padding-top: 14px; border-top: 1px solid var(--line); }
+.tune-head { min-height: 28px; align-items: center; }
+.tune-reset, .tune-actions button { min-height: 0; padding: 4px 10px; font-size: 12px; }
+.tune-reset[hidden], .tune-actions button[hidden] { display: none; }
+.settings .tune-field { display: grid; grid-template-columns: 1fr auto; gap: 0 8px; min-height: 0; padding: 4px 0; cursor: default; font-size: 13px; color: var(--muted); }
+.tune-field output { font-variant-numeric: tabular-nums; font-size: 12px; }
+.tune-field output.changed { color: var(--ink); font-weight: 600; }
+.tune-field input { grid-column: 1 / -1; width: 100%; margin: 2px 0 0; accent-color: var(--ink); }
+.tune-actions { display: flex; gap: 8px; margin-top: 8px; padding-top: 14px; border-top: 1px solid var(--line); }
+.settings footer { display: flex; align-items: center; gap: 10px; padding: 12px var(--sheet-pad) 14px; border-top: 1px solid var(--line); }
+.settings-kept { font-size: 12px; color: var(--muted); margin-right: auto; }
+.settings footer .plain, .settings footer .primary { min-height: 0; padding: 9px 14px; font-size: 13px; white-space: nowrap; }
 .settings .primary { margin-left: 0; }
+/* A phone: the panel takes the screen. */
+@media (max-width: 520px) {
+  .settings-backdrop { padding: 0; }
+  .settings { width: 100%; height: 100%; border-radius: 0; border: 0; --sheet-pad: 16px; }
+  .settings-kept { display: none; }
+}
 
 /* A small box (a card in a section, a narrow window): the board tightens. */
 .compact .board { gap: 14px; }
-.compact .board-head { padding: 0 40px; }
+.compact .board-head { padding: 0 88px; }
 .compact .board-head .conn-slot { position: static; order: 3; }
-.compact .board-head h1 { font-size: 18px; letter-spacing: -.3px; }
-.compact .gear { width: 34px; height: 34px; top: 8px; right: 8px; }
+.compact .board-head h1 { font-size: 14px; }
+.compact .gear, .compact .exit { width: 34px; height: 34px; top: 8px; right: 8px; }
+.compact .exit.with-gear { right: 48px; }
 .compact .modes { margin-top: 0; }
 .compact .ticker { min-height: 0; width: min(360px, 100%); }
 .compact .ticker li:nth-child(n+3) { display: none; }
@@ -347,3 +400,60 @@
 .queue-back { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 6px 14px; border-radius: 999px;
   border: 1px solid color-mix(in srgb, var(--critical) 45%, transparent); background: none; color: var(--critical); font-size: 13px; cursor: pointer; }
 .queue-back-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--critical); }
+
+/* ─── Time in the orbit (look.time): the window on the center's ring ── */
+.hub-time { position: absolute; inset: 0; }
+.orbit-stage .hub-orbit .tw-hit { pointer-events: auto; }
+.hub-clock .clock-big { font-size: clamp(22px, 17cqw, 64px); font-variant-numeric: tabular-nums; letter-spacing: -1.5px; }
+/* The month as the last 30 days (look.month: rolling), the same size as the calendar. */
+.month-window { position: relative; width: min(100%, 300px); margin: 24px auto; }
+.month-window-center { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 2px; text-align: center; pointer-events: none; }
+.month-window .time-big { font-size: 26px; }
+
+/* ─── The changes of the last hours, one tap past the orbit ── */
+.changes-view { height: 100%; display: grid; grid-template-rows: auto minmax(0, 1fr); justify-items: center; padding: 24px 16px 72px; gap: 8px; }
+.changes-stage { position: relative; width: min(100%, 520px); display: grid; place-items: center; align-self: center; }
+.changes-stage .scroll-list { width: min(100%, 520px); height: auto; aspect-ratio: 1; margin: 0; }
+/* The whole text of the one in focus, in the left half of the ring, where the names do not reach. */
+.changes-center { position: absolute; left: 7%; top: 50%; translate: 0 -50%; width: 34%; display: grid; gap: 6px; text-align: left; }
+.changes-text { font-size: clamp(15px, 3.4vw, 20px); line-height: 1.3; overflow-wrap: anywhere; }
+.changes-text.level-1 { color: var(--minor); }
+.changes-text.level-2 { color: var(--critical); }
+
+/* ─── The orbit's face with time on: a line across it ─────── */
+/* The face leaves the gap the hub asks for (orbitHub's inset). */
+.orbit-stage .hub-face { inset: var(--hub-face-inset, 9%); }
+.orbit-stage .hub-ring svg { position: absolute; inset: 0; }
+/* Above the line, now: the alert (dots to step through the open ones) or the clock. Under it, before, in grey. */
+.hub-face.is-split { padding: 0; display: block; }
+.hub-face.is-split .hub-slide { position: absolute; left: 10%; right: 10%; top: 0; height: calc(var(--hub-split, .75) * 100%); display: grid; place-items: safe center; padding: 8% 0 4%; box-sizing: border-box; overflow: hidden; z-index: 1; }
+/* Split, the alert says only what and where; the reason waits in its system. The whole half opens it. */
+.hub-face.is-split .hub-slide:has(.hub-dots) { padding-top: 4%; }
+.hub-face.is-split .slide { gap: 1.4cqw; }
+.hub-face.is-split .slide-why { display: none; }
+/* No Open button in the center: the alert itself opens its system (the whole face, or the half above the line). */
+.orbit-stage .hub-face .slide-go { position: absolute; inset: 0; z-index: 1; display: block; margin: 0; padding: 0; border: 0; border-radius: 50%; background: none; font-size: 0; color: transparent; cursor: pointer; }
+.orbit-stage .hub-face .slide-go:focus-visible { outline: 2px solid var(--ink); outline-offset: -6px; }
+.hub-face.is-split .slide-go { border-radius: 50% 50% 0 0; }
+.orbit-stage .hub-face .hub-dots { z-index: 2; }
+.orbit-stage .hub-face:has(.slide-go:hover) .slide-big { text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: .12em; }
+/* Under the line only the way into the changes. */
+.hub-face.is-split .hub-last { display: none; }
+.hub-face.is-split .hub-before { justify-content: center; padding-top: 0; padding-bottom: 6%; }
+.hub-face.is-split .slide-why { -webkit-line-clamp: 2; }
+.hub-face.is-split .hub-before { position: absolute; left: 0; right: 0; bottom: 0; top: calc(var(--hub-split, .75) * 100%); border-top: 1px solid var(--dim);
+  background: color-mix(in srgb, var(--bg) 55%, transparent); display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 1.2cqw; padding: 2.4cqw 18% 0; }
+.hub-face:not(.is-split) .hub-before { display: none; }
+.hub-last { font-size: clamp(9px, 3.4cqw, 12px); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.hub-changes { min-height: 0; padding: 0; border: 0; background: none; color: var(--muted); font-size: clamp(9px, 3.4cqw, 12px); cursor: pointer; white-space: nowrap; }
+.hub-changes:hover, .hub-changes:focus-visible { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+/* The dots under the alert: one per open alert, in its color, all the same size; the one shown full, the rest faint. */
+.hub-slide .hub-dots { position: static; translate: none; display: flex; justify-content: center; gap: 0; margin-top: .6cqw; }
+/* Split: the dots lead the alert's half, at its top, clear of the line and of the changes under it. */
+.hub-face.is-split .hub-slide .hub-dots { order: -1; margin: 0; position: relative; left: auto; bottom: auto; translate: none; z-index: 2; }
+.hub-slide .hub-dot { width: 22px; height: 22px; }
+.hub-slide .hub-dot::before { transform: none !important; box-shadow: none !important; opacity: .4; }
+.hub-slide .hub-dot[aria-current="true"]::before { opacity: 1; }
+/* The list of changes: whether it is still open, and the way to its system. */
+.changes-still { font-size: 13px; color: var(--muted); }
+.changes-go { justify-self: start; min-height: 36px; padding: 6px 14px; border-radius: 999px; margin-top: 4px; white-space: nowrap; }

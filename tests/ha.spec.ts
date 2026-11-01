@@ -7,6 +7,11 @@ import { HA } from '../playwright.config.ts';
 // the suite.
 
 const current = (page: Page) => page.locator('.z-view.is-current-view');
+// The gear open on one of its tabs.
+const gearTo = async (page: Page, tab: 'content' | 'board' | 'look' | 'tune') => {
+  if (await page.locator('.gear').getAttribute('aria-expanded') !== 'true') await page.locator('.gear').click();
+  await page.locator(`.settings [data-tab="${tab}"]`).click();
+};
 
 test.beforeEach(async ({ page }) => {
   // While something calls, the board folds the calm systems away; most tests
@@ -47,7 +52,8 @@ test('a demo home opens from the sign-in panel and its entities answer the ring'
   await expect(page).toHaveURL(/\?demo=sections$/);
   await expect(page.locator('.login')).toBeHidden();
   await expect(page.locator('.conn')).toContainText('Home Assistant demo · Home Demo · live');
-  await expect(page.locator('.conn [data-action="signout"]')).toHaveText('Leave the demo');
+  // The way out is an icon next to the gear.
+  await expect(page.locator('.exit')).toHaveAttribute('aria-label', 'Leave the demo');
   // That home fills every system: its motion sensors make Security, its updates Maintenance.
   await expect(page.locator('.tile[data-system]')).toHaveCount(7);
   await expect(page.locator('.tile[data-system="maintenance"] .tile-big')).toHaveText('Up to date');
@@ -94,7 +100,7 @@ test('a shared link opens a demo home directly and leaving it returns to the sig
   await expect(page.locator('.layer-front .face-label')).toContainText('bedroom');
   await page.locator('.z-nav-back').click();
   await expect(page.locator('.tile[data-system]')).toHaveCount(7);
-  await page.locator('.conn [data-action="signout"]').click();
+  await page.locator('.exit').click();
   await expect(page.locator('.login h1')).toHaveText('Pulse');
   await expect(page).toHaveURL(/5174\/$/);
 });
@@ -150,9 +156,12 @@ test('the gear lets the viewer choose what this screen shows, kept in the browse
   const panel = page.locator('.settings');
   await expect(panel).toBeVisible();
   await expect(panel.locator('input[name="systems"]')).toHaveCount(8);
-  await expect(panel.locator('input[name="systems"]').first()).toBeFocused();
+  // Four tabs, the first open and focused.
+  await expect(panel.locator('[role="tab"]')).toHaveText(['Content', 'Board', 'Look', 'Tuning']);
+  await expect(panel.locator('[data-tab="content"]')).toBeFocused();
   await panel.locator('input[name="systems"][value="media"]').uncheck();
   await expect(page.locator('.tile[data-system]')).toHaveCount(6);
+  await panel.locator('[data-tab="board"]').click();
   await panel.locator('input[name="mode"][value="layers"]').check();
   await expect(page.locator('.board')).toHaveClass(/mode-layers/);
   await page.keyboard.press('Escape');
@@ -164,7 +173,7 @@ test('the gear lets the viewer choose what this screen shows, kept in the browse
   // Every system is a layer; capped at three, the other three are named under the object, each a button.
   await expect(page.locator('.board .layer[data-depth]')).toHaveCount(6);
   await expect(page.locator('.board-strip .more')).toHaveCount(0);
-  await gear.click();
+  await gearTo(page, 'board');
   await panel.locator('select[name="layers"]').selectOption('3');
   await expect(page.locator('.board .layer[data-depth]')).toHaveCount(3);
   await expect(page.locator('.board-strip .more')).toHaveCount(3);
@@ -372,7 +381,7 @@ test("the heating's detail puts the windows under the thermostat's ring and name
 
 test('the gear can open the dial at the bottom and put hour marks on the day ring', async ({ page }) => {
   await page.goto(`${HA}?demo=home`);
-  await page.locator('.gear').click();
+  await gearTo(page, 'look');
   await page.locator('.settings input[name="dial"][value="open"]').check();
   await page.locator('.settings input[name="day"][value="marks"]').check();
   await page.keyboard.press('Escape');
@@ -499,7 +508,7 @@ test('the board groups by room too: each area one object, what has no area in it
   await expect(current(page).locator('.layer-index')).toContainText('Humidity');
   await page.locator('.z-nav-back').click();
   // The gear switches back to the systems; and the choice is kept for this browser.
-  await page.locator('.gear').click();
+  await gearTo(page, 'board');
   await page.locator('input[name="axis"][value="systems"]').check();
   await page.keyboard.press('Escape');
   await expect(page.locator('.tile[data-system="lights"]')).toBeVisible();
@@ -556,18 +565,18 @@ test('the gear chooses the ends of the rings: square by default, or rounded', as
   await page.goto(`${HA}?demo=home&mode=orbit`);
   await expect(page.locator('.board o-progress').first()).toBeVisible();
   await expect(page.locator('.board o-progress[shape="rounded"]')).toHaveCount(0);
-  await page.locator('.gear').click();
+  await gearTo(page, 'look');
   await page.locator('input[name="ends"][value="rounded"]').check();
   await page.keyboard.press('Escape');
   await expect(page.locator('.board o-progress[shape="rounded"]').first()).toBeVisible();
   // The orbit's center ring too (drawn apart), inside a system, and on the switches' segments.
-  await expect(page.locator('.board .hub-ring o-arc[shape="rounded"]').first()).toBeAttached();
+  await expect(page.locator('.board .hub-ring .oh-seg.is-rounded').first()).toBeAttached();
   await page.locator('.otile[data-system="lights"], .tile[data-system="lights"]').first().click();
   await expect(current(page).locator('.layer-front o-arc[shape="rounded"]').first()).toBeAttached();
   // Kept for this browser; back to square from the gear.
   await page.reload();
   await expect(page.locator('.board o-progress[shape="rounded"]').first()).toBeVisible();
-  await page.locator('.gear').click();
+  await gearTo(page, 'look');
   await page.locator('input[name="ends"][value="flat"]').check();
   await page.keyboard.press('Escape');
   await expect(page.locator('.board o-progress[shape="rounded"]')).toHaveCount(0);
@@ -592,7 +601,7 @@ test('the layers view lists its layers beside the object, front to back, each br
   await expect(items.nth(2)).toHaveAttribute('data-bpick', third);
   await expect(items.nth(2)).toHaveAttribute('aria-current', 'true');
   // Capped from the gear: the ones past the cap stay listed, hollow.
-  await page.locator('.gear').click();
+  await gearTo(page, 'board');
   await page.locator('select[name="layers"]').selectOption('2');
   await page.keyboard.press('Escape');
   await expect(items).toHaveCount(n);
@@ -622,7 +631,7 @@ test('the gear chooses how many channels a system stacks as layers', async ({ pa
   await expect(shown()).toHaveCount(3);
   await expect(current(page).locator('.strip')).toContainText('+1 behind: Humidity');
   await page.locator('.z-nav-back').click();
-  await page.locator('.gear').click();
+  await gearTo(page, 'board');
   await page.locator('select[name="stack"]').selectOption('4');
   await page.keyboard.press('Escape');
   await page.locator('.tile[data-system="climate"]').click();
@@ -630,7 +639,7 @@ test('the gear chooses how many channels a system stacks as layers', async ({ pa
   await expect(current(page).locator('.strip')).not.toContainText('behind');
   // Kept for this browser; and fewer works too.
   await page.reload();
-  await page.locator('.gear').click();
+  await gearTo(page, 'board');
   await page.locator('select[name="stack"]').selectOption('2');
   await page.keyboard.press('Escape');
   await page.locator('.tile[data-system="climate"]').click();
@@ -761,26 +770,144 @@ test('while something calls the grid folds the calm into one tile, the orbit que
   const levels = await page.locator('.otile').evaluateAll((els) => els.map((e) => Number(/level-(\d)/.exec(e.className)?.[1] ?? 0)));
   expect(levels).toEqual([...levels].sort((a, b) => b - a));
   expect(levels[0]).toBeGreaterThan(0);
+  // The switch between views waits in the gear; the board shows it when asked.
+  await expect(page.locator('.board .modes')).toBeHidden();
+  await gearTo(page, 'board');
+  await page.locator('.settings input[name="modes"]').check();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.board .modes')).toBeVisible();
   // The head is the same in every view: the switch, then the headline.
+  // The headline: quiet in every view but the orbit, where the center says it (still there for screen readers).
   for (const mode of ['Grid', 'Orbit', 'Layers', 'List']) {
     await page.locator('.board .modes .mode', { hasText: mode }).click();
-    await expect(page.locator('.board-head h1')).toBeVisible();
+    if (mode === 'Orbit') expect(await page.locator('.board-head h1').boundingBox()).toMatchObject({ width: 1, height: 1 });
+    else await expect(page.locator('.board-head h1')).toBeVisible();
+    await expect(page.locator('.board-head h1')).not.toBeEmpty();
   }
 });
 
-test('the gear picks a theme: the original three and the blue-grey ones that tell an alert by tone', async ({ page }) => {
-  await page.goto(`${HA}?demo=home`);
-  await page.locator('.gear').click();
-  const select = page.locator('select[name="theme"]');
-  await expect(select.locator('option')).toHaveCount(7);
-  await select.selectOption('slate');
+test('time is optional: the news inside the orbit\'s ring, a line across the face, the clock while all is calm, the month as the last 30 days', async ({ page }) => {
+  // Off by default: the center's ring is one segment per system, each pointing at its satellite, and the face is whole.
+  await page.goto(`${HA}?demo=home&mode=orbit`);
+  await expect(page.locator('.hub-ring .oh-seg')).toHaveCount(7);
+  await expect(page.locator('.hub-ring .oh-ptr')).toHaveCount(7);
+  await expect(page.locator('.hub-face.is-split')).toHaveCount(0);
+  await gearTo(page, 'board');
+  await page.locator('select[name="time"]').selectOption('both');
   await page.keyboard.press('Escape');
+  // Something calls: inside the ring the last 12 hours, the open alert as a dot at the moment it began, with its wave.
+  await expect(page.locator('.hub .oh-alert.is-current')).toHaveCount(1);
+  await expect(page.locator('.hub .oh-wave.is-current')).toHaveCount(1);
+  // No mark per change on the board: the changes wait under the line across the face.
+  await expect(page.locator('.hub .tw-mark')).toHaveCount(0);
+  await expect(page.locator('.hub-face.is-split .hub-slide .slide')).toHaveClass(/level-[12]/);
+  await expect(page.locator('.hub-before .hub-changes')).toHaveText(/\d+ changes? ›/);
+  // The count opens every change of the window, scrolled in a circle, the whole text of the focused one in the middle, and the way to its system.
+  await page.locator('.hub-before .hub-changes').click();
+  await expect(current(page).locator('.changes-view')).toBeVisible();
+  await expect(current(page).locator('.scroll-item.level-1, .scroll-item.level-2').first()).toBeVisible();
+  await expect(current(page).locator('.changes-center .changes-go')).toBeVisible();
+  const before = await current(page).locator('.changes-center').textContent();
+  await current(page).locator('.scroll-list').focus();
+  await page.keyboard.press('ArrowDown');
+  await expect(current(page).locator('.changes-view')).toBeVisible();
+  await expect(current(page).locator('.changes-center')).not.toHaveText(before!);
+  await page.locator('.z-nav-back').click();
+  // All calm: the clock above the line, the day around, the same way in under it.
+  await page.goto(`${HA}?demo=sections&mode=orbit`);
+  await expect(page.locator('.hub-clock .clock-big')).toHaveText(/^\d\d:\d\d$/);
+  await expect(page.locator('.hub .oh-bar')).toHaveCount(24);
+  await page.locator('.hub-changes').click();
+  await expect(current(page).locator('.changes-head')).toHaveText(/^The last 24 hours · \d+ changes?$/);
+  await expect(current(page).locator('.scroll-item').first()).toBeVisible();
+  await page.locator('.z-nav-back').click();
+  // The month of the energy detail, as the last 30 days.
+  await gearTo(page, 'look');
+  await page.locator('select[name="month"]').selectOption('rolling');
+  await page.keyboard.press('Escape');
+  await page.goto(`${HA}?demo=home&mode=grid`);
+  await page.locator('.tile[data-system="energy"]').click();
+  await current(page).locator('.layer-front .disc').click();
+  await expect(current(page).locator('.month-window .tw-bar')).toHaveCount(30);
+});
+
+test('with two alerts open, the dots to step through them sit above the line, and they answer', async ({ page }) => {
+  await page.goto(`${HA}?demo=home&mode=grid`);
+  await gearTo(page, 'board');
+  await page.locator('select[name="time"]').selectOption('both');
+  await page.keyboard.press('Escape');
+  // Heating up with the windows open: a second alert next to the battery's.
+  await page.locator('.tile[data-system="climate"]').click();
+  const dial = current(page).locator('.layer-front [data-dial]').first();
+  await dial.focus();
+  for (let i = 0; i < 4; i++) await page.keyboard.press('ArrowRight');
+  await page.locator('.z-nav-back').click();
+  await gearTo(page, 'board');
+  await page.locator('.settings input[name="mode"][value="orbit"]').check();
+  await page.keyboard.press('Escape');
+  const dots = page.locator('.hub-face.is-split .hub-slide .hub-dot');
+  await expect(dots).toHaveCount(2);
+  const line = (await page.locator('.hub-before').boundingBox())!;
+  for (const box of [await dots.nth(0).boundingBox(), await dots.nth(1).boundingBox()]) expect(box!.y + box!.height).toBeLessThanOrEqual(line.y);
+  await dots.nth(1).click();
+  await expect(dots.nth(1)).toHaveAttribute('aria-current', 'true');
+  await expect(page.locator('.hub .oh-alert.is-current')).toHaveCount(1);
+  // Both on the ring, each with its wave, apart even though they began at once.
+  await expect(page.locator('.hub .oh-wave')).toHaveCount(2);
+  const [a, b] = await page.locator('.hub .oh-alert').evaluateAll((l) => l.map((c) => [Number(c.getAttribute('cx')), Number(c.getAttribute('cy'))]));
+  expect(Math.hypot(a[0] - b[0], a[1] - b[1])).toBeGreaterThan(14);
+  // Only what and where above the line, only the way in under it; the whole alert opens its system.
+  await expect(page.locator('.hub-face.is-split .slide-why')).toBeHidden();
+  await expect(page.locator('.hub-face.is-split .hub-last')).toBeHidden();
+  const big = (await page.locator('.hub-face.is-split .slide-big').boundingBox())!;
+  await page.mouse.click(big.x + big.width / 2, big.y + big.height / 2);
+  await expect(current(page)).not.toHaveAttribute('data-view', 'board');
+  await expect(page.locator('.z-nav-back')).toBeVisible();
+});
+
+test('the gear picks a theme: the original three and the blue-grey ones that tell an alert by tone, or colors of one\'s own', async ({ page }) => {
+  await page.goto(`${HA}?demo=home`);
+  await gearTo(page, 'look');
+  const tiles = page.locator('.settings .theme-tile');
+  await expect(tiles).toHaveCount(8);
+  await page.locator('[data-theme-tile="slate"]').click();
   const canvas = page.locator('[data-theme="slate"]');
   await expect(canvas).toHaveCount(1);
   expect(await canvas.evaluate((el) => getComputedStyle(el).getPropertyValue('--bg').trim())).toBe('#e4e9ef');
   expect(await canvas.evaluate((el) => getComputedStyle(el).getPropertyValue('--critical').trim())).toBe('#1d3654');
+  // Your own colors start from the theme in force, and are kept.
+  await expect(page.locator('.settings-colors')).toBeHidden();
+  await page.locator('[data-theme-tile="custom"]').click();
+  await expect(page.locator('.settings-colors')).toBeVisible();
+  await expect(page.locator('input[name="color"][data-key="bg"]')).toHaveValue('#e4e9ef');
+  await page.locator('input[name="color"][data-key="critical"]').fill('#7a1f5c');
+  const custom = page.locator('[data-theme="custom"]');
+  await expect(custom).toHaveCount(1);
+  await expect.poll(() => custom.evaluate((el) => getComputedStyle(el).getPropertyValue('--critical').trim())).toBe('#7a1f5c');
+  await page.keyboard.press('Escape');
   await page.reload();
-  await expect(page.locator('[data-theme="slate"]')).toHaveCount(1);
+  await expect(page.locator('[data-theme="custom"]')).toHaveCount(1);
+  expect(await page.locator('[data-theme="custom"]').evaluate((el) => getComputedStyle(el).getPropertyValue('--bg').trim())).toBe('#e4e9ef');
+});
+
+test('tuning lives in the gear: a slider moves the board as it is dragged, a reset per group, kept in the browser', async ({ page }) => {
+  await page.goto(`${HA}?demo=home&mode=orbit`);
+  await gearTo(page, 'tune');
+  // Wide, the panel sits at the side and the board moves over to stay in view.
+  await expect(page.locator('.settings-side')).toHaveCount(1);
+  await expect(page.locator('.hub')).toBeInViewport();
+  await expect(page.locator('[data-tune-reset="orbit"]')).toBeHidden();
+  const before = (await page.locator('.otile').first().boundingBox())!;
+  await page.locator('input[name="tune"][data-key="orbit"]').fill('7');
+  await expect(page.locator('[data-tune-out="orbit"]')).toHaveText('7');
+  await expect(page.locator('[data-tune-out="orbit"]')).toHaveClass(/changed/);
+  await expect.poll(async () => JSON.stringify((await page.locator('.otile').first().boundingBox())!)).not.toBe(JSON.stringify(before));
+  await page.reload();
+  await gearTo(page, 'tune');
+  await expect(page.locator('input[name="tune"][data-key="orbit"]')).toHaveValue('7');
+  await page.locator('[data-tune-reset="orbit"]').click();
+  await expect(page.locator('input[name="tune"][data-key="orbit"]')).toHaveValue('10');
+  await expect(page.locator('[data-tune-reset="orbit"]')).toBeHidden();
 });
 
 test('Media carries its sound visual in its tile and in its face while something plays', async ({ page }) => {
@@ -794,7 +921,7 @@ test('Media carries its sound visual in its tile and in its face while something
 test("the orbit's center holds the most serious alert, or the home's pulse with the time", async ({ page }) => {
   await page.goto(`${HA}?demo=home&mode=orbit`);
   // A segment per system around the center, and no clock's rim inside it.
-  await expect(page.locator('.hub-ring o-arc')).toHaveCount(7);
+  await expect(page.locator('.hub-ring .oh-seg')).toHaveCount(7);
   await expect(page.locator('.hub-ring .clock-tick')).toHaveCount(0);
   // The center holds the most serious alert, with no dots to page through the rest.
   await expect(page.locator('.hub-slide .slide')).toHaveClass(/level-[12]/);
@@ -843,4 +970,18 @@ test("the Power detail puts this month under the day: a sector per day of the en
   await expect(month.locator('.month-bar')).toHaveCount(now.getDate());
   await expect(month.locator('.time-big')).toHaveText(/kWh$/);
   await expect(month.locator('.time-range')).toHaveText(now.toLocaleDateString('en', { month: 'long', year: 'numeric' }));
+});
+
+test("the trackpad's pinch (a wheel with ctrl) zooms out of a system; pinching out does nothing", async ({ page }) => {
+  await page.goto(`${HA}/?demo=home`);
+  await page.locator('.tile[data-system="lights"]').click();
+  await expect(current(page).locator('.system')).toBeVisible();
+  const pinch = (deltaY: number) => current(page).locator('.layer-front .disc').first().dispatchEvent('wheel', { deltaY, ctrlKey: true, bubbles: true, cancelable: true });
+  // Pinching out: still inside.
+  await pinch(-80);
+  await page.waitForTimeout(300);
+  await expect(current(page).locator('.system')).toBeVisible();
+  // Pinching in: back to the board.
+  await pinch(30); await pinch(30);
+  await expect(current(page).locator('.board')).toBeVisible();
 });

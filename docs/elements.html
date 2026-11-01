@@ -116,7 +116,7 @@
         </figure>
         <figure class="element">
           <img src="images/el-clock-rim.png" alt="Twelve ticks, dots at the minute of the latest changes, now brighter" loading="lazy">
-          <figcaption><strong>Clock rim</strong> <code>clockRim(marks, now)</code>. Inside a ring: twelve hour ticks, the latest changes as dots at their minute in their level's color, now as a brighter dot. In the core; the board does not use it for now.</figcaption>
+          <figcaption><strong>Clock rim</strong> <code>clockRim(marks, now)</code>. Superseded by <code>timeWindow</code> on the board. Inside a ring: twelve hour ticks, the latest changes as dots at their minute in their level's color, now as a brighter dot. In the core; the board does not use it for now.</figcaption>
         </figure>
       </div>
 
@@ -161,10 +161,11 @@
       <h2>Gestures</h2>
       <table>
         <tr><th>Function</th><th>What it handles</th></tr>
-        <tr><td><code>dialControls(el, c)</code></td><td>Drag, wheel and keys on every dial inside <code>el</code>, a range's two knobs included; <code>locked</code> after a layer change; swallows the click that follows a drag so Zumly does not zoom. Returns the cleanup.</td></tr>
+        <tr><td><code>dialControls(el, c)</code></td><td>Drag, wheel and keys on every dial inside <code>el</code>, a range's two knobs included; <code>locked</code> after a layer change; swallows the click that follows a drag so Zumly does not zoom; a second finger cancels the drag, so a pinch born on the dial is still Zumly's way back. Returns the cleanup.</td></tr>
         <tr><td><code>wheelControls(el, c)</code></td><td>The color wheel: drag, tap, arrows.</td></tr>
         <tr><td><code>listControls(el, c)</code></td><td>Turning the radial list: wheel, drag around the center, arrows; settles on the nearest item.</td></tr>
         <tr><td><code>scrollControls(el, c)</code></td><td>The scroll list: wheel, drag along the items, the thumb, arrows, Enter.</td></tr>
+        <tr><td><code>zoomOutGestures(app, canvas)</code></td><td>The ways back Zumly does not offer: the trackpad's pinch (a wheel with ctrl) zooms out of a view inside the board, once per pinch; pinching out does nothing. Returns the cleanup.</td></tr>
         <tr><td><code>parallax(stage, obj, active)</code></td><td>A few degrees of tilt with the pointer, in 3D only, on the compositor.</td></tr>
       </table>
 

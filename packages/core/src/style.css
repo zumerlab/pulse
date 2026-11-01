@@ -425,3 +425,63 @@ o-arc.is-failed { --o-stroke: var(--critical); --o-stroke-width: 2; }
 .queue-fold .queue-hit { border: 1px solid var(--line); }
 .queue-fold .queue-hit:hover { border-color: var(--muted); }
 @media (prefers-reduced-motion: reduce) { .queue-item .queue-hit::after { animation: none; opacity: .35; transform: scale(1.12); } }
+
+/* ─── Time window: now at the top, the past clockwise into it ── */
+.time-window { display: block; width: 100%; height: auto; overflow: visible; }
+.time-window .tw-track { fill: none; stroke: var(--line); stroke-width: 1.5; }
+.time-window .tw-wake { fill: none; stroke: var(--ink); stroke-width: 2; }
+.time-window .tw-bar { fill: none; stroke: var(--muted); }
+.time-window .tw-bar.is-now { stroke: var(--ink); }
+.time-window .tw-bar.is-empty { stroke: var(--line); stroke-width: 2; }
+.time-window .tw-now { stroke: var(--ink); stroke-width: 2.5; stroke-linecap: round; }
+.time-window .tw-turn { stroke: var(--muted); stroke-width: 1.5; }
+.time-window .tw-turn-label { fill: var(--muted); font-size: 11px; }
+.time-window .tw-tick { stroke: var(--ink); stroke-width: 2; stroke-linecap: round; }
+.time-window .tw-stem { stroke: var(--ink); stroke-width: 1; opacity: .4; }
+.time-window .tw-disc { fill: var(--bg); stroke: var(--dim); stroke-width: 1; }
+.time-window .tw-glyph { stroke: var(--ink); stroke-width: 2.4; }
+.time-window .tw-mark.level-1 :is(.tw-tick, .tw-stem) { stroke: var(--minor); }
+.time-window .tw-mark.level-2 :is(.tw-tick, .tw-stem) { stroke: var(--critical); }
+.time-window .tw-mark.level-1 .tw-tick, .time-window .tw-mark.level-2 .tw-tick { stroke-width: 3; }
+.time-window .tw-mark.level-1 .tw-disc { stroke: var(--minor); }
+.time-window .tw-mark.level-2 .tw-disc { stroke: var(--critical); }
+.time-window .tw-mark.level-1 .tw-glyph { stroke: var(--minor); }
+.time-window .tw-mark.level-2 .tw-glyph { stroke: var(--critical); }
+.time-window .tw-mark.is-picked .tw-disc { stroke: var(--ink); stroke-width: 1.5; }
+.time-window .tw-hit { cursor: pointer; pointer-events: auto; outline: none; }
+.time-window .tw-hit:focus-visible .tw-disc { stroke: var(--ink); stroke-width: 2; }
+.time-window .tw-label { fill: var(--ink); font-size: 12px; }
+.time-window .tw-when { fill: var(--muted); }
+
+/* ─── The orbit's hub: segments that point at their satellites, the news inside ── */
+.orbit-hub { display: block; width: 100%; height: auto; overflow: visible; }
+.orbit-hub .oh-seg { fill: none; stroke: var(--dim); }
+.orbit-hub .oh-seg.level-1 { stroke: var(--minor); }
+.orbit-hub .oh-seg.level-2 { stroke: var(--critical); }
+.orbit-hub .oh-ptr { stroke: none; fill: var(--dim); }
+.orbit-hub .oh-ptr.level-1 { fill: var(--minor); }
+.orbit-hub .oh-ptr.level-2 { fill: var(--critical); }
+.orbit-hub .oh-notch { stroke: var(--dim); stroke-width: 2; }
+.orbit-hub .oh-notch.level-1 { stroke: var(--minor); }
+.orbit-hub .oh-notch.level-2 { stroke: var(--critical); }
+.orbit-hub .oh-seg.is-rounded { stroke-linecap: round; }
+.orbit-hub .oh-wake { fill: none; stroke: var(--ink); stroke-width: 1.5; }
+.orbit-hub .oh-bar { fill: none; stroke: var(--muted); }
+.orbit-hub .oh-bar.is-now { stroke: var(--ink); }
+.orbit-hub .oh-now { stroke: var(--ink); stroke-width: 2; stroke-linecap: round; }
+.orbit-hub .oh-alert { stroke: var(--bg); stroke-width: 2; opacity: .55; }
+.orbit-hub .oh-alert.is-current { opacity: 1; }
+.orbit-hub .oh-alert.level-1 { fill: var(--minor); }
+.orbit-hub .oh-alert.level-2 { fill: var(--critical); }
+/* The alert in the face: a wave leaves its dot, the dot keeps its size. */
+.orbit-hub .oh-wave { fill: none; stroke-width: 1.5; transform-box: fill-box; transform-origin: center; animation: hub-wave 1.6s ease-out infinite; }
+.orbit-hub .oh-wave.level-1 { stroke: var(--minor); }
+.orbit-hub .oh-wave.level-2 { stroke: var(--critical); }
+/* Every open alert has its wave; the one in the face, the stronger. */
+.orbit-hub .oh-wave:not(.is-current) { animation-name: hub-wave-soft; animation-duration: 2.2s; }
+@keyframes hub-wave { from { transform: scale(1); opacity: .6; } to { transform: scale(2.6); opacity: 0; } }
+@keyframes hub-wave-soft { from { transform: scale(1); opacity: .35; } to { transform: scale(2.2); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .orbit-hub .oh-wave { animation: none; opacity: .3; } }
+/* A list item that was an alert: a dot of its level at the end of its name. */
+.scroll-item.level-1 .sl-text::after, .scroll-item.level-2 .sl-text::after { content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-left: 8px; vertical-align: middle; background: var(--minor); }
+.scroll-item.level-2 .sl-text::after { background: var(--critical); }

@@ -1,13 +1,13 @@
 import Zumly, { type ViewContext } from 'zumly';
 import type { Call, Change, HassState, PulseSource, Status } from './source.ts';
 import { nameOf, placeOf, roomSystems, spansOf, systems, type Alert, type Channel, type Dial, type PulseSystem, type Reading } from './model.ts';
-import { tune } from './tune.ts';
+import { CONTROLS, DEFAULTS, GROUPS, fmt, resetTune, setTune, tune, tuneText, tuned, type Tune, type TuneGroup } from './tune.ts';
 import {
   DOT_LANES, LANE, LOCK_MS, MAX_TRACKS, MINI_LANES, PHONE, STACK_MAX, backLayer, calmStrip, colorArcs, dialControls, dots, esc, face,
-  fitFor, hsCss, icon, labelAt, layerIndex, levelColor, localeOf, monthRing, musicVisual, num, parallax, ring as drawRing, ringCenter, satColor, sizes, strokeAt,
+  fitFor, hsCss, icon, labelAt, layerIndex, localeOf, monthRing, musicVisual, num, parallax, ring as drawRing, ringCenter, satColor, sizes, strokeAt,
   SCROLL_VISIBLE, scrollControls, scrollList, setLocale, setViewToggle, startInside, systemShell, time, timeRing, timeline, viewToggle, zumlyOptions,
   type ListItem, type RingReading, type ScrollState,
-  DEFAULT_THEME, THEME_NAMES, applyTheme, queueRings, type ThemeName,
+  DEFAULT_THEME, THEMES, THEME_NAMES, applyColors, applyTheme, orbitHub, queueRings, timeWindow, zoomOutGestures, type HubLook, type HubNews, type Theme, type ThemeName, type TimeMark,
 } from '@zumer/pulse';
 import { t } from './strings.ts';
 
@@ -49,9 +49,23 @@ export type PulseSettings = {
   // The calm systems shown even while something calls (folded by default).
   calm?: 'open';
 };
-export type Look = { dial?: 'full' | 'open'; day?: 'plain' | 'marks'; ends?: 'flat' | 'rounded'; theme?: ThemeName };
+// time: what the orbit's center shows of time (nothing; the changes of the last 12 h on its ring; the clock and the
+// day while all is calm; or both). month: the energy month as a calendar (the 1st at the top) or the last 30 days (today at the top).
+// theme: one of the object's, or 'custom' with the viewer's own colors (`colors`, over the default theme's).
+export type Look = { dial?: 'full' | 'open'; day?: 'plain' | 'marks'; ends?: 'flat' | 'rounded'; theme?: ThemeName | 'custom';
+  colors?: Partial<Theme>; time?: 'off' | 'changes' | 'clock' | 'both'; month?: 'calendar' | 'rolling';
+  // The switch between grid, orbit, layers and list on the board itself (the gear always has it).
+  modes?: 'shown' | 'hidden' };
+type LookFull = Required<Omit<Look, 'colors'>> & Pick<Look, 'colors'>;
+// The gear's tabs.
+export const SETTINGS_TABS = ['content', 'board', 'look', 'tune'] as const;
+type Tab = typeof SETTINGS_TABS[number];
+const COLOR_KEYS: (keyof Theme)[] = ['bg', 'ink', 'muted', 'dim', 'line', 'minor', 'critical'];
+// A theme as a small disc: its ground, a ring at rest, its text and its two alerts.
+const swatch = (c: Theme) => `<span class="theme-disc" aria-hidden="true" style="--sw-bg:${c.bg};--sw-ink:${c.ink};--sw-dim:${c.dim};--sw-minor:${c.minor};--sw-critical:${c.critical}"><i></i><i></i><i></i></span>`;
 export const DIALS = ['full', 'open'] as const, DAYS = ['plain', 'marks'] as const, ENDS = ['flat', 'rounded'] as const;
-const LOOK_DEFAULT: Required<Look> = { dial: 'full', day: 'plain', ends: 'flat', theme: DEFAULT_THEME };
+export const TIMES = ['off', 'changes', 'clock', 'both'] as const, MONTHS = ['calendar', 'rolling'] as const;
+const LOOK_DEFAULT: LookFull = { dial: 'full', day: 'plain', ends: 'flat', theme: DEFAULT_THEME, time: 'off', month: 'calendar', modes: 'hidden' };
 
 export type PulseOptions = {
   source: PulseSource;
@@ -78,6 +92,8 @@ export type PulseOptions = {
   status?: (source: PulseSource) => string;
   // A button with `data-action` in that line was pressed.
   onAction?: (action: string) => void;
+  // A way out of the source (sign out, leave the demo): an icon next to the gear, `data-action="signout"`.
+  exit?: (source: PulseSource) => string | null;
   onStatus?: (status: Status) => void;
 };
 
@@ -159,7 +175,8 @@ const applySettings = () => {
   } else IDS = CHOSEN;
   boardMode = local.mode && BOARD_MODES.includes(local.mode) ? local.mode : frame.mode ?? 'grid';
   const theme = local.look?.theme ?? frame.look?.theme;
-  applyTheme(canvas, theme && THEME_NAMES.includes(theme) ? theme : DEFAULT_THEME);
+  if (theme === 'custom') applyColors(canvas, { ...frame.look?.colors, ...local.look?.colors });
+  else applyTheme(canvas, theme && THEME_NAMES.includes(theme) ? theme : DEFAULT_THEME);
 };
 const startId = () => { const id = local.start ?? frame.start; return id && IDS.includes(id) ? id : null; };
 // The areas the gear offers: the registry's, within the frame; and the ones in force.
@@ -179,7 +196,8 @@ const hiddenChannels = (id: string) => {
 const views: Record<string, (ctx: ViewContext) => void> = {};
 applySettings();
 // The look in force: the viewer's choice over the host's.
-const look = (): Required<Look> => ({ ...LOOK_DEFAULT, ...frame.look, ...local.look });
+const defined = <T extends object>(o?: T) => Object.fromEntries(Object.entries(o ?? {}).filter(([, v]) => v !== undefined)) as Partial<T>;
+const look = (): LookFull => ({ ...LOOK_DEFAULT, ...defined(frame.look), ...defined(local.look) });
 // How many layers the Layers view stacks: the viewer's choice, the host's, or every system.
 const layersShown = () => { const n = local.layers ?? frame.layers; return n && n >= 1 ? Math.min(n, IDS.length) : IDS.length; };
 // How many channels a system stacks as layers: the viewer's choice, the host's, or three (two on a phone), never past STACK_MAX.
@@ -218,7 +236,7 @@ const pending = new Map<string, number>();
 // and a Retry until a retry goes through or the entity changes anyway.
 const failed = new Map<string, { calls: Call[]; message: string }>();
 const hold = new Map<string, { value: number; until: number }>();
-const log: { at: Date; text: string; level: number; entity?: string }[] = [];
+const log: { at: Date; text: string; level: number; entity?: string; system?: string }[] = [];
 const rerender = new Set<() => void>();
 // A view behind the current one (Zumly keeps it, scaled and blurred) does not
 // repaint: Chrome would blur it again on each change. It repaints when it
@@ -431,6 +449,9 @@ function startVisuals(root: HTMLElement, stops: Map<HTMLCanvasElement, () => voi
   }
 }
 
+function headlineLevel() {
+  return ha.status !== 'live' ? 0 : Math.max(0, ...IDS.flatMap((id) => live(id).map((k) => readings[id].get(k)!.r.alert!.level)));
+}
 function headline() {
   if (ha.status !== 'live') return t.connecting;
   const calling = IDS.flatMap((id) => live(id).map((k) => ({ id, k, a: readings[id].get(k)!.r.alert! })))
@@ -458,14 +479,81 @@ let listFocus: string | null = null;
 const months = new Map<string, { values: (number | null)[]; at: number; error?: boolean }>();
 const MONTH_MS = 15 * 60_000;
 const monthLoading = new Set<string>();
+const ROLLING_DAYS = 30;
+const monthKey = (entity: string) => look().month === 'rolling' ? `${entity}|${ROLLING_DAYS}` : entity;
 async function loadMonth(entity: string) {
-  if (monthLoading.has(entity) || !ha.statistics) return;
-  monthLoading.add(entity);
-  try { months.set(entity, { values: await ha.statistics(entity), at: Date.now() }); }
-  catch { months.set(entity, { values: [], at: Date.now(), error: true }); }
-  monthLoading.delete(entity);
+  const key = monthKey(entity), days = look().month === 'rolling' ? ROLLING_DAYS : undefined;
+  if (monthLoading.has(key) || !ha.statistics) return;
+  monthLoading.add(key);
+  try { months.set(key, { values: await ha.statistics(entity, days), at: Date.now() }); }
+  catch { months.set(key, { values: [], at: Date.now(), error: true }); }
+  monthLoading.delete(key);
   repaint();
 }
+
+// The changes of the last day, for the orbit's time: asked of the source once
+// in a while (its history), merged with what this session saw.
+let pastChanges: { at: number; changes: Record<string, Change[]> } | null = null;
+let pastLoading = false;
+const PAST_MS = 5 * 60_000;
+async function loadPast() {
+  if (pastLoading || !ha.changes) return;
+  pastLoading = true;
+  try { pastChanges = { at: Date.now(), changes: await ha.changes([...watched()], 24) }; }
+  catch { pastChanges = { at: Date.now() - PAST_MS + 30_000, changes: {} }; }   // try again in half a minute
+  pastLoading = false;
+  repaint();
+}
+// The system and the glyph of an entity: the first channel that reads it.
+function whoseEntity(entity: string) {
+  for (const id of IDS) for (const { ch, r } of readings[id].values()) if (r.entities.includes(entity)) return { id, glyph: ch.glyph };
+  return null;
+}
+// The changes as marks of the time window: a state that is a word (on, open,
+// playing; a number that moves every minute would bury the rest), the alerts
+// this session raised, the newest first. `ago` in hours.
+type Mark = TimeMark & { id: string };
+function timeMarks(hours: number, cap = 12): Mark[] {
+  // Counted from the current minute: the marks move once a minute, not under a finger.
+  const now = Math.floor(Date.now() / 60_000) * 60_000, out: (Mark & { at: number })[] = [];
+  for (const [entity, list] of Object.entries(pastChanges?.changes ?? {})) {
+    const who = whoseEntity(entity);
+    if (!who) continue;
+    for (const c of list) {
+      // `ago` was counted when the history came; from it, the moment, and from that, how long ago now.
+      const at = Math.floor((pastChanges!.at - c.ago * 3_600_000) / 60_000) * 60_000, ago = (now - at) / 3_600_000;
+      if (ago >= hours || !Number.isNaN(Number(c.state)) || c.state === 'unavailable' || c.state === 'unknown') continue;
+      out.push({ at, ago, glyph: who.glyph, id: who.id, name: SYS[who.id].title, when: time(new Date(at)).slice(0, 5), text: `${nameOf(ha.states, entity)} → ${c.state}` });
+    }
+  }
+  // The alerts that call now, at the moment they appeared, in their system's glyph.
+  for (const id of IDS) for (const k of live(id)) {
+    const since = uiOf(id).since.get(k), item = readings[id].get(k)!;
+    if (since == null || (now - since) / 3_600_000 >= hours) continue;
+    out.push({ at: since, ago: Math.max(0, (now - since) / 3_600_000), level: item.r.alert!.level, glyph: item.ch.glyph, id, name: SYS[id].title,
+      when: time(new Date(since)).slice(0, 5), text: item.r.alert!.why });
+  }
+  // What this session saw before the history came (or with a source that keeps none).
+  if (!pastChanges?.changes || !Object.keys(pastChanges.changes).length) for (const l of log) {
+    const ago = Math.max(0, (now - l.at.getTime()) / 3_600_000), who = l.entity ? whoseEntity(l.entity) : null;
+    if (!who || l.level || ago >= hours) continue;
+    out.push({ at: l.at.getTime(), ago, glyph: who.glyph, id: who.id, name: SYS[who.id].title, when: time(l.at).slice(0, 5), text: l.text });
+  }
+  return out.sort((a, b) => a.ago - b.ago).slice(0, cap);
+}
+// How many of those changes fell in each of the last 24 hours, the oldest hour first.
+function hourCounts() {
+  const counts = Array.from({ length: 24 }, () => 0);
+  for (const list of Object.values(pastChanges?.changes ?? {})) for (const c of list) if (c.ago < 24 && Number.isNaN(Number(c.state))) counts[23 - Math.floor(c.ago)]++;
+  for (const l of log) { const ago = (Date.now() - l.at.getTime()) / 3_600_000; if (ago < 24 && !pastChanges) counts[23 - Math.floor(ago)]++; }
+  return counts;
+}
+// Which open alert the orbit's face shows (its dots step through them); 0: the most serious.
+let hubAt = 0;
+// The gear's tab last open.
+let settingsTab: Tab = (() => { try { const v = sessionStorage.getItem('pulse-ha-settings-tab'); return SETTINGS_TABS.includes(v as Tab) ? v as Tab : 'content'; } catch { return 'content'; } })();
+// The measures of the hub, from the tuning panel in development.
+const hubLook = (): HubLook => ({ gap: tune.timeGap, pointer: 'triangle', size: tune.timePointer, bar: tune.timeBar });
 
 // Systems by urgency, the most serious first, the usual order within a level;
 // a choice made by hand never moves them (the queue of the orbit, the grid,
@@ -510,18 +598,15 @@ function orbitTile(id: string) {
     </button></div></div>`;
 }
 
-// Center of the orbit: one segment per system, facing its tile and painted if
-// that system calls.
-function hubRing(ids: string[]) {
-  const segs = ids.map((id) => {
-    const level = worst(id);
-    return `<o-arc${look().ends === 'rounded' ? ' shape="rounded"' : ''} style="--o-fill:${level ? levelColor(level as 1 | 2) : 'var(--dim)'}"></o-arc>`;
-  }).join('');
-  // The systems are shifted half a step (none right at the top): each segment
-  // faces its own without rotating the ring. The clock's rim that sat inside
-  // (clockRim) is out until it has a design of its own.
-  return `<span class="bigbang hub-ring"><span class="gravity-spot">
-    <div class="orbit-12" style="--o-size-ratio:.5; --o-gap:30">${segs}</div></span></span>`;
+// The alerts open now, the most serious first: what the orbit's face steps through.
+function openAlerts() {
+  return IDS.flatMap((id) => live(id).map((k) => ({ id, k, ...readings[id].get(k)! })))
+    .sort((a, b) => b.r.alert!.level - a.r.alert!.level || (uiOf(a.id).since.get(a.k) ?? 0) - (uiOf(b.id).since.get(b.k) ?? 0));
+}
+// Center of the orbit: one segment per system, facing its tile and pointing at
+// it, painted if that system calls; inside, with time on, the news (orbitHub).
+function hubRing(ids: string[], news?: HubNews) {
+  return orbitHub({ levels: ids.map((id) => worst(id)), news, look: hubLook(), rounded: look().ends === 'rounded', aria: t.hubAria });
 }
 
 // Inside the center, one thing at a time: each alert (most serious first) and
@@ -567,7 +652,7 @@ function board(ctx: ViewContext) {
         `<button class="mode" data-mode="${m}">${label}</button>`).join('')}</nav><h1></h1>
       <p class="error" hidden></p></header>
     <div class="board-body"></div>
-  </div>` + (STORE ? settingsPanel() : '');
+  </div><button type="button" class="exit${STORE ? ' with-gear' : ''}" data-action="signout" hidden>${EXIT}</button>` + (STORE ? settingsPanel() : '');
   const boardEl = el.querySelector<HTMLElement>('.board')!;
   const body = el.querySelector<HTMLElement>('.board-body')!;
   if (STORE) { if (getComputedStyle(el).position === 'static') el.style.position = 'relative'; }
@@ -615,7 +700,7 @@ function board(ctx: ViewContext) {
       body.innerHTML = `<div class="stage orbit-stage"><div class="obj"><div class="bigbang"><div class="gravity-spot depth outer-perspective">
         <div class="orbit-0 hub-orbit layer-front"><div class="satellite at-center"><div class="capsule">
           <div class="hub"><div class="hub-ring-slot"></div>
-            <div class="hub-face" aria-live="polite"><div class="hub-slide"></div></div></div>
+            <div class="hub-face"><div class="hub-slide" aria-live="polite"></div><div class="hub-before"></div></div></div>
         </div></div></div>
         <div class="orbit-${tune.orbit} orbit-tiles" data-depth="1"></div></div></div></div></div>`;
     } else if (boardMode === 'layers') {
@@ -704,10 +789,19 @@ function board(ctx: ViewContext) {
 
   const paint = () => {
     if (built !== boardMode) build();
-    el.querySelector('h1')!.textContent = headline();
+    // The headline is quiet: grey, in the color of the critical only when something is critical.
+    // The orbit's center already says it, so there it is left to screen readers.
+    const h1 = el.querySelector('h1')!;
+    h1.textContent = headline();
+    h1.className = `level-${headlineLevel()}`;
     // Only when it changed: the house repaints every few seconds and a button
     // recreated each time would lose taps.
     setHTML(el.querySelector<HTMLElement>('.conn-slot')!, status());
+    // The way out, next to the gear; the view switch only when chosen.
+    const exitBtn = el.querySelector<HTMLButtonElement>('.exit')!, exitLabel = options.exit?.(ha) ?? null;
+    exitBtn.hidden = !exitLabel;
+    if (exitLabel) { exitBtn.setAttribute('aria-label', exitLabel); exitBtn.title = exitLabel; }
+    el.querySelector<HTMLElement>('.modes')!.hidden = look().modes === 'hidden';
     for (const b of el.querySelectorAll<HTMLElement>('[data-mode]')) b.setAttribute('aria-pressed', String(b.dataset.mode === boardMode));
     if (form) syncSettings(form);
     const err = el.querySelector<HTMLElement>('.error')!;
@@ -729,7 +823,28 @@ function board(ctx: ViewContext) {
       const fixed = urgencyOrder(IDS.filter((id) => ids.includes(id)));
       const hubEl = body.querySelector<HTMLElement>('.hub')!;
       if (hubEl.hidden !== !ready) hubEl.hidden = !ready;
-      setHTML(body.querySelector<HTMLElement>('.hub-ring-slot')!, ready ? hubRing(fixed) : '');
+      const tm = look().time, calling = fixed.some((id) => worst(id));
+      const changesRing = tm === 'changes' || (tm === 'both' && calling), clock = (tm === 'clock' || tm === 'both') && !calling;
+      if ((changesRing || clock) && ha.changes && ha.status === 'live' && (!pastChanges || Date.now() - pastChanges.at > PAST_MS)) void loadPast();
+      const timeOn = changesRing || clock;
+      hubEl.classList.toggle('has-time', timeOn);
+      // The news inside the ring: the last 12 hours with the open alerts at the moment they began, or the calm day by hour.
+      const alerts = openAlerts();
+      if (hubAt >= alerts.length) hubAt = 0;
+      const now = Date.now();
+      const news: HubNews | undefined = changesRing
+        ? { span: 12, alerts: alerts.map((a, i) => ({ ago: (now - (uiOf(a.id).since.get(a.k) ?? now)) / 3_600_000, level: a.r.alert!.level, current: i === hubAt })) }
+        : clock ? { span: 24, bars: hourCounts() } : undefined;
+      const hub = ready ? hubRing(fixed, news) : null;
+      setHTML(body.querySelector<HTMLElement>('.hub-ring-slot')!, hub ? `<div class="hub-ring">${hub.svg}</div>` : '');
+      if (hub) hubEl.style.setProperty('--hub-face-inset', `${(hub.inset * 100).toFixed(2)}%`);
+      hubEl.style.setProperty('--hub-split', String(tune.timeSplit));
+      // With time on, the face splits: now above the line, before under it (the last change, and the way into all of them).
+      const span = changesRing ? 12 : 24, all = timeOn ? timeMarks(span, 500) : [];
+      const last = all.find((m) => !m.level);
+      hubEl.querySelector('.hub-face')!.classList.toggle('is-split', ready && timeOn);
+      setHTML(body.querySelector<HTMLElement>('.hub-before')!, ready && timeOn ? `${last ? `<span class="hub-last">${esc(`${last.when} · ${last.text}`)}</span>` : ''}
+        <button class="hub-changes zoom-me" data-to="changes" data-span="${span}" aria-label="${esc(t.openChanges(span))}">${esc(t.nChanges(all.length))} ›</button>` : '');
       const tilesEl = body.querySelector<HTMLElement>('.orbit-tiles')!;
       // Half a step of offset: no system right at the top, and each one faces its
       // segment of the center ring.
@@ -747,9 +862,22 @@ function board(ctx: ViewContext) {
   // or the home's pulse when all is calm. The rest call from their tiles
   // around it.
   const paintSlide = () => {
-    const first = hubSlides()[0];
-    setHTML(body.querySelector<HTMLElement>('.hub-slide')!, first.html);
+    const slides = hubSlides(), tm = look().time, alerts = slides.filter((x) => x.level);
+    const shown = alerts.length ? alerts[Math.min(hubAt, alerts.length - 1)] : slides[slides.length - 1];
+    // All calm and the clock chosen: the time itself.
+    const clock = !alerts.length && (tm === 'clock' || tm === 'both');
+    const now = new Date();
+    // Several open with time on: a dot each, in its color, to step through them (all the same size).
+    const dots = tm !== 'off' && alerts.length > 1 ? `<nav class="hub-dots" aria-label="${t.alerts}">${alerts.map((a, i) =>
+      `<button class="hub-dot level-${a.level}" data-hubat="${i}" aria-current="${i === hubAt}" aria-label="${esc(t.alertNof(i + 1, alerts.length))}"></button>`).join('')}</nav>` : '';
+    setHTML(body.querySelector<HTMLElement>('.hub-slide')!, clock ? `<div class="slide hub-clock">
+      <p class="eyebrow">${esc(now.toLocaleDateString(localeOf(), { weekday: 'long', day: 'numeric', month: 'long' }))}</p>
+      <p class="slide-big clock-big">${time(now).slice(0, 5)}</p>
+      </div>` : shown.html.replace(/<\/div>\s*$/, `${dots}</div>`));
   };
+  // The clock moves on its own: once a minute is enough.
+  const clockTimer = window.setInterval(() => { if (boardMode === 'orbit' && look().time !== 'off' && app.getCurrentViewName() === 'board') paint(); }, 30_000);
+  ctx.onCleanup(() => clearInterval(clockTimer));
 
   // The tuning panel (development only) changes the orbit or the layers: rebuild.
   const retune = () => { built = null; paint(); };
@@ -770,6 +898,8 @@ function board(ctx: ViewContext) {
     const mode = target.closest<HTMLElement>('[data-mode]')?.dataset.mode as BoardMode | undefined;
     const pick = target.closest<HTMLElement>('[data-bpick]')?.dataset.bpick;
     if (target.closest('[data-calm]')) { setSettings({ calm: calmOpen() ? undefined : 'open' }); return; }
+    const at = target.closest<HTMLElement>('[data-hubat]')?.dataset.hubat;
+    if (at != null) { hubAt = Number(at); paint(); return; }
     const qitem = target.closest<HTMLElement>('[data-qitem]')?.dataset.qitem;
     if (qitem) { listFocus = qitem; paint(); return; }
     if (target.closest('[data-qfocus]')) { listFocus = null; paint(); return; }
@@ -790,14 +920,38 @@ function board(ctx: ViewContext) {
   // ─── The gear: what this screen shows ───
   if (gear && backdrop && form) {
     const focusables = () => [...form.querySelectorAll<HTMLElement>('input, select, button')].filter((f) => !f.hasAttribute('disabled') && f.offsetParent !== null);
+    // Tabs: one section at a time; the one last open comes back.
+    const tabs = [...form.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
+    const showTab = (id: Tab, focus = false) => {
+      settingsTab = id;
+      try { sessionStorage.setItem('pulse-ha-settings-tab', id); } catch { /* only to remember */ }
+      for (const b of tabs) { const on = b.dataset.tab === id; b.setAttribute('aria-selected', String(on)); b.tabIndex = on ? 0 : -1; if (on && focus) b.focus(); }
+      for (const p of form.querySelectorAll<HTMLElement>('[role="tabpanel"]')) p.hidden = p.dataset.pane !== id;
+      form.querySelector<HTMLElement>('.settings-body')!.scrollTop = 0;
+    };
+    form.querySelector<HTMLElement>('.settings-tabs')!.addEventListener('keydown', (e) => {
+      const i = tabs.findIndex((b) => b.dataset.tab === settingsTab);
+      const next = e.key === 'ArrowRight' ? i + 1 : e.key === 'ArrowLeft' ? i - 1 : e.key === 'Home' ? 0 : e.key === 'End' ? tabs.length - 1 : null;
+      if (next == null) return;
+      e.preventDefault();
+      showTab(SETTINGS_TABS[(next + tabs.length) % tabs.length], true);
+    });
+    showTab(settingsTab);
+    // Wide enough, the panel is a sheet at the side and the board moves over to
+    // stay in view (what is tuned shows as it changes); narrow, a dialog over it.
     const open = () => {
+      const side = el.clientWidth >= 880;
+      el.classList.toggle('settings-side', side);
+      el.classList.add('settings-open');
+      form.setAttribute('aria-modal', String(!side));
       backdrop.hidden = false;
       gear.setAttribute('aria-expanded', 'true');
-      form.querySelector<HTMLElement>('input')?.focus();
+      tabs.find((b) => b.dataset.tab === settingsTab)?.focus();
     };
     const close = () => {
       if (backdrop.hidden) return;
       backdrop.hidden = true;
+      el.classList.remove('settings-open', 'settings-side');
       gear.setAttribute('aria-expanded', 'false');
       gear.focus();
     };
@@ -805,7 +959,27 @@ function board(ctx: ViewContext) {
     backdrop.addEventListener('click', (e) => {
       const target = e.target as HTMLElement;
       if (target === backdrop || target.closest('[data-settings-close]')) { close(); return; }
-      if (target.closest('[data-settings-reset]')) { local = {}; setSettings({}); }
+      const tabId = target.closest<HTMLElement>('[data-tab]')?.dataset.tab as Tab | undefined;
+      if (tabId) { showTab(tabId); return; }
+      if (target.closest('[data-settings-reset]')) { local = {}; setSettings({}); return; }
+      const reset = target.closest<HTMLElement>('[data-tune-reset]')?.dataset.tuneReset;
+      if (reset) { resetTune(reset === 'all' ? undefined : reset as TuneGroup); syncTune(form); return; }
+      const copy = target.closest<HTMLButtonElement>('[data-tune-copy]');
+      if (copy) {
+        void navigator.clipboard?.writeText(tuneText()).catch(() => undefined);
+        copy.textContent = t.copied;
+        setTimeout(() => { copy.textContent = t.copy; }, 1200);
+      }
+    });
+    // Sliders and colors move the board as they are dragged.
+    form.addEventListener('input', (e) => {
+      const target = e.target as HTMLInputElement;
+      if (target.name === 'tune') { setTune(target.dataset.key as keyof Tune, Number(target.value)); syncTune(form); }
+      else if (target.name === 'color') {
+        const k = target.dataset.key as keyof Theme;
+        applyColors(canvas, { ...currentColors(), [k]: target.value });
+        form.querySelector<HTMLOutputElement>(`[data-color-out="${k}"]`)!.textContent = target.value;
+      }
     });
     // Only the field that changed is kept: the others stay as the frame says.
     form.addEventListener('change', (e) => {
@@ -847,9 +1021,22 @@ function board(ctx: ViewContext) {
       } else if (field === 'stack') {
         const n = Number(data.get('stack')) || undefined;
         setSettings({ stack: n === (frame.stack ?? STACK_DEFAULT) ? undefined : n });
-      } else if (field === 'dial' || field === 'day' || field === 'ends' || field === 'theme') {
+      } else if (field === 'tune') {
+        // Kept as it moved (the input event).
+      } else if (field === 'theme' || field === 'color') {
+        const next: Look = { ...local.look };
+        if (field === 'color') next.colors = { ...currentColors(), [(target as HTMLInputElement).dataset.key!]: target.value };
+        else if (target.value === 'custom') next.colors = local.look?.colors ?? currentColors();
+        next.theme = field === 'color' ? 'custom' : target.value as Look['theme'];
+        if (next.theme === (frame.look?.theme ?? LOOK_DEFAULT.theme)) delete next.theme;
+        setSettings({ look: Object.keys(next).length ? next : undefined });
+      } else if (field === 'modes') {
+        const next: Look = { ...local.look, modes: (target as HTMLInputElement).checked ? 'shown' : 'hidden' };
+        if (next.modes === (frame.look?.modes ?? LOOK_DEFAULT.modes)) delete next.modes;
+        setSettings({ look: Object.keys(next).length ? next : undefined });
+      } else if (field === 'dial' || field === 'day' || field === 'ends' || field === 'time' || field === 'month') {
         const next: Look = { ...local.look, [field]: String(data.get(field)) };
-        for (const k of ['dial', 'day', 'ends', 'theme'] as const) if (next[k] === (frame.look?.[k] ?? LOOK_DEFAULT[k])) delete next[k];
+        for (const k of ['dial', 'day', 'ends', 'time', 'month'] as const) if (next[k] === (frame.look?.[k] ?? LOOK_DEFAULT[k])) delete next[k];
         setSettings({ look: Object.keys(next).length ? next : undefined });
       }
     });
@@ -871,15 +1058,16 @@ function board(ctx: ViewContext) {
 // The panel behind the gear: the systems of the frame to tick, the board's
 // view, and where it opens next time. Changes apply as they are made and are
 // kept in this browser; "Back to defaults" returns to the frame.
+const EXIT = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h3"/><path d="M15 7l5 5-5 5"/><path d="M20 12H9"/></svg>`;
 const GEAR = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h.1a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v.1a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>`;
 function settingsPanel() {
-  return `<button type="button" class="gear" aria-label="${t.settings}" aria-haspopup="dialog" aria-expanded="false">${GEAR}</button>
-  <div class="settings-backdrop" hidden>
-    <form class="settings" role="dialog" aria-modal="true" aria-labelledby="pulse-settings-title">
-      <header><h2 id="pulse-settings-title">${t.settings}</h2>
-        <button type="button" class="plain settings-close" data-settings-close aria-label="${t.close}">×</button></header>
-      <p class="settings-lead">${t.settingsLead}</p>
-      <fieldset><legend>${t.systemsField}</legend>
+  const tab = (id: Tab) => `<button type="button" role="tab" class="settings-tab" id="pulse-tab-${id}" data-tab="${id}" aria-controls="pulse-pane-${id}" aria-selected="false" tabindex="-1">${t.settingsTabs[id]}</button>`;
+  const pane = (id: Tab, lead: string, html: string) => `<section class="settings-pane" role="tabpanel" id="pulse-pane-${id}" data-pane="${id}" aria-labelledby="pulse-tab-${id}" hidden>
+    <p class="settings-lead">${lead}</p>${html}</section>`;
+  const radios = (name: string, values: readonly string[], labels: Record<string, string>, title: string) =>
+    `<fieldset class="settings-choice"><legend>${title}</legend><div class="settings-row">${values.map((v) =>
+      `<label><input type="radio" name="${name}" value="${v}"> ${labels[v]}</label>`).join('')}</div></fieldset>`;
+  const content = `<fieldset><legend>${t.systemsField}</legend>
         <div class="settings-systems">${frame.systems.map((id) =>
           `<label><input type="checkbox" name="systems" value="${id}"> ${SYS[id].title}</label>`).join('')}</div></fieldset>
       <fieldset class="settings-areas" hidden><legend>${t.areasField}</legend>
@@ -887,31 +1075,60 @@ function settingsPanel() {
         <p class="hint">${t.areasHint}</p></fieldset>
       <fieldset class="settings-channels-field"><legend>${t.channelsField}</legend>
         <div class="settings-channels"></div>
-        <p class="hint">${t.channelsHint}</p></fieldset>
-      <fieldset><legend>${t.boardView}</legend>
-        <div class="settings-row">${MODES.map(([m, label]) => `<label><input type="radio" name="mode" value="${m}"> ${label}</label>`).join('')}</div></fieldset>
-      <fieldset class="settings-axis"><legend>${t.axisField}</legend>
+        <p class="hint">${t.channelsHint}</p></fieldset>`;
+  const board = `<h3 class="settings-section">${t.viewSection}</h3>
+      ${radios('mode', MODES.map(([m]) => m), Object.fromEntries(MODES), t.boardView)}
+      <label class="settings-check"><input type="checkbox" name="modes"> ${t.showModes}</label>
+      <fieldset class="settings-axis settings-choice"><legend>${t.axisField}</legend>
         <div class="settings-row">${AXES.map((a) => `<label><input type="radio" name="axis" value="${a}"> ${t.axes[a]}</label>`).join('')}</div>
         <p class="hint">${t.axisHint}</p></fieldset>
-      <fieldset><legend>${t.openInside}</legend>
-        <select name="start" aria-describedby="pulse-settings-start"></select>
-        <p class="hint" id="pulse-settings-start">${t.startHint}</p></fieldset>
-      <fieldset><legend>${t.layersField}</legend>
-        <select name="layers" aria-describedby="pulse-settings-layers"></select>
-        <p class="hint" id="pulse-settings-layers">${t.layersHint}</p></fieldset>
-      <fieldset><legend>${t.stackField}</legend>
-        <select name="stack" aria-describedby="pulse-settings-stack">${Array.from({ length: STACK_MAX }, (_, i) => `<option value="${i + 1}">${i + 1}</option>`).join('')}</select>
-        <p class="hint" id="pulse-settings-stack">${t.stackHint}</p></fieldset>
-      <fieldset><legend>${t.lookField}</legend>
-        <div class="settings-row" role="group" aria-label="${t.dialField}"><span class="settings-group-title">${t.dialField}</span>${DIALS.map((d) =>
-          `<label><input type="radio" name="dial" value="${d}"> ${t.dialLook[d]}</label>`).join('')}</div>
-        <div class="settings-row" role="group" aria-label="${t.dayField}"><span class="settings-group-title">${t.dayField}</span>${DAYS.map((d) =>
-          `<label><input type="radio" name="day" value="${d}"> ${t.dayLook[d]}</label>`).join('')}</div>
-        <div class="settings-row" role="group" aria-label="${t.endsField}"><span class="settings-group-title">${t.endsField}</span>${ENDS.map((d) =>
-          `<label><input type="radio" name="ends" value="${d}"> ${t.endsLook[d]}</label>`).join('')}</div>
-        <label class="settings-theme"><span class="settings-group-title">${t.themeField}</span><select name="theme">${THEME_NAMES.map((n) =>
-          `<option value="${n}">${t.themeNames[n]}</option>`).join('')}</select></label></fieldset>
-      <footer><button type="button" class="plain" data-settings-reset>${t.resetSettings}</button>
+      <label class="settings-field"><span>${t.openInside}</span>
+        <select name="start" aria-describedby="pulse-settings-start"></select></label>
+      <p class="hint" id="pulse-settings-start">${t.startHint}</p>
+      <h3 class="settings-section">${t.orbitSection}</h3>
+      <label class="settings-field"><span>${t.timeField}</span><select name="time">${TIMES.map((n) =>
+        `<option value="${n}">${t.timeLook[n]}</option>`).join('')}</select></label>
+      <h3 class="settings-section">${t.layersSection}</h3>
+      <label class="settings-field"><span>${t.layersField}</span>
+        <select name="layers" aria-describedby="pulse-settings-layers"></select></label>
+      <p class="hint" id="pulse-settings-layers">${t.layersHint}</p>
+      <label class="settings-field"><span>${t.stackField}</span>
+        <select name="stack" aria-describedby="pulse-settings-stack">${Array.from({ length: STACK_MAX }, (_, i) => `<option value="${i + 1}">${i + 1}</option>`).join('')}</select></label>
+      <p class="hint" id="pulse-settings-stack">${t.stackHint}</p>`;
+  const lookPane = `<fieldset class="settings-themes"><legend>${t.themeField}</legend>
+        <div class="theme-grid">${[...THEME_NAMES, 'custom'].map((n) => `<label class="theme-tile" data-theme-tile="${n}"><input type="radio" name="theme" value="${n}">${
+          n === 'custom' ? '<span class="theme-disc is-custom" aria-hidden="true"><i></i><i></i><i></i></span>' : swatch(THEMES[n as ThemeName])}<span class="theme-name">${t.themeNames[n]}<small>${t.themeNotes[n]}</small></span></label>`).join('')}</div></fieldset>
+      <fieldset class="settings-colors" hidden><legend>${t.colorsField}</legend>
+        <div class="color-grid">${COLOR_KEYS.map((k) => `<label class="color-field"><input type="color" name="color" data-key="${k}"><span>${t.colorLabels[k]}</span><output data-color-out="${k}"></output></label>`).join('')}</div>
+        <p class="hint">${t.colorsHint}</p></fieldset>
+      <h3 class="settings-section">${t.ringsSection}</h3>
+      ${radios('dial', DIALS, t.dialLook, t.dialField)}
+      ${radios('day', DAYS, t.dayLook, t.dayField)}
+      ${radios('ends', ENDS, t.endsLook, t.endsField)}
+      <h3 class="settings-section">${t.detailsSection}</h3>
+      <label class="settings-field"><span>${t.monthField}</span><select name="month">${MONTHS.map((n) =>
+        `<option value="${n}">${t.monthLook[n]}</option>`).join('')}</select></label>`;
+  const tunePane = GROUPS.map(([g, controls]) => `<div class="tune-group" data-tune-group="${g}">
+        <div class="tune-head"><h3 class="settings-section">${t.tuneGroups[g]}</h3>
+          <button type="button" class="plain tune-reset" data-tune-reset="${g}">${t.resetGroup}</button></div>
+        ${controls.map((c) => `<label class="tune-field"><span>${t.tuneLabels[c.key]}</span><output data-tune-out="${c.key}"></output>
+          <input type="range" name="tune" data-key="${c.key}" min="${c.min}" max="${c.max}" step="${c.step}"></label>`).join('')}</div>`).join('') +
+      `<div class="tune-actions"><button type="button" class="plain" data-tune-copy>${t.copy}</button>
+        <button type="button" class="plain" data-tune-reset="all">${t.resetAllTuning}</button></div>`;
+  return `<button type="button" class="gear" aria-label="${t.settings}" aria-haspopup="dialog" aria-expanded="false">${GEAR}</button>
+  <div class="settings-backdrop" hidden>
+    <form class="settings" role="dialog" aria-modal="true" aria-labelledby="pulse-settings-title">
+      <header><h2 id="pulse-settings-title">${t.settings}</h2>
+        <button type="button" class="plain settings-close" data-settings-close aria-label="${t.close}">×</button></header>
+      <div class="settings-tabs" role="tablist" aria-label="${t.settings}">${SETTINGS_TABS.map(tab).join('')}</div>
+      <div class="settings-body">
+        ${pane('content', t.contentLead, content)}
+        ${pane('board', t.boardLead, board)}
+        ${pane('look', t.lookLead, lookPane)}
+        ${pane('tune', t.tuneLead, tunePane)}
+      </div>
+      <footer><span class="settings-kept">${t.settingsLead}</span>
+        <button type="button" class="plain" data-settings-reset>${t.resetSettings}</button>
         <button type="button" class="primary" data-settings-close>${t.done}</button></footer>
     </form>
   </div>`;
@@ -930,11 +1147,43 @@ function rebuild(list: HTMLElement, html: string) {
     again?.focus();
   }
 }
+// The colors in force: the custom ones over the default theme's, or the chosen theme's.
+function currentColors(): Theme {
+  const lk = look();
+  return lk.theme === 'custom' ? { ...THEMES[DEFAULT_THEME], ...lk.colors } : THEMES[THEME_NAMES.includes(lk.theme) ? lk.theme : DEFAULT_THEME];
+}
+// The sliders of the last tab, each with its value; the changed ones marked, the reset of a group only when it has one.
+function syncTune(form: HTMLFormElement) {
+  for (const c of CONTROLS) {
+    const input = form.querySelector<HTMLInputElement>(`input[name="tune"][data-key="${c.key}"]`)!;
+    if (activeElement() !== input) input.value = String(tune[c.key]);
+    const out = form.querySelector<HTMLOutputElement>(`[data-tune-out="${c.key}"]`)!;
+    out.textContent = fmt(c, tune[c.key]);
+    out.classList.toggle('changed', tune[c.key] !== DEFAULTS[c.key]);
+  }
+  for (const [g] of GROUPS) form.querySelector<HTMLButtonElement>(`[data-tune-reset="${g}"]`)!.hidden = !tuned(g);
+  form.querySelector<HTMLButtonElement>('[data-tune-reset="all"]')!.hidden = !tuned();
+}
 function syncSettings(form: HTMLFormElement) {
   for (const box of form.querySelectorAll<HTMLInputElement>('input[name="systems"]')) box.checked = CHOSEN.includes(box.value);
   const lk = look();
   for (const box of form.querySelectorAll<HTMLInputElement>('input[name="dial"], input[name="day"], input[name="ends"]')) box.checked = lk[box.name as keyof Look] === box.value;
-  form.querySelector<HTMLSelectElement>('select[name="theme"]')!.value = lk.theme;
+  for (const box of form.querySelectorAll<HTMLInputElement>('input[name="theme"]')) box.checked = box.value === lk.theme;
+  form.querySelector<HTMLInputElement>('input[name="modes"]')!.checked = lk.modes === 'shown';
+  // Your colors: shown with the custom theme, each as it is in force.
+  const colorsField = form.querySelector<HTMLElement>('.settings-colors')!;
+  colorsField.hidden = lk.theme !== 'custom';
+  const inForce = currentColors();
+  for (const input of form.querySelectorAll<HTMLInputElement>('input[name="color"]')) {
+    const k = input.dataset.key as keyof Theme;
+    if (activeElement() !== input) input.value = inForce[k];
+    form.querySelector<HTMLOutputElement>(`[data-color-out="${k}"]`)!.textContent = inForce[k];
+  }
+  const disc = form.querySelector<HTMLElement>('.theme-disc.is-custom')!;
+  for (const k of COLOR_KEYS) disc.style.setProperty(`--sw-${k}`, (lk.colors?.[k] ?? inForce[k]));
+  syncTune(form);
+  form.querySelector<HTMLSelectElement>('select[name="time"]')!.value = lk.time;
+  form.querySelector<HTMLSelectElement>('select[name="month"]')!.value = lk.month;
   // Areas, grouped by floor, and the channels of the systems shown: built from
   // the registry and the readings, so only redrawn when they change (the panel
   // repaints with the house; a list rebuilt under the pointer would lose taps).
@@ -1271,6 +1520,45 @@ function system(ctx: ViewContext, id: string) {
   whenCurrent(ctx, paint);
 }
 
+// ─── The changes of the last hours ──────────────────────────────────
+
+// One tap further than the orbit's time: every change of the window as a list
+// scrolled in a circle, when and whose along the ring, and the whole text of
+// the one in focus in the middle, where a long alert has room.
+function changes(ctx: ViewContext) {
+  const el = ctx.target;
+  const span = Number(ctx.props.span) || 12, title = t.changesTitle(span);
+  el.dataset.title = title;
+  if (ha.changes && !pastChanges) void loadPast();
+  // All of the window, not only the twelve the ring shows; taken once, so the list holds still under the finger.
+  let list = timeMarks(span, 500);
+  const key = 'changes', st = scrollState(key);
+  // It opens on the newest, the alerts first when one is open.
+  st.focus = Math.max(0, list.findIndex((m) => m.level)); st.offset = Math.max(0, Math.min(list.length - SCROLL_VISIBLE, st.focus - 3));
+  // The middle: when, whose and how long ago; the whole text, in its alert's color; if it is still open, the way to it.
+  const center = () => {
+    const m = list[st.focus];
+    if (!m) return `<p class="hint">${t.waitingChanges}</p>`;
+    const open = m.level && live(m.id).length;
+    return `<p class="eyebrow">${esc(`${m.when} · ${m.name} · ${t.agoShort(m.ago)}`)}</p><p class="changes-text${m.level ? ` level-${m.level}` : ''}">${esc(m.text)}</p>${
+      open ? `<p class="changes-still">${t.stillOpen}</p>` : ''}<button class="plain changes-go zoom-me" data-to="sys-${esc(m.id)}" data-system="${esc(m.id)}">${esc(t.open(m.name))}</button>`;
+  };
+  const paint = () => {
+    el.innerHTML = `<div class="changes-view"><p class="eyebrow changes-head">${esc(`${title} · ${t.nChanges(list.length)}`)}</p><div class="changes-stage">${
+      scrollList(list.map((m) => ({ label: `${m.when} · ${m.name}`, on: false, act: true, level: m.level })), st, { key, name: title })}
+      <div class="changes-center" aria-live="polite">${center()}</div></div></div>`;
+  };
+  paint();
+  // The history may arrive after the zoom: then, once, the list fills.
+  const fill = () => { if (list.length || !pastChanges) return; list = timeMarks(span, 500); if (list.length) paint(); };
+  rerender.add(fill);
+  ctx.onCleanup(() => { rerender.delete(fill); });
+  // The arrows, the wheel and a tap move the focus: the middle follows.
+  const follow = () => { const c = el.querySelector<HTMLElement>('.changes-center'); if (c) setHTML(c, center()); };
+  ctx.onCleanup(scrollControls(el, { state: scrollState, count: () => list.length, pick: (_, i) => { st.focus = i; follow(); } }));
+  for (const type of ['keyup', 'wheel', 'pointerup']) el.addEventListener(type, () => requestAnimationFrame(follow));
+}
+
 // ─── Channel detail ─────────────────────────────────────────────────
 
 // Principle: the disc opens a detail only when the detail adds something the
@@ -1315,7 +1603,7 @@ function detail(ctx: ViewContext) {
     const history = r.history ? histories.get(r.history) : undefined;
     const trackIds = r.tracks?.length && ha.changes ? r.tracks.map((x) => x.entity).join(' ') : '';
     const changes = trackIds ? changesOf.get(trackIds) : undefined;
-    const monthOf = r.month ? months.get(r.month) : undefined;
+    const monthOf = r.month ? months.get(monthKey(r.month)) : undefined;
     const now = JSON.stringify([r, [...pending.keys()], [...failed.keys()], toast, square, live, history?.values?.length ?? history?.error,
       changes?.at ?? changes?.error, monthOf?.at, ha.states.get(r.events?.[0]?.entity ?? '')?.last_changed, look()]);
     if (now === last) return;
@@ -1384,11 +1672,23 @@ function detail(ctx: ViewContext) {
     // This month, a day per sector around: an energy meter's calendar.
     if (r.month && ha.statistics) {
       if (!monthOf || (Date.now() - monthOf.at > MONTH_MS)) void loadMonth(r.month);
-      const nowD = new Date(), days = new Date(nowD.getFullYear(), nowD.getMonth() + 1, 0).getDate(), today = nowD.getDate();
-      const values = monthOf?.values.length === days ? monthOf.values : Array.from({ length: days }, () => null);
-      const title = nowD.toLocaleDateString(localeOf(), { month: 'long', year: 'numeric' }), v = values[today - 1], name = nameOf(ha.states, r.month);
-      day += `<div class="history">${monthOf?.error ? `<p class="hint">${t.monthNone}</p>` : monthRing({ days, today, values, unit: ' kWh', title, aria: t.monthAria(name, title),
-        big: v != null ? `${num(v)} kWh` : monthOf ? '—' : t.loadingMonth, label: `${t.today} · ${name}` })}</div>`;
+      const nowD = new Date(), name = nameOf(ha.states, r.month);
+      if (look().month === 'rolling') {
+        // The last 30 days, today at the top; a notch where this month began.
+        const values = monthOf?.values.length === ROLLING_DAYS ? monthOf.values : Array.from({ length: ROLLING_DAYS }, () => null);
+        const v = values[ROLLING_DAYS - 1], first = ROLLING_DAYS - nowD.getDate();
+        const total = values.reduce<number>((a, b) => a + (b ?? 0), 0);
+        day += `<div class="history">${monthOf?.error ? `<p class="hint">${t.monthNone}</p>` : `<div class="month-window">${timeWindow({ span: ROLLING_DAYS, bars: values,
+          turn: first > 0 ? { at: first, label: nowD.toLocaleDateString(localeOf(), { month: 'long' }) } : undefined, aria: t.lastDaysAria(name, ROLLING_DAYS) })}
+          <div class="month-window-center"><span class="time-big">${v != null ? `${num(v)} kWh` : monthOf ? '—' : esc(t.loadingMonth)}</span>
+          <span class="time-range">${esc(t.lastDays(ROLLING_DAYS, `${num(total, 0)} kWh`))}</span><span class="time-label">${esc(`${t.today} · ${name}`)}</span></div></div>`}</div>`;
+      } else {
+        const days = new Date(nowD.getFullYear(), nowD.getMonth() + 1, 0).getDate(), today = nowD.getDate();
+        const values = monthOf?.values.length === days ? monthOf.values : Array.from({ length: days }, () => null);
+        const title = nowD.toLocaleDateString(localeOf(), { month: 'long', year: 'numeric' }), v = values[today - 1];
+        day += `<div class="history">${monthOf?.error ? `<p class="hint">${t.monthNone}</p>` : monthRing({ days, today, values, unit: ' kWh', title, aria: t.monthAria(name, title),
+          big: v != null ? `${num(v)} kWh` : monthOf ? '—' : t.loadingMonth, label: `${t.today} · ${name}` })}</div>`;
+      }
     }
     // What is now is said once: in the center of the rings, or as the headline.
     const inRing = rings || !!r.dial;
@@ -1523,9 +1823,10 @@ function detail(ctx: ViewContext) {
 
 // ─── Start ──────────────────────────────────────────────────────────
 
-Object.assign(views, { board, detail, ...Object.fromEntries(ALL.map((id) => [`sys-${id}`, (ctx: ViewContext) => system(ctx, id)])) });
+Object.assign(views, { board, detail, changes, ...Object.fromEntries(ALL.map((id) => [`sys-${id}`, (ctx: ViewContext) => system(ctx, id)])) });
 const app = new Zumly(zumlyOptions(views, 'board', canvas));
 app.on('afterZoomOut', () => repaint());
+const stopGestures = zoomOutGestures(app, canvas);
 
 // Entities some channel shows: only those enter the change log.
 const watched = () => new Set(IDS.flatMap((id) => [...readings[id].values()].flatMap((x) => x.r.entities)));
@@ -1547,7 +1848,7 @@ const onChange = (changed: HassState[]) => {
       if (!w.has(s.entity_id) || s.last_changed !== s.last_updated) continue;
       log.unshift({ at: new Date(), text: `${nameOf(ha.states, s.entity_id)} → ${stateText(s)}`, level: 0, entity: s.entity_id });
     }
-    for (const f of fresh) log.unshift({ at: new Date(), text: `${SYS[f.id].title}: ${f.a.why}`, level: f.a.level });
+    for (const f of fresh) log.unshift({ at: new Date(), text: `${SYS[f.id].title}: ${f.a.why}`, level: f.a.level, system: f.id });
     log.splice(12);
   }
   rerender.forEach((fn) => fn());
@@ -1601,7 +1902,7 @@ async function start() {
     // A source already live at mount time (a card's `hass`) starts as soon as
     // the board is in the DOM; otherwise the first live change starts it.
     ready: app.init().then(() => { if (!loaded && ha.status === 'live') { loaded = true; return start(); } }),
-    destroy: () => { unsubscribe.forEach((fn) => fn()); compact.disconnect(); app.destroy(); },
+    destroy: () => { unsubscribe.forEach((fn) => fn()); compact.disconnect(); stopGestures(); app.destroy(); },
     ui,
     readings: () => readings,
   };

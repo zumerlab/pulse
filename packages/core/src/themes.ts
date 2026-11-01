@@ -38,3 +38,23 @@ export function applyTheme(el: HTMLElement, name: ThemeName = DEFAULT_THEME) {
   el.dataset.theme = name;
   el.style.colorScheme = LIGHT_THEMES.includes(name) ? 'light' : 'dark';
 }
+
+// Colors of one's own: the seven tokens as given (the ones missing from the
+// default theme), on an element, the same way as a theme. Light or dark is
+// told by the background.
+export function applyColors(el: HTMLElement, colors: Partial<Theme>) {
+  const theme: Theme = { ...THEMES[DEFAULT_THEME], ...colors };
+  for (const k of Object.keys(theme) as (keyof Theme)[]) el.style.setProperty(`--${k}`, theme[k]);
+  el.style.color = 'var(--ink)';
+  el.style.background = 'var(--bg)';
+  el.dataset.theme = 'custom';
+  el.style.colorScheme = isLight(theme.bg) ? 'light' : 'dark';
+}
+// A color's relative luminance above the middle: a light ground.
+export function isLight(hex: string) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex);
+  if (!m) return false;
+  const n = parseInt(m[1], 16), lin = (c: number) => { const v = c / 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
+  const l = 0.2126 * lin(n >> 16) + 0.7152 * lin((n >> 8) & 255) + 0.0722 * lin(n & 255);
+  return l > 0.18;
+}

@@ -148,17 +148,21 @@ export class DemoSource implements PulseSource {
 
   // A month of days made up around a daily figure: the entity's value is a
   // running total, so the day is a slice of it, weekdays heavier than weekends.
-  async statistics(entity: string) {
+  async statistics(entity: string, days?: number) {
     const e = this.states.get(entity), v = Number(e?.state);
-    const now = new Date(), days = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate(), today = now.getDate();
-    if (!e || !Number.isFinite(v)) return Array.from({ length: days }, () => null);
+    const now = new Date(), today = now.getDate();
+    const length = days ?? new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    if (!e || !Number.isFinite(v)) return Array.from({ length }, () => null);
     const rand = seeded(`${entity}/month`);
     const perDay = Math.max(0.5, v / 30);
-    return Array.from({ length: days }, (_, i) => {
-      if (i + 1 > today) return null;
-      const dow = new Date(now.getFullYear(), now.getMonth(), i + 1).getDay();
+    // The date of slot i: the days of this month, or the last `days` days ending today.
+    const dateOf = (i: number) => days ? new Date(now.getFullYear(), now.getMonth(), today - (days - 1 - i)) : new Date(now.getFullYear(), now.getMonth(), i + 1);
+    return Array.from({ length }, (_, i) => {
+      const d = dateOf(i);
+      if (d > now) return null;
+      const dow = d.getDay(), isToday = d.toDateString() === now.toDateString();
       const weekend = dow === 0 || dow === 6 ? 0.7 : 1;
-      const value = perDay * weekend * (0.7 + rand() * 0.6) * (i + 1 === today ? now.getHours() / 24 + 0.05 : 1);
+      const value = perDay * weekend * (0.7 + rand() * 0.6) * (isToday ? now.getHours() / 24 + 0.05 : 1);
       return Math.round(value * 100) / 100;
     });
   }

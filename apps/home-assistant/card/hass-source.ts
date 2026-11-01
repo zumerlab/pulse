@@ -1,6 +1,6 @@
 // PulseSource over the `hass` object a custom card receives: Home Assistant
 // already holds the connection and pushes a new `hass` on every change.
-import { cameraStream, changesOf, dailyOf, emptyRegistry, hourly, monthStart, type Call, type StatRow, type HassState, type HistoryRow, type Issue, type PulseSource, type Registry, type States, type Status } from '../source.ts';
+import { cameraStream, changesOf, dailyBack, dailyOf, daysBack, emptyRegistry, hourly, monthStart, type Call, type StatRow, type HassState, type HistoryRow, type Issue, type PulseSource, type Registry, type States, type Status } from '../source.ts';
 import { t } from '../strings.ts';
 import type { HomeAssistant } from './hass.ts';
 
@@ -112,12 +112,12 @@ export class HassSource implements PulseSource {
     return Object.fromEntries(entities.map((e) => [e, changesOf(rows[e] ?? [], hours, now)]));
   }
 
-  async statistics(entity: string) {
+  async statistics(entity: string, days?: number) {
     if (!this.hass?.callWS) throw new Error(t.errNoConnection);
     const rows = await this.hass.callWS<Record<string, StatRow[]>>({
       type: 'recorder/statistics_during_period', statistic_ids: [entity], period: 'day', types: ['change'],
-      start_time: monthStart().toISOString(), end_time: new Date().toISOString(),
+      start_time: (days ? daysBack(days) : monthStart()).toISOString(), end_time: new Date().toISOString(),
     });
-    return dailyOf(rows[entity] ?? []);
+    return days ? dailyBack(rows[entity] ?? [], days) : dailyOf(rows[entity] ?? []);
   }
 }

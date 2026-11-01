@@ -127,7 +127,7 @@ import { ring, face, backLayer, layerIndex, calmStrip, dialControls,
 app.on('afterZoomOut', () =&gt; repaintAll());      // the views behind do not re-render on their own
 await app.init();
 if (PHONE) await startInside(app, mostUrgent());  // a phone starts inside a system</code></pre>
-      <p><code>zumlyOptions</code> carries the decisions of the grammar: 800 ms with an ease-out, the back button named after where it goes, pinch and follow, never the wheel, and on a phone the lateral swipe between systems.</p>
+      <p><code>zumlyOptions</code> carries the decisions of the grammar: 800 ms with an ease-out, the back button named after where it goes, pinch and follow, never the wheel, and on a phone the lateral swipe between systems. <code>zoomOutGestures(app, canvas)</code> adds the trackpad's pinch (a wheel with ctrl) as a way back, since the wheel itself is off.</p>
 
       <h2>7. Keep a source</h2>
       <p>Put your data behind one interface, so the views never talk to a device or a server directly. The Home Assistant app's <code>PulseSource</code> is a good shape to copy.</p>

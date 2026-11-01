@@ -296,8 +296,18 @@ export type DialControls = {
 // Returns the cleanup.
 export function dialControls(el: HTMLElement, c: DialControls) {
   const clamp = (v: number) => Math.min(1, Math.max(0, v));
-  let drag: { key: string; last: number; handle?: string } | null = null;
+  let drag: { key: string; last: number; start: number; handle?: string; pointerId: number } | null = null;
   let swallowUntil = 0;
+  // A second finger is a pinch (Zumly's way back), never a drag: the dial goes
+  // back to where it was and stops swallowing, so Zumly sees the touch end.
+  const cancelDrag = () => {
+    if (!drag) return;
+    const { key, start, handle } = drag;
+    drag = null;
+    swallowUntil = 0;
+    c.set(key, start, handle);
+    c.onEnd?.(key);
+  };
 
   // The ring's span: a full turn, or the open dial's (--o-from / --o-range on the orbit).
   const spanOf = (ring: Element) => {
@@ -331,6 +341,7 @@ export function dialControls(el: HTMLElement, c: DialControls) {
     c.set(drag.key, v, drag.handle);
   };
   const onDown = (e: PointerEvent) => {
+    if (drag && e.pointerId !== drag.pointerId) { cancelDrag(); return; }
     const ringEl = (e.target as HTMLElement).closest<HTMLElement>('[data-dial]');
     if (!ringEl || c.locked()) return;
     e.preventDefault();
@@ -341,7 +352,7 @@ export function dialControls(el: HTMLElement, c: DialControls) {
     if (!handle && c.nearest) { const at = angleAt(key, e.clientX, e.clientY); handle = c.nearest(key, at ?? c.current(key)); }
     const focusEl = handle && !ringEl.dataset.handle ? c.ringOf(key)?.parentElement?.querySelector<HTMLElement>(`[data-dial="${key}"][data-handle="${handle}"]`) : ringEl;
     (focusEl ?? ringEl).focus({ preventScroll: true });
-    drag = { key, last: c.current(key, handle), handle };
+    drag = { key, last: c.current(key, handle), start: c.current(key, handle), handle, pointerId: e.pointerId };
     swallowUntil = Infinity;
     c.onStart?.(key);
     dragTo(e.clientX, e.clientY);
@@ -601,7 +612,7 @@ export type WheelControls = {
 // Drag or tap anywhere on the wheel; arrows turn the hue (left/right, 5° a
 // step) and move the saturation (up/down, 5 a step). Returns the cleanup.
 export function wheelControls(el: HTMLElement, c: WheelControls) {
-  let drag: string | null = null;
+  let drag: string | null = null, dragId = -1;
   const at = (wheel: HTMLElement, x: number, y: number): [number, number] => {
     const b = wheel.getBoundingClientRect();
     const dx = x - (b.left + b.width / 2), dy = y - (b.top + b.height / 2);
@@ -609,12 +620,14 @@ export function wheelControls(el: HTMLElement, c: WheelControls) {
     return [Math.round(h), Math.round(Math.min(1, Math.hypot(dx, dy) / (b.width / 2)) * 100)];
   };
   const onDown = (e: PointerEvent) => {
+    if (drag && e.pointerId !== dragId) { onUp(); return; }   // a second finger: a pinch, not a drag
     const wheel = (e.target as HTMLElement).closest<HTMLElement>('[data-wheel]');
     if (!wheel) return;
     e.preventDefault();
     wheel.setPointerCapture(e.pointerId);
     wheel.focus({ preventScroll: true });
     drag = wheel.dataset.wheel!;
+    dragId = e.pointerId;
     c.set(drag, at(wheel, e.clientX, e.clientY));
   };
   const onMove = (e: PointerEvent) => {
@@ -728,6 +741,32 @@ export async function startInside(app: Zumly, systemId: string, root: ParentNode
   delete tile.dataset.withDuration;
 }
 
+// The ways back Zumly does not offer on its own. The trackpad's pinch reaches
+// the page as a wheel with ctrl (the browser's zoom), and Pulse keeps Zumly's
+// wheel off (zumlyOptions): pinching in over a view inside the board zooms out,
+// once per pinch, and pinching out does nothing. On a touch screen the pinch
+// is Zumly's (inputs.pinch), also when it is born on a dial or a list: a
+// second finger cancels the drag (dialControls and the lists), so the touch
+// end reaches Zumly. Returns the cleanup.
+export function zoomOutGestures(app: Zumly, canvas: HTMLElement) {
+  let acc = 0, cooldown = false;
+  const onWheel = (e: WheelEvent) => {
+    if (!e.ctrlKey) return;
+    e.preventDefault();     // never the browser's zoom over the object
+    e.stopPropagation();    // nor the dial's or the list's own wheel
+    if (e.deltaY <= 0) { acc = 0; return; }
+    acc += e.deltaY;
+    if (acc < 40 || cooldown) return;
+    acc = 0;
+    if (canvas.querySelectorAll('.z-view').length < 2) return;   // the board: nowhere back
+    cooldown = true;
+    setTimeout(() => { cooldown = false; }, 700);
+    void app.zoomOut();
+  };
+  canvas.addEventListener('wheel', onWheel, { passive: false, capture: true });
+  return () => canvas.removeEventListener('wheel', onWheel, { capture: true });
+}
+
 // ─── Month ring: a calendar ─────────────────────────────────────────
 
 export type MonthRing = {
@@ -757,6 +796,161 @@ export function monthRing(m: MonthRing) {
     <div class="orbit-0" style="--o-size-ratio:9"><div class="satellite at-center"><div class="capsule time-center">
       <span class="time-big">${esc(m.big)}</span><span class="time-label">${esc(m.label)}</span><span class="time-range">${esc(m.title)}</span></div></div></div>
   </div></div>`;
+}
+
+// ─── Time window: one way to read time on a ring ────────────────────
+
+// Every ring that shows time reads the same way: now at the top, the past
+// running clockwise into it (the oldest just right of the top, fainter the
+// older), the slot past now left empty as the seam. The ring is a window of
+// time, never a clock face: no numerals on the rim, one tick at now, at most a
+// notch where a month turns. The clock time itself is text, in the face.
+// `bars` are values per slot, oldest first, the last one now (a day of hours,
+// a month of days); `marks` are changes at their moment, each with its
+// system's glyph just outside the ring and its text shown when picked
+// (`picked`; the host handles `data-tmark`). An SVG of its own, drawn at the
+// width of its box; the marks may go past it (overflow visible).
+export type TimeMark = { ago: number; level?: number; glyph: string; when: string; text: string; name: string };
+export type TimeWindow = {
+  span: number;                       // the window, in the units of `ago` (hours, days)
+  bars?: (number | null)[];           // one per slot, oldest first; the last is now
+  marks?: TimeMark[];
+  picked?: number;                    // the mark whose text shows
+  turn?: { at: number; label: string };   // a notch where a month turns: the slot (from the oldest) it starts at
+  wake?: boolean;                     // a faint band brightening into now
+  look?: TimeLook;
+  open?: { to: string; props?: Record<string, string> };   // a Zumly view the picked mark zooms into (its full list), on a second tap
+  aria: string;
+};
+// The measures, in units of a 300-wide box whose face (the center's disc) is
+// 246 across: the gap between the face and the ring, how tall a bar may grow,
+// and how far out the marks sit. The tuning panel moves them.
+export type TimeLook = { gap: number; bar: number; mark: number };
+export const TIME_LOOK: TimeLook = { gap: 5, bar: 26, mark: 24 };
+const FACE_R = 123;
+const twPt = (a: number, r: number) => { const t = a * Math.PI / 180; return [r * Math.sin(t), -r * Math.cos(t)]; };
+const twArc = (a0: number, a1: number, r: number) => {
+  const [x0, y0] = twPt(a0, r), [x1, y1] = twPt(a1, r);
+  return `M ${x0.toFixed(1)} ${y0.toFixed(1)} A ${r} ${r} 0 ${a1 - a0 > 180 ? 1 : 0} 1 ${x1.toFixed(1)} ${y1.toFixed(1)}`;
+};
+export function timeWindow(tw: TimeWindow) {
+  const lk = tw.look ?? TIME_LOOK, R = FACE_R + lk.gap;
+  const TW = { r: R, bar: lk.bar, mark: R + lk.mark, far: R + lk.mark + 22 };
+  const at = (ago: number) => 360 * (1 - ago / tw.span);
+  const out: string[] = [`<circle class="tw-track" r="${TW.r}"></circle>`];
+  if (tw.wake) for (let k = 0; k < 48; k++) {
+    const a0 = at((k + 1) * tw.span / 48) + 0.4, a1 = at(k * tw.span / 48) - 0.4;
+    out.push(`<path class="tw-wake" d="${twArc(a0, a1, TW.r)}" style="opacity:${((1 - k / 48) ** 1.6 * 0.4).toFixed(2)}"></path>`);
+  }
+  const bars = tw.bars ?? [], n = bars.length;
+  if (n) {
+    // n slots plus the seam: a slot is span / n wide; the one past now stays empty.
+    const nums = bars.filter((v): v is number => v != null), hi = Math.max(1e-9, ...nums);
+    const slot = 360 / (n + 1);
+    bars.forEach((v, i) => {
+      // Now ends at the top; each slot before it one step back; the slot right of the top is the seam.
+      const ago = n - 1 - i, end = 360 - slot * ago - 0.8, start = end - slot + 1.6;
+      if (v == null) { out.push(`<path class="tw-bar is-empty" d="${twArc(start, end, TW.r)}"></path>`); return; }
+      const h = 3 + TW.bar * v / hi;
+      out.push(`<path class="tw-bar${ago === 0 ? ' is-now' : ''}" d="${twArc(start, end, TW.r + h / 2)}" style="stroke-width:${h.toFixed(1)}; opacity:${ago === 0 ? 1 : Math.max(0.25, 0.75 - 0.5 * ago / n).toFixed(2)}"></path>`);
+    });
+    if (tw.turn) {
+      const a = 360 - slot * (n - tw.turn.at), [x0, y0] = twPt(a, TW.r - 4), [x1, y1] = twPt(a, TW.r - 14), [tx, ty] = twPt(a - 3, TW.r - 26);
+      out.push(`<line class="tw-turn" x1="${x0.toFixed(1)}" y1="${y0.toFixed(1)}" x2="${x1.toFixed(1)}" y2="${y1.toFixed(1)}"></line>
+        <text class="tw-turn-label" x="${tx.toFixed(1)}" y="${(ty + 4).toFixed(1)}" text-anchor="${a > 180 ? 'start' : 'end'}">${esc(tw.turn.label)}</text>`);
+    }
+  }
+  // Now: one tick across the ring at the top.
+  out.push(`<line class="tw-now" x1="0" y1="${-(TW.r - 7)}" x2="0" y2="${-(TW.r + 7)}"></line>`);
+  // The marks: a tick at their moment; outside, a disc with their system's glyph
+  // (two that fall close alternate their distance); the picked one says its text.
+  let prev: number | null = null, prevFar = false;
+  const marks = (tw.marks ?? []).filter((m) => m.ago >= 0 && m.ago <= tw.span).map((m, i) => {
+    const a = at(m.ago), far = prev != null && Math.abs(prev - a) < 12 && !prevFar;
+    prev = a; prevFar = far;
+    const rr = far ? TW.far : TW.mark, [t0x, t0y] = twPt(a, TW.r - 7), [t1x, t1y] = twPt(a, TW.r + 7), [sx, sy] = twPt(a, TW.r + 8), [ex, ey] = twPt(a, rr - 10), [gx, gy] = twPt(a, rr);
+    const lvl = m.level ? ` level-${m.level}` : '', picked = i === tw.picked;
+    const fade = picked ? 1 : Math.max(0.35, 1 - m.ago / tw.span);
+    let label = '';
+    if (picked) {
+      const [lx, ly] = twPt(a, rr + 20), anchor = a > 330 || a < 30 ? 'middle' : a < 180 ? 'start' : 'end';
+      // Short on the ring: when and whose. The full text waits one tap further (open).
+      const short = m.text.length > 34 ? `${m.text.slice(0, 32).trimEnd()}…` : m.text;
+      label = `<text class="tw-label" x="${lx.toFixed(1)}" y="${(ly + 4).toFixed(1)}" text-anchor="${anchor}"><tspan class="tw-when">${esc(m.when)}</tspan> ${esc(tw.open ? m.name : short)}${tw.open ? ' ›' : ''}</text>`;
+    }
+    return `<g class="tw-mark${lvl}${picked ? ' is-picked' : ''}" style="opacity:${fade.toFixed(2)}">
+      <path class="tw-tick" d="M ${t0x.toFixed(1)} ${t0y.toFixed(1)} L ${t1x.toFixed(1)} ${t1y.toFixed(1)}"></path>
+      <path class="tw-stem" d="M ${sx.toFixed(1)} ${sy.toFixed(1)} L ${ex.toFixed(1)} ${ey.toFixed(1)}"></path>
+      <g class="tw-hit${picked && tw.open ? ' zoom-me' : ''}" data-tmark="${i}"${picked && tw.open ? ` data-to="${esc(tw.open.to)}"${Object.entries(tw.open.props ?? {}).map(([k, v]) => ` data-${k}="${esc(v)}"`).join('')}` : ''} role="button" tabindex="0" aria-label="${esc(`${m.when} ${m.name}: ${m.text}`)}"${picked ? ' aria-pressed="true"' : ''}>
+        <circle class="tw-disc" cx="${gx.toFixed(1)}" cy="${gy.toFixed(1)}" r="10"></circle>
+        <g class="glyph tw-glyph" transform="translate(${(gx - 6.5).toFixed(1)} ${(gy - 6.5).toFixed(1)}) scale(.54)"><path d="${m.glyph}"></path></g></g>${label}</g>`;
+  }).join('');
+  return `<svg class="time-window" viewBox="-150 -150 300 300" role="img" aria-label="${esc(tw.aria)}">${out.join('')}${marks}</svg>`;
+}
+
+// ─── The orbit's hub: segments that point, and the news inside ──────
+
+// The ring around the orbit's face. Outside, one segment per system, centered
+// on its satellite and pointing at it (a small triangle or a notch at the
+// middle of the arc), in its level's weight and color. A gap in; then, when
+// time is on, the news: the last hours as a faint wake brightening into now
+// (now at the top), the alerts still open as dots at the moment they began
+// (the one in the face with a wave; all the same size), or, for a calm day,
+// one bar per hour as tall as what changed in it. Returns the SVG and how far
+// in the face sits (`inset`, a share of the hub's width) so the host can size
+// the face to leave the gap. An SVG of its own in a 300-wide box.
+export type HubLook = { gap: number; pointer: 'triangle' | 'notch' | 'none'; size: number; bar: number };
+export const HUB_LOOK: HubLook = { gap: 22, pointer: 'triangle', size: 9, bar: 14 };
+export type HubNews = { span: number; alerts?: { ago: number; level: 1 | 2; current?: boolean }[]; bars?: (number | null)[] };
+const HUB_R = 140;
+export function orbitHub(o: { levels: number[]; news?: HubNews; look?: HubLook; rounded?: boolean; aria: string }) {
+  const lk = o.look ?? HUB_LOOK, n = Math.max(1, o.levels.length), step = 360 / n;
+  const out: string[] = [];
+  o.levels.forEach((level, i) => {
+    const a = (i + 0.5) * step, w = [3, 5, 6][level] ?? 3, lv = level ? ` level-${level}` : '';
+    out.push(`<path class="oh-seg${lv}${o.rounded ? ' is-rounded' : ''}" d="${twArc(a - step / 2 + 4, a + step / 2 - 4, HUB_R)}" style="stroke-width:${w}"></path>`);
+    const edge = HUB_R + w / 2;
+    if (lk.pointer === 'triangle') {
+      const half = lk.size * 0.45 * 180 / Math.PI / HUB_R, [tx, ty] = twPt(a, edge + lk.size), [x0, y0] = twPt(a - half, edge - 0.5), [x1, y1] = twPt(a + half, edge - 0.5);
+      out.push(`<path class="oh-ptr${lv}" d="M ${x0.toFixed(1)} ${y0.toFixed(1)} L ${tx.toFixed(1)} ${ty.toFixed(1)} L ${x1.toFixed(1)} ${y1.toFixed(1)} Z"></path>`);
+    } else if (lk.pointer === 'notch') {
+      const [x0, y0] = twPt(a, edge), [x1, y1] = twPt(a, edge + lk.size + 3);
+      out.push(`<path class="oh-notch${lv}" d="M ${x0.toFixed(1)} ${y0.toFixed(1)} L ${x1.toFixed(1)} ${y1.toFixed(1)}"></path>`);
+    }
+  });
+  const rn = HUB_R - lk.gap;
+  if (o.news) {
+    const nw = o.news, at = (ago: number) => 360 * (1 - ago / nw.span);
+    const bars = nw.bars ?? [];
+    if (bars.length) {
+      // A calm day: a bar per slot from the news ring outward, never into the segments.
+      const nums = bars.filter((v): v is number => v != null), hi = Math.max(1e-9, ...nums), slot = 360 / (bars.length + 1);
+      const reach = Math.max(4, Math.min(lk.bar, lk.gap - 8));
+      bars.forEach((v, i) => {
+        const ago = bars.length - 1 - i, end = 360 - slot * ago - 0.8, start = end - slot + 1.6, h = v == null ? 1.5 : 1.5 + reach * v / hi;
+        out.push(`<path class="oh-bar${ago === 0 ? ' is-now' : ''}" d="${twArc(start, end, rn + h / 2)}" style="stroke-width:${h.toFixed(1)}; opacity:${ago === 0 ? 1 : Math.max(0.25, 0.75 - 0.5 * ago / bars.length).toFixed(2)}"></path>`);
+      });
+    } else {
+      for (let k = 0; k < 36; k++) out.push(`<path class="oh-wake" d="${twArc(at((k + 1) * nw.span / 36) + 0.5, at(k * nw.span / 36) - 0.5, rn)}" style="opacity:${((1 - k / 36) ** 1.8 * 0.35).toFixed(2)}"></path>`);
+    }
+    out.push(`<line class="oh-now" x1="0" y1="${-(rn - 6)}" x2="0" y2="${-(rn + 6)}"></line>`);
+    // Each open alert at the moment it began, with its wave. Alerts that began
+    // close together would sit on one spot: the older steps back along the
+    // ring until they read as separate dots.
+    const SEP = 11;
+    let prev = Infinity;
+    const shown = (nw.alerts ?? []).filter((al) => al.ago >= 0 && al.ago <= nw.span).sort((a, b) => a.ago - b.ago);
+    const placed = shown.map((al) => { const a = Math.min(at(al.ago), prev - SEP); prev = a; return { al, a }; });
+    // Draw the current one last, so its wave runs over the others.
+    for (const { al, a } of placed.sort((p, q) => Number(!!p.al.current) - Number(!!q.al.current))) {
+      const [x, y] = twPt(a, rn);
+      const cur = al.current ? ' is-current' : '';
+      out.push(`<circle class="oh-wave level-${al.level}${cur}" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="5"></circle>`);
+      out.push(`<circle class="oh-alert level-${al.level}${cur}" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="5"></circle>`);
+    }
+  }
+  const face = o.news ? rn - 10 : HUB_R - 14;
+  return { svg: `<svg class="orbit-hub" viewBox="-150 -150 300 300" role="img" aria-label="${esc(o.aria)}">${out.join('')}</svg>`, inset: (150 - face) / 300 };
 }
 
 // ─── Clock rim ──────────────────────────────────────────────────────
@@ -900,17 +1094,19 @@ export function listControls(el: HTMLElement, c: ListControls) {
     clearTimeout(wheelTimer);
     wheelTimer = window.setTimeout(() => { wheelAcc = 0; }, 300);
   };
-  let drag: { angle: number; start: number; moved: boolean; target: HTMLElement } | null = null;
+  let drag: { angle: number; start: number; moved: boolean; target: HTMLElement; pointerId: number } | null = null;
   let swallowUntil = 0;
   const angleAt = (list: Element, x: number, y: number) => {
     const b = list.getBoundingClientRect();
     return Math.atan2(x - (b.left + b.width / 2), -(y - (b.top + b.height / 2))) * 180 / Math.PI;
   };
   const onDown = (e: PointerEvent) => {
+    // A second finger is a pinch (Zumly's way back): the ring settles and stops swallowing.
+    if (drag && e.pointerId !== drag.pointerId) { const { moved } = drag; drag = null; swallowUntil = 0; if (moved) c.settle(wrap(Math.round(c.offset()))); return; }
     const list = (e.target as HTMLElement).closest<HTMLElement>('.radial-list');
     if (!list || (e.target as HTMLElement).closest('.list-center')) return;
     list.setPointerCapture(e.pointerId);
-    drag = { angle: angleAt(list, e.clientX, e.clientY), start: c.offset(), moved: false, target: e.target as HTMLElement };
+    drag = { angle: angleAt(list, e.clientX, e.clientY), start: c.offset(), moved: false, target: e.target as HTMLElement, pointerId: e.pointerId };
   };
   const onMove = (e: PointerEvent) => {
     if (!drag) return;
@@ -1060,7 +1256,7 @@ export function musicVisual(canvas: HTMLCanvasElement, o: MusicVisual) {
 
 // ─── Scroll list: a long list, in a circle ───────────────────────────
 
-export type ScrollItem = { label: string; on?: boolean; act?: boolean };
+export type ScrollItem = { label: string; on?: boolean; act?: boolean; level?: number };
 export type ScrollState = { offset: number; focus: number };
 // The window: items 22° apart along the right side of the ring, from 24° to
 // 156°, the first visible at the top; a curved scrollbar outside them.
@@ -1088,7 +1284,7 @@ export function scrollList(items: ScrollItem[], st: ScrollState, o: { key: strin
   const slots = items.map((it, i) => {
     const { a, hidden, opacity } = scrollPlace(i, st.offset);
     return `<div class="orbit-11 scroll-orbit${hidden ? ' is-hidden' : ''}" style="--o-range:0deg; --o-from:${a.toFixed(2)}deg">
-      <div class="satellite scroll-item${it.on ? ' is-on' : ''}${i === st.focus ? ' is-focus' : ''}${it.act === false ? ' is-still' : ''}" role="option" id="${esc(o.key)}-opt-${i}"
+      <div class="satellite scroll-item${it.on ? ' is-on' : ''}${i === st.focus ? ' is-focus' : ''}${it.act === false ? ' is-still' : ''}${it.level ? ` level-${it.level}` : ''}" role="option" id="${esc(o.key)}-opt-${i}"
         aria-selected="${!!it.on}" data-opt="${i}" style="--o-size-ratio:.6; opacity:${opacity}"><div class="capsule"><span class="sl-text">${esc(it.label)}</span></div></div></div>`;
   }).join('');
   const th = scrollThumb(n, st.offset);
@@ -1158,14 +1354,16 @@ export function scrollControls(el: HTMLElement, c: ScrollControls) {
     if (a < 0) a += 360;
     return a;
   };
-  let drag: { list: HTMLElement; key: string; angle: number; start: number; thumb: boolean; moved: boolean; target: HTMLElement } | null = null;
+  let drag: { list: HTMLElement; key: string; angle: number; start: number; thumb: boolean; moved: boolean; target: HTMLElement; pointerId: number } | null = null;
   let swallowUntil = 0;
   const onDown = (e: PointerEvent) => {
+    // A second finger is a pinch (Zumly's way back): the list settles and stops swallowing.
+    if (drag && e.pointerId !== drag.pointerId) { const { list, key, moved } = drag; drag = null; swallowUntil = 0; if (moved) show(list, key, Math.round(c.state(key).offset)); return; }
     const list = listAt(e.target);
     if (!list) return;
     const key = list.dataset.scroll!;
     list.setPointerCapture(e.pointerId);
-    drag = { list, key, angle: angleAt(list, e.clientX, e.clientY), start: c.state(key).offset, thumb: !!(e.target as HTMLElement).closest('.scroll-thumb'), moved: false, target: e.target as HTMLElement };
+    drag = { list, key, angle: angleAt(list, e.clientX, e.clientY), start: c.state(key).offset, thumb: !!(e.target as HTMLElement).closest('.scroll-thumb'), moved: false, target: e.target as HTMLElement, pointerId: e.pointerId };
   };
   const onMove = (e: PointerEvent) => {
     if (!drag) return;
@@ -1193,10 +1391,11 @@ export function scrollControls(el: HTMLElement, c: ScrollControls) {
     const step: Record<string, number> = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1, PageDown: SCROLL_VISIBLE, PageUp: -SCROLL_VISIBLE, Home: -n, End: n };
     if (e.key in step) {
       e.preventDefault();
+      e.stopPropagation();                 // Zumly reads the arrows as navigation
       const focus = Math.min(n - 1, Math.max(0, st.focus + step[e.key]));
       const offset = focus < st.offset ? focus : focus > st.offset + SCROLL_VISIBLE - 1 ? focus - SCROLL_VISIBLE + 1 : st.offset;
       show(list, key, Math.round(offset), focus);
-    } else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); c.pick(key, st.focus); }
+    } else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); c.pick(key, st.focus); }
   };
   el.addEventListener('wheel', onWheel, { passive: false });
   el.addEventListener('pointerdown', onDown);

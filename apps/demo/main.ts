@@ -5,7 +5,7 @@ import '@zumer/orbit';
 import '@zumer/pulse/style.css';
 import {
   DOT_LANES, LANE, LOCK_MS, MINI_LANES, PHONE, SIZE, STROKE, backLayer, calmStrip, dialControls, dots, face, layerIndex,
-  fitFor, icon, labelAt, listOf, num, parallax, ring, setViewToggle, startInside, systemShell, viewToggle, zumlyOptions, type RingReading,
+  fitFor, icon, labelAt, listOf, num, parallax, ring, setViewToggle, startInside, systemShell, viewToggle, zoomOutGestures, zumlyOptions, type RingReading,
 } from '@zumer/pulse';
 import { systems, type Channel, type PulseSystem } from './systems.ts';
 import { t } from './strings.ts';
@@ -340,6 +340,7 @@ const app = new Zumly(zumlyOptions({
   board, detail,
   ...Object.fromEntries(IDS.map((id) => [`sys-${id}`, (ctx: ViewContext) => system(ctx, id)])),
 }, 'board'));
+zoomOutGestures(app, document.querySelector<HTMLElement>('#canvas')!);
 
 // The views behind stay in the DOM and do not re-render: on the way back they
 // are repainted with the current state (a value changed in the detail, an alert).
