@@ -2,7 +2,7 @@
 // last tab. The values are kept in the browser, for every board on the page;
 // "Copy" puts them on the clipboard, to carry into the code once they convince.
 
-import { t } from './strings.ts';
+import { t } from './i18n.ts';
 
 export type Tune = {
   orbit: number; tile: number; align: number; hub: number; orbitStep: number;
@@ -47,15 +47,15 @@ export const GROUPS: [TuneGroup, Control[]][] = [
 ];
 export const CONTROLS = GROUPS.flatMap(([, c]) => c);
 
-const KEY = 'pulse-ha-tune';
+const KEY = 'pulse-tune';
 export const tune: Tune = { ...DEFAULTS };
 // Only the keys that still exist: a value kept by an old build stays out.
 try {
-  const kept = JSON.parse(localStorage.getItem(KEY) ?? '{}') as Record<string, number>;
+  // What a browser kept while the tuning was the Home Assistant app's own, until it tunes again.
+  const kept = JSON.parse(localStorage.getItem(KEY) ?? localStorage.getItem('pulse-ha-tune') ?? '{}') as Record<string, number>;
   for (const k of Object.keys(DEFAULTS) as (keyof Tune)[]) if (typeof kept[k] === 'number') tune[k] = kept[k];
 } catch { /* no storage: code values */ }
-// The colors the old development panel kept on the page's root now belong to
-// the theme of each board (the gear's Look): drop them.
+// What older builds kept under other keys (a development panel's values and colors): drop them.
 try { localStorage.removeItem('pulse-ha-tune-colors'); } catch { /* nothing kept */ }
 
 // What is CSS goes into root variables; what changes the markup (the orbit,

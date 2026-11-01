@@ -1,6 +1,12 @@
 // Pulse: a radial object with layers by urgency, built on Orbit (rings and
 // depth) and Zumly (zoom navigation). This is the UI; the data comes from
-// whoever mounts it (the demo simulates it, the Home Assistant app reads it live).
+// whoever mounts it: a host (model.ts) turns its own data into systems and
+// readings, and the board (board.ts) shows them. The demo simulates it, the
+// Home Assistant app reads a home, the homelab app reads a machine.
 export * from './radial.ts';
 export * from './i18n.ts';
 export * from './themes.ts';
+export * from './model.ts';
+export * from './history.ts';
+export * from './board.ts';
+export * from './tune.ts';

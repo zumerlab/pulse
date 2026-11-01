@@ -8,8 +8,9 @@ sits in front with its control on the ring; the rest wait behind, visible and
 named. An alert brings its layer forward. Resolved, it goes back.
 
 Pulse is the interface. It does not own data and it does not control devices:
-a source feeds it readings and takes its commands. Home Assistant is the first
-real source and the most thorough demonstration of it.
+a host feeds it readings and takes its actions. Home Assistant is the first
+real source and the most thorough demonstration of it; a machine (the homelab
+app) is the second. Neither is what Pulse is.
 
 Site: [zumerlab.com/pulse](https://zumerlab.com/pulse/) (the pages are in
 [`docs/`](docs/)). Rings and layers are [Orbit](https://zumerlab.com/orbit/);
@@ -73,15 +74,18 @@ that behaves, so everything can be tried without a Home Assistant.
 ## Layout
 
 ```text
-packages/core/          @zumer/pulse: the radial object (rings, layers, dial, Zumly setup, strings, theme); knows nothing about any source
+packages/core/          @zumer/pulse: the radial object (rings, layers, dial, Zumly setup, strings, theme), the board over a host (board.ts) and the host contract (model.ts)
 apps/demo/              the object with simulated data (a home, a car, a pet, a server); what the tests run against; elements.html, every element alone
-apps/home-assistant/    the object over Home Assistant: the app (OAuth sign-in, WebSocket), the demo homes, the card + strategies (card/, with the README for HA users)
+apps/home-assistant/    the object over a live Home Assistant (sign-in with HA's OAuth, WebSocket, three board views), over the homes of demo.home-assistant.io, and as a custom card + dashboard and section strategies (card/, with the README for Home Assistant users)
+apps/homelab/           the object over a machine: a small collector (Node, no dependencies) reads a Mac or a Linux box and the app shows it; a demo machine when there is none
 tests/                  Playwright tests
 docs/                   the site (index.html and the pages), the cookbook of the radial system, the brief for the detail, the Home Assistant integration options
 ```
 
-Apps import the core as `@zumer/pulse` through the npm workspace. What is UI of
-the object goes in the core; what is about a data source goes in its app.
+The core knows nothing about Home Assistant or about machines: each app is an
+adapter that turns its source into the core's systems and readings and runs
+the actions the board hands back. The apps depend on the core through the npm
+workspace. Each app and the core have their own README.
 
 ## Run
 
@@ -91,16 +95,18 @@ Requires Node.js 22.18+ or 24+ and npm.
 npm ci
 npm run dev        # demo, http://127.0.0.1:5173
 npm run dev:ha     # Home Assistant, http://127.0.0.1:5174; sign in with your Home Assistant account
-                   # the demo homes, no HA needed: http://127.0.0.1:5174/gallery.html
+                   # index of the demo homes: http://127.0.0.1:5174/gallery.html
+npm run collect    # the homelab collector, on the machine to watch: http://127.0.0.1:5180
+npm run dev:homelab  # homelab, http://127.0.0.1:5175; ?demo for the demo machine
 ```
 
 ```sh
 npm run typecheck   # TypeScript, whole workspace
 npm run lint        # ESLint
-npm test            # Playwright: the demo app, and the Home Assistant app over its demo homes
+npm test            # Playwright: the demo app, the Home Assistant app over its demo homes, the homelab app over its demo machine
 npm run build:card  # the Home Assistant card + strategies as one module: apps/home-assistant/dist-card/pulse-card.js
-                    # bench without HA: http://127.0.0.1:5174/card.html
-npm run build       # typecheck and build both apps
+                    # install and options: apps/home-assistant/card/README.md; bench without HA: http://127.0.0.1:5174/card.html
+npm run build       # typecheck and build the apps
 ```
 
 ## Your own source

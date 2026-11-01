@@ -45,7 +45,7 @@ const hass = (): HomeAssistant => ({
   connection: null as unknown as HomeAssistant['connection'],
   config: { version: `bench · ${home}`, unit_system: { temperature: demo.unit } },
   callService: (domain, service, data = {}, target) =>
-    demo.call({ domain, service, data: { ...data, ...(target?.entity_id ? { entity_id: target.entity_id } : {}) } }),
+    demo.call({ ids: ([] as string[]).concat(target?.entity_id ?? []), domain, service, data: { ...data, ...(target?.entity_id ? { entity_id: target.entity_id } : {}) } }),
   hassUrl: (path = '') => demo.url(path),
 });
 

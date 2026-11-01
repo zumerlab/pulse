@@ -188,19 +188,19 @@ test('the gear goes one level down: areas by floor, the channels of each system,
   await page.locator('.gear').click();
   const panel = page.locator('.settings');
   // The home's six areas, grouped by its two floors (the garden has none).
-  await expect(panel.locator('input[name="areas"]')).toHaveCount(6);
-  await expect(panel.locator('.settings-areas-list .settings-group-title')).toHaveText(['Ground floor', 'Upstairs', 'No floor']);
+  await expect(panel.locator('input[name="groups"]')).toHaveCount(6);
+  await expect(panel.locator('.settings-groups-list .settings-group-title')).toHaveText(['Ground floor', 'Upstairs', 'No floor']);
   // Without the bedroom, its 15% battery is out: the other one is the lowest.
-  await panel.locator('input[name="areas"][value="bedroom"]').uncheck();
+  await panel.locator('input[name="groups"][value="bedroom"]').uncheck();
   await expect(page.locator('.tile[data-system="maintenance"] .tile-big')).toHaveText('88% lowest');
-  await panel.locator('input[name="areas"][value="bedroom"]').check();
+  await panel.locator('input[name="groups"][value="bedroom"]').check();
   await expect(page.locator('.tile[data-system="maintenance"] .tile-big')).toHaveText('15%');
   // The only channel with something cannot be hidden; another one can.
   await panel.locator('input[name="channel"][value="maintenance/batteries"]').click();
   await expect(panel.locator('input[name="channel"][value="maintenance/batteries"]')).toBeChecked();
   await panel.locator('input[name="channel"][value="lights/plugs"]').uncheck();
   // The brightness dial follows another light.
-  const select = panel.locator('select[name="entity"][data-key="lights/brightness"]');
+  const select = panel.locator('select[name="pick"][data-key="lights/brightness"]');
   await expect(select).toHaveValue('light.bedroom_ceiling');
   await select.selectOption('light.bedside_lamp');
   await expect(panel.locator('input[name="channel"][value="lights/brightness"] + *, label:has(input[value="lights/brightness"])').first()).toContainText('Bedside lamp brightness');
@@ -210,7 +210,7 @@ test('the gear goes one level down: areas by floor, the channels of each system,
   await expect(view.locator('.layer[data-ch]')).toHaveCount(2);
   await expect(view.locator('.layer[data-ch="brightness"]')).toContainText('Bedside lamp brightness');
   expect(JSON.parse(await page.evaluate(() => localStorage.getItem('pulse-ha-settings')!))).toMatchObject({
-    channels: { lights: ['plugs'] }, entities: { 'lights/brightness': 'light.bedside_lamp' } });
+    channels: { lights: ['plugs'] }, picks: { 'lights/brightness': 'light.bedside_lamp' } });
 });
 
 test('the card takes areas: only what is in them, and the gear offers no areas when one is left', async ({ page }) => {
@@ -219,7 +219,7 @@ test('the card takes areas: only what is in them, and the gear offers no areas w
   await expect(c.locator('.tile[data-system]')).toHaveCount(4);
   await expect(c.locator('.tile[data-system="lights"] .tile-big')).toHaveText(/of 2/);
   await c.locator('.gear').click();
-  await expect(c.locator('.settings-areas')).toBeHidden();
+  await expect(c.locator('.settings-groups')).toBeHidden();
 });
 
 test('the URL fixes what the page shows and the gear chooses within it', async ({ page }) => {
@@ -408,7 +408,7 @@ test('the gear can open the dial at the bottom and put hour marks on the day rin
 test('a color light takes its hue and saturation from two curved sliders inside its brightness dial', async ({ page }) => {
   await page.goto(`${HA}?demo=home`);
   await page.locator('.gear').click();
-  await page.locator('select[name="entity"][data-key="lights/brightness"]').selectOption('light.living_room_floor_lamp');
+  await page.locator('select[name="pick"][data-key="lights/brightness"]').selectOption('light.living_room_floor_lamp');
   await page.keyboard.press('Escape');
   await page.locator('.tile[data-system="lights"]').click();
   await bring(page, 'brightness');
@@ -440,7 +440,7 @@ test('a color light takes its hue and saturation from two curved sliders inside 
 test('the hue and the saturation rings are dragged with the pointer, like the brightness dial around them', async ({ page }) => {
   await page.goto(`${HA}?demo=home`);
   await page.locator('.gear').click();
-  await page.locator('select[name="entity"][data-key="lights/brightness"]').selectOption('light.living_room_floor_lamp');
+  await page.locator('select[name="pick"][data-key="lights/brightness"]').selectOption('light.living_room_floor_lamp');
   await page.keyboard.press('Escape');
   await page.locator('.tile[data-system="lights"]').click();
   await bring(page, 'brightness');

@@ -9,7 +9,7 @@ import { num, t, time } from './i18n.ts';
 
 // ─── What a ring needs to know about a channel ──────────────────────
 
-export type RingSeg = { label: string; on: boolean; act?: unknown; entity?: string };
+export type RingSeg = { label: string; on: boolean; act?: unknown; id?: string };
 export type RingDial = { min: number; max: number; step: number; unit: string; label: string; value: number };
 // The primitives of the object. 'p' a band that fills (a dial when it can be
 // dragged); 's' segments that switch on and off; 'c' a choice: segments of
@@ -68,9 +68,9 @@ export type RingOptions = {
   controls?: boolean;                  // the front ring is operated directly
   muted?: boolean;                     // painted gray even with an alert (mini rings)
   call?: boolean;                      // the alert calls: its failing segments ripple
-  pending?: (entity?: string) => boolean;   // a command sent and not yet confirmed
+  pending?: (id?: string) => boolean;       // an action sent and not yet confirmed
   open?: boolean;                      // a band as a three-quarter dial, open at the bottom, with its ends named
-  failed?: (entity?: string) => boolean;    // a command refused: a red outline until it goes through
+  failed?: (id?: string) => boolean;        // an action refused: a red outline until it goes through
   ends?: 'flat' | 'rounded';           // the ends of a band and of each segment: square, or rounded (Orbit's shape)
 };
 const shapeOf = (o: RingOptions) => o.ends === 'rounded' ? ' shape="rounded"' : '';
@@ -104,7 +104,7 @@ export function ring(key: string, r: RingReading, lanes: number, o: RingOptions 
   if (r.kind === 'p' && r.range) return rangeRing(key, r, fill, size, isPending(undefined), o);
   if (r.kind === 'p') {
     const pct = ((r.v ?? 0) * 100).toFixed(1);
-    const busy = (r.segs?.some((s) => isPending(s.entity)) || isPending(undefined) ? ' is-pending' : '') + (isFailed(undefined) ? ' is-failed' : '');
+    const busy = (r.segs?.some((s) => isPending(s.id)) || isPending(undefined) ? ' is-pending' : '') + (isFailed(undefined) ? ' is-failed' : '');
     const dial = o.controls && r.dial;
     if (!dial) {
       return `<div class="orbit-12${busy}" style="${size}${openStyle(o)}"><o-progress value="${pct}"${shapeOf(o)}
@@ -122,7 +122,7 @@ export function ring(key: string, r: RingReading, lanes: number, o: RingOptions 
     const fail = !!r.alert?.fail?.includes(i) && !o.muted;
     const f = fail ? fill : s.on ? on : 'var(--dim)';
     // Rule 2: the wave comes out of the failing segment (o-arc.ripple).
-    const cls = (isPending(s.entity) ? ' is-pending' : '') + (isFailed(s.entity) ? ' is-failed' : '') + (o.call && fail ? ' ripple' : '');
+    const cls = (isPending(s.id) ? ' is-pending' : '') + (isFailed(s.id) ? ' is-failed' : '') + (o.call && fail ? ' ripple' : '');
     // The option that is chosen is a radio too, just not one that does anything.
     if (r.kind === 'c' && o.controls && s.on && !s.act) return `<o-arc class="${cls.trim()}"${shapeOf(o)} style="--o-fill:${f}" role="radio" aria-checked="true" aria-label="${esc(s.label)}"></o-arc>`;
     if (!(o.controls && s.act)) return `<o-arc class="${cls.trim()}"${shapeOf(o)} style="--o-fill:${f}"></o-arc>`;
