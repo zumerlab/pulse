@@ -188,8 +188,11 @@
 .tune {
   position: fixed; left: 12px; top: 12px; z-index: 50; width: min(300px, calc(100vw - 24px));
   max-height: calc(100vh - 24px); overflow: auto; padding: 10px 12px;
-  background: rgba(20, 22, 26, .94); border: 1px solid var(--line); border-radius: 12px; font-size: 12px; color: var(--muted);
+  background: color-mix(in srgb, var(--bg) 94%, transparent); border: 1px solid var(--line); border-radius: 12px; font-size: 12px; color: var(--muted);
 }
+.tune-theme, .tune-color { grid-template-columns: 1fr auto auto; align-items: center; }
+.tune-theme select { grid-column: 2 / -1; font-size: 12px; }
+.tune-color input { grid-column: auto; width: 28px; height: 20px; padding: 0; border: 1px solid var(--line); border-radius: 4px; background: none; }
 .tune:not([open]) { width: auto; opacity: .6; }
 .tune summary { cursor: pointer; color: var(--ink); }
 .tune fieldset { border: 0; margin: 10px 0 0; padding: 0; display: grid; gap: 8px; }
@@ -289,12 +292,21 @@
 /* One flat object (no 3D, no parallax): the largest square that fits, up to 560 px. */
 .one { width: min(var(--S), 560px); aspect-ratio: 1; }
 .one > .bigbang { width: 100%; }
+/* On a phone the names of the list ride outside the ring: the object leaves them room. */
+@media (max-width: 640px) {
+  .one { width: min(calc(var(--S) * .8), 560px); }
+  /* A smaller disc: one line for the label, and no Open pill (the disc itself is the button). */
+  .list-center .face-label { -webkit-line-clamp: 1; }
+  .list-center .list-open { display: none; }
+}
 .board.mode-list .board-head h1, .board.mode-clock .board-head h1, .board.mode-clock .ticker, .board.mode-calendar .board-head h1 { display: none; }
-/* The list's items slide to their new place when it settles; while the pointer turns it they follow at once. */
-.radial-list .list-orbit > .satellite { transition: transform .35s cubic-bezier(.2, .8, .2, 1), opacity .35s; }
-.radial-list.is-turning .list-orbit > .satellite { transition: none; }
+/* The wheel turns to its new place when it settles (items, names, ticks and the capsules turning back, all
+   by the same rotation); while the pointer turns it they follow at once. */
+.radial-list :is(.list-orbit, .list-name-orbit, .list-ticks, .list-item .capsule) { transition: rotate .35s cubic-bezier(.2, .8, .2, 1), opacity .35s; }
+.radial-list .list-orbit > .satellite { transition: width .35s cubic-bezier(.2, .8, .2, 1), height .35s cubic-bezier(.2, .8, .2, 1), opacity .35s; }
+.radial-list.is-turning :is(.list-orbit, .list-name-orbit, .list-ticks, .list-item .capsule, .list-orbit > .satellite) { transition: none; }
 .list-item .list-ring { pointer-events: none; }
 .list-center.disc { --disc-pad: 10px; }
 .list-center .face-big { font-size: clamp(18px, 12cqw, 30px); }
-.list-center .face-label { max-width: 86cqw; white-space: normal; max-height: 2.6em; }
-@media (prefers-reduced-motion: reduce) { .radial-list .list-orbit > .satellite { transition: none; } }
+.list-center .face-label { max-width: 86cqw; white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+@media (prefers-reduced-motion: reduce) { .radial-list :is(.list-orbit, .list-name-orbit, .list-ticks, .list-item .capsule, .list-orbit > .satellite) { transition: none; } }

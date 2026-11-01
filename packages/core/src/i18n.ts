@@ -21,6 +21,7 @@ export const t = {
   // Navigation
   board: 'Board',
   open: (name: string) => `Open ${name}`,
+  openHint: 'Open',
   details: (name: string) => `${name} details`,
   bringToFront: (name: string) => `Bring ${name} to the front`,
   layerIndex: 'Layers, front to back',

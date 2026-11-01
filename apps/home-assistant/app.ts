@@ -587,7 +587,7 @@ function board(ctx: ViewContext) {
         const root = obj.querySelector<HTMLElement>('.radial-list');
         if (!root) return;
         root.classList.toggle('is-turning', !settled);
-        const i = turnList(root, o);
+        const i = turnList(root, o, listLook());
         const id = listIds[i];
         if (id) setHTML(root.querySelector<HTMLElement>('.list-center-orbit')!, listCenter(listItem(id)));
       };
@@ -680,8 +680,10 @@ function board(ctx: ViewContext) {
     const key = JSON.stringify(items);
     if (drawn.get(obj) === key && obj.firstElementChild) return;
     drawn.set(obj, key);
-    obj.innerHTML = radialList(items, listOffset);
+    obj.innerHTML = radialList(items, listOffset, listLook());
   };
+  // The list's measures, from the tuning panel in development (tune.list*).
+  const listLook = () => ({ orbit: tune.listOrbit, names: tune.listNames, item: tune.listItem, focus: tune.listFocus, center: tune.listCenter, fade: tune.listFade });
 
   const paint = () => {
     if (built !== boardMode) build();

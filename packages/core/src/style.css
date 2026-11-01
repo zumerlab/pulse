@@ -340,6 +340,16 @@ o-arc.is-failed { --o-stroke: var(--critical); --o-stroke-width: 2; }
 .list-item.level-1 .list-glyph { color: var(--minor); }
 .list-item.level-2 .list-glyph { color: var(--critical); }
 .list-track o-arc { --o-stroke: transparent; }
+/* The dial around the items: a tick between them, the notch at the top, each name along the outside. */
+.list-tick { height: 1px; background: var(--dim); --o-alignment: 2px; }
+.list-notch { width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 12px solid var(--ink); background: none; border-radius: 0; }
+.list-name-orbit.is-hidden { display: none; }
+.list-name { --o-fill: transparent; --o-stroke: transparent; --o-color: var(--muted); font-size: 13px; pointer-events: none; }
+.list-name.is-focus { --o-color: var(--ink); font-size: 15px; }
+.list-name.level-1 { --o-color: var(--minor); }
+.list-name.level-2 { --o-color: var(--critical); }
+.list-center .glyph { margin-bottom: 2px; }
+.list-open { margin-top: 8px; font-size: 12px; color: var(--muted); padding: 3px 12px; border: 1px solid var(--dim); border-radius: 999px; }
 .list-center.level-1 .face-big { color: var(--minor); }
 .list-center.level-2 .face-big { color: var(--critical); }
 
