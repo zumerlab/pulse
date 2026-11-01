@@ -21,6 +21,12 @@ button { font: inherit; color: inherit; }
 [hidden] { display: none !important; }
 
 .shell { position: relative; height: 100dvh; overflow: hidden; }
+/* The object is handled, not read: a drag over a dial, the list or the wheel never
+   starts a text selection, a long press never offers one, and a picture never lifts
+   as a ghost. Form fields keep their own. */
+.zumly-canvas { user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+.zumly-canvas :is(input, textarea, select) { user-select: auto; -webkit-user-select: auto; }
+.zumly-canvas img { -webkit-user-drag: none; }
 .zumly-canvas { background: var(--bg); }
 .z-view { width: 100%; height: 100%; background: var(--bg); }
 
