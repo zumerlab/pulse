@@ -5,7 +5,7 @@ import '@zumer/orbit/style';
 import '@zumer/orbit';
 import '@zumer/pulse/style.css';
 import {
-  DOT_LANES, GROW, LANE, MINI_LANES, SIZE, STROKE, backLayer, calmStrip, clockRim, colorArcs, colorWheel, dots, face, icon,
+  DOT_LANES, GROW, LANE, MINI_LANES, SIZE, STROKE, backLayer, calmStrip, clockRim, colorArcs, colorWheel, dots, face, icon, keypad,
   labelAt, layerIndex, monthRing, queueRings, radialList, ring, ringCenter, scrollList, THEMES, THEME_NAMES, timeRing, timeline, type RingReading,
 } from '@zumer/pulse';
 import { systems } from './systems.ts';
@@ -95,6 +95,7 @@ const samples: [string, string][] = [
     { id: 'a', title: 'Batteries', big: '15%', level: 1 }, { id: 'b', title: 'Lights', big: '4 of 9', level: 0 }, { id: 'c', title: 'Climate', big: '21.5°C', level: 0 },
     { id: 'd', title: 'Security', big: 'Disarmed', level: 0, off: true }, { id: 'e', title: 'Media', big: '1 of 3', level: 0, off: true },
   ], 'data-pick')],
+  ['keypad', `<div style="padding:8px 24px">${keypad({ name: 'Alarm', title: 'Away', verb: 'Away', format: 'number', value: '12', wrong: false, glyph: home.ch.security.glyph })}</div>`],
   ['strip-calm', `<div class="strip">${calmStrip('Home', 'Climate', [{ key: 'cameras', name: 'Cameras' }])}</div>`],
   ['strip-alert', `<div class="strip"><strong>Security:</strong> Opened with the alarm armed. <button class="primary level-2">I closed it</button></div>`],
   ['dots', `<nav class="dots" style="display:flex;gap:4px">${dots(ids.map((id) => {

@@ -1,12 +1,12 @@
 # Pulse · Home Assistant
 
 The radial object over a real Home Assistant (the default demo, running in
-Docker). Same grammar as the demo app: board → layered system → detail. Nothing
-is written by hand: readings, alerts and their resolution come from the live
-state. The object itself (rings, layers, dial gestures, Zumly setup, strings) is
-the core package `@zumer/pulse` (`packages/core`); this app adds `model.ts`,
-which turns Home Assistant's state into the readings the object draws, the
-source (`source.ts`), the sign-in and the three board views.
+Docker). Board → layered system → detail. Nothing is written by hand: readings,
+alerts and their resolution come from the live state. The object and the board
+(rings, layers, the gear, the four views, the detail) are the core package
+`@zumer/pulse` (`packages/core`); this app adds `model.ts`, which turns Home
+Assistant's state into the readings the object draws, the source
+(`source.ts`), the sign-in, the demo homes and the card.
 
 ```sh
 npm run dev:ha     # from the repo root; http://127.0.0.1:5174
@@ -27,7 +27,7 @@ one of the six homes of demo.home-assistant.io (see "Demo homes" below).
   `model.ts` bound to the source, entity ids as things, service calls as
   actions, names and states as Home Assistant says them.
 - `main.ts`: the standalone shell: sign-in, the WebSocket source, the demo
-  homes, the core's tuning panel.
+  homes.
 - `source.ts`: `PulseSource` and `WebSocketSource`. `demo/`: `DemoSource` and
   the demo homes (`demo/scripts/import-homes.py` regenerates them from the
   frontend repo). `card/`: `HassSource`, the card and the strategies, and the
@@ -47,8 +47,8 @@ one of the six homes of demo.home-assistant.io (see "Demo homes" below).
 (`states`, `unit`, `status`, `version`, `call`, `onChange`, `onStatus`, `url`),
 and implements it over the WebSocket with the official
 [`home-assistant-js-websocket`](https://github.com/home-assistant/home-assistant-js-websocket).
-A second implementation over the `hass` object of a custom card would let the
-same app run inside a dashboard (see `docs/home-assistant-integration.md`).
+The card's `HassSource` is the second implementation, over the `hass` object
+a dashboard pushes; the demo homes are the third.
 
 - **Sign in on Home Assistant, not on Pulse.** The login is Home Assistant's own
   OAuth flow (`getAuth`): the browser goes to `<your HA>/auth/authorize`, you
@@ -198,7 +198,11 @@ of them plus, sometimes, a picture or a day. `Reading.kind`:
   `hvac_modes`, the alarm's modes, a player's `source_list`. In the detail
   they are radios.
 
-Besides the kind, a reading can carry `image` (`src`, `alt`, `entity`): the
+An action that needs a code first (an alarm with a `code_format`) carries
+`asks`: the board opens a phone's keypad over the object and sends the action
+again with `code`; Home Assistant's refusal keeps the keypad open.
+
+Besides the kind, a reading can carry `image` (`src`, `alt`, `id`): the
 picture fills the face's disc, with the text over it; in the detail it is
 round like the face or square on request, and a camera has a *Live* button
 when the source can stream it (`PulseSource.stream`: Home Assistant's MJPEG
@@ -209,10 +213,9 @@ album art and, by the same path, a vacuum's map or a floor plan served as an
 around, saturation outward, arrows on the keyboard (`light.turn_on` with
 `hs_color`). `history` names a numeric entity whose last 24 hours the detail
 draws as a ring (`PulseSource.history`: `history/history_during_period`
-bucketed per hour, one dot per hour with the current one at the top, its
-distance from the ring the value; the demo makes a day up around the current
-value). What has no honest radial reading (free text, long lists, maps with
-zones) stays out: Home Assistant's own more-info dialog is a tap away.
+bucketed per hour; the demo makes a day up around the current value). What
+has no honest radial reading (free text, long lists, maps with zones) stays
+out: Home Assistant's own more-info dialog is a tap away.
 
 The source also carries Home Assistant's registries (`PulseSource.registry`:
 areas, devices, entities, floors, and the repairs; `onRegistry` when they
@@ -240,35 +243,22 @@ already keeps; the demo homes build theirs from their own data.
 
 ## What each screen shows: the gear
 
-The board has a gear at the top right. It opens a panel (a dialog: focus goes
-in, Tab cycles, Escape closes and returns the focus to the gear) with:
-
-- the systems to tick (at least one);
-- the areas, from the registry, grouped by floor (shown when there are two or
-  more): only the entities in the ticked areas count, by their own area or
-  their device's; an entity with no area stays out, as in Home Assistant's
-  area views;
-- the channels of each system shown (at least one per system), and for a
-  channel that follows one entity a select with every entity it could follow
-  (the brightness dial over any dimmable light, the humidity over any humidity
-  sensor, a window over any positional cover), with its place next to the name;
-- the board's view and where it opens next time.
-
-Changes apply as they are made and are kept in the browser
-(`localStorage['pulse-ha-settings']`: `systems`, `groups` (the areas),
-`channels` as the hidden keys per system, `picks` as `'system/channel':
-entity_id`, `mode`, `start`); "Back to defaults" forgets them. The same panel
-is in the card and in the dashboard strategy, because it is part of the object
-(the core's `board.ts`, `settingsPanel`). The lists are rebuilt only when their markup changes (the
-house repaints every few seconds), and the control with the focus keeps it.
+The gear at the top right of the board is the core's (`board.ts`): a panel in
+four tabs, Content, Board, Look and Tuning, kept in that browser only
+(`localStorage['pulse-ha-settings']`). What it offers from the viewer's side
+is in the card's README; what this app adds is the translation of Home
+Assistant's words to the board's. Areas are the board's groups, grouped by
+floor from the registry; the entity a channel follows is a pick
+(`'lights/brightness': 'light.kitchen'`); rooms are the board's second axis
+(`roomSystems` in `model.ts`: each area one object, with the systems' channels
+read within it).
 
 The host sets the **frame** the viewer chooses within: `mountPulse`'s
-`systems` and `areas` (the gear offers only those), `mode` and `start` (its
-defaults). In the standalone app the frame comes from the URL,
+`systems` and `areas` (the gear offers only those), `mode`, `axis` and `start`
+(its defaults). In the standalone app the frame comes from the URL,
 `?systems=lights,climate&mode=orbit&start=climate&areas=kitchen,living_room`,
 so a kiosk or a shared link opens on a fixed subset; in the card, from its
-config. `settings: false` hides the gear. The mode switch at the top writes
-the same setting as the gear.
+config. `settings: false` hides the gear.
 
 In the model, the choice of entity goes through `Context.picks`: the first
 scan a channel makes (`first`/`nth`) is the one that decides what it follows,
@@ -278,50 +268,22 @@ next to the humidity, the alarm behind the locks) are not choices. The area
 filter is `Context.areas`, applied to every scan and to the entities named by
 id.
 
-## Three views of the board
+## Four views of the board
 
-A selector at the top (remembered in the browser, as the gear's "Board view")
-changes how the whole home is looked at. All three use the same data and open the same system when tapped.
-
-| View | What it is | What it is for |
-|---|---|---|
-| **Grid** | A mini ring per system and the latest changes below | See everything evenly, read fast |
-| **Orbit** | The home's pulse in the center and the 7 systems around it | Main screen: the center beats with every change |
-| **Layers** | A single object, one system per layer (the system's grammar, one level up) | See "what calls" as depth: the urgent in front |
-
-- **Orbit.** The center ring has one segment per system, facing its tile,
-  painted if that system calls. Inside, one thing at a time: each alert (the most
-  serious first, with "Open") and at the end the pulse (how many alerts and the
-  three entities that changed last, with their live value). It advances on its
-  own every 6 s; it holds with the pointer or the focus over it; the dots below
-  (color = level) pick one. The systems do not change place: what moves is the color.
-  - The whole view is one Orbit system: the universe (`.bigbang`) is the largest
-    square that fits; the systems are satellites of `orbit-10` (a 3.5-lane ring,
-    shifted 20 px inward for the text) and the pulse is the `at-center` satellite
-    of `orbit-0` (11 lanes). Nothing is positioned by hand.
-  - The systems are shifted half a step (`--o-from`: none right at the top), each
-    facing its segment of the center ring. In the top half the text goes above
-    the ring: nothing hangs toward the center. Orbit's `.outward-y` solves it
-    (before, a `clamp()` over `--o-dir-y` in the CSS).
-  - In 3D, like each system's object: Orbit's `.depth` with the pulse in front
-    (`layer-front`) and the systems one step behind (`data-depth="1"`), without
-    shrinking or dimming. The pointer tilts the whole ±7° (not on the phone).
-  - The center's text scales with it (`cqw` units): it does not overflow in short windows.
-- **Layers.** Seven layers that grow 16% each (instead of 42%), all in view: it
-  breaks the "3 layers at most" rule on purpose, to try the integrated object.
-  In front goes the system that calls the most; tapping a band brings that
-  system to the front until a new alert arrives; tapping the center enters.
-  In 3D, like the orbit: each layer 70 px further back and the pointer tilts the object ±7°.
-
-## Live tuning (development only)
-
-With `npm run dev` a "Tuning" panel appears at the bottom right to try sizes and
-distances of the orbit and the layers without touching the code: orbit and ring
-of the systems, center pulse, distance in 3D, growth, distance, zoom and opacity
-of the layers, and tilt. The values are kept in the browser; the colored number
-is the one that moved from the code's value. "Copy" puts the list on the
-clipboard to carry into the code; "Back to code values" discards them. It does
-not appear in the build (the core's `tune.ts`).
+Grid, Orbit, Layers and List, over the same data, each opening the same system
+when tapped; what they are and how they read is on the site's board page.
+The Orbit view is built with Orbit itself, nothing positioned by hand: the
+universe (`.bigbang`) is the largest square that fits, the systems are
+satellites of `orbit-10` (a 3.5-lane ring, shifted inward for the text) and
+the pulse is the `at-center` satellite of `orbit-0`. The systems are shifted
+half a step so none sits right at the top, each facing its segment of the
+center ring; in the top half the text goes above the ring (Orbit's
+`.outward-y`). In 3D the pulse is in front and the systems one step behind,
+without shrinking or dimming; the pointer tilts the whole ±7° (not on the
+phone). The center's text scales with it (`cqw` units). The Layers view breaks
+the "three layers at most" rule on purpose, with every system a layer that
+grows 16% instead of 42%, to try the integrated object; the Tuning tab of the
+gear has the sliders for both.
 
 ## Alerts: rules over the state
 
@@ -344,7 +306,7 @@ not appear in the build (the core's `tune.ts`).
 The cross rules are the interesting part: arming the alarm from the ring makes
 "motion" and "unlocked" appear without any device changing.
 
-## What was refined over zumly-radial
+## Behaviour worth knowing
 
 - **What is shown is what was confirmed, not what was asked.** A command marks
   its segment or dial as *sending* (it beats) until Home Assistant sends the new
@@ -356,13 +318,12 @@ The cross rules are the interesting part: arming the alarm from the ring makes
 - **Several failing segments** are all painted (two sirens, two doors). If the
   alert calls (in front and not muted), the wave comes out of those segments
   (Orbit's `o-arc.ripple`); the disc ripples only when the channel is a dial.
-- **Rule 1 (stable)** with real arrival time; **rule 3 (satellites)**: the
-  waiting alerts orbit the front ring with their icon and are brought with a tap.
-  **Mute** removes the wave and sends the alert behind; if the alert's text
-  changes, it comes back.
+- **The one in front stays** until a more serious alert arrives; the ones
+  waiting are their layers behind, named. **Mute** removes the wave and sends
+  the alert behind; if the alert's text changes, it comes back.
 - **A new critical alert opens its system on its own** only when on the board.
 - **Size by available space:** the object shrinks (`--fit`) if the front disc
-  does not fit with the alert zoom. Solves finding 3 of zumly-radial.
+  does not fit with the alert zoom.
 - **Board with pulse:** connection status, a line with what calls and the latest
   changes of the entities shown.
 - **Detail:** the same controls, the Home Assistant entities behind each channel

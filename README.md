@@ -7,10 +7,9 @@ is one round object with a few channels as layers in depth: the one that matters
 sits in front with its control on the ring; the rest wait behind, visible and
 named. An alert brings its layer forward. Resolved, it goes back.
 
-Pulse is the interface. It does not own data and it does not control devices:
-a host feeds it readings and takes its actions. Home Assistant is the first
-real source and the most thorough demonstration of it; a machine (the homelab
-app) is the second. Neither is what Pulse is.
+Pulse is the interface: a host feeds it readings and takes its actions. Home
+Assistant is the first real source and the most thorough demonstration of it;
+a machine, read by a small collector, is the second. Neither is what Pulse is.
 
 Site: [zumerlab.com/pulse](https://zumerlab.com/pulse/) (the pages are in
 [`docs/`](docs/)). Rings and layers are [Orbit](https://zumerlab.com/orbit/);
@@ -29,7 +28,8 @@ the zoom between levels is [Zumly](https://zumerlab.com/zumly/).
   segment, a band or a label. Never the disc, and nothing that calls grows. What
   is fine stays thin and quiet, folded away while something calls.
 - **The ring is the control.** A band you drag, segments you tap, names along
-  the ring you choose from. A control resolved on the face opens no detail.
+  the ring you choose from. When something asks for a code, a phone's keypad
+  comes over the object. A control resolved on the face opens no detail.
 - **What is shown is what was confirmed.** A command beats on its way and
   settles when the source reports; a refused one keeps a red outline and a Retry.
 
@@ -76,7 +76,7 @@ that behaves, so everything can be tried without a Home Assistant.
 ```text
 packages/core/          @zumer/pulse: the radial object (rings, layers, dial, Zumly setup, strings, theme), the board over a host (board.ts) and the host contract (model.ts)
 apps/demo/              the object with simulated data (a home, a car, a pet, a server); what the tests run against; elements.html, every element alone
-apps/home-assistant/    the object over a live Home Assistant (sign-in with HA's OAuth, WebSocket, three board views), over the homes of demo.home-assistant.io, and as a custom card + dashboard and section strategies (card/, with the README for Home Assistant users)
+apps/home-assistant/    the object over a live Home Assistant (sign-in with HA's OAuth, WebSocket), over the homes of demo.home-assistant.io, and as a custom card + dashboard and section strategies (card/, with the README for Home Assistant users)
 apps/homelab/           the object over a machine: a small collector (Node, no dependencies) reads a Mac or a Linux box and the app shows it; a demo machine when there is none
 tests/                  Playwright tests
 docs/                   the site (index.html and the pages), the cookbook of the radial system, the brief for the detail, the Home Assistant integration options
@@ -111,16 +111,17 @@ npm run build       # typecheck and build the apps
 
 ## Your own source
 
-A source holds the states, tells the object when they change, and takes its
-commands: the `PulseSource` interface in `apps/home-assistant/source.ts`,
-implemented over Home Assistant's WebSocket, over the card's `hass` object and
-over the demo homes. A system is a title and a few channels; a channel reads the
-source and returns one of three rings, a value, a line, and optionally an alert
-with its action. [Your own source](docs/sources.html) has the shape of it and
-[In your project](docs/adapt.html) the steps, from the imports to the theme;
-`apps/demo/` is the smallest example, and `apps/demo/elements.html` draws every
-element alone with sample data, under each of the seven themes (`THEMES` in the
-core: Graphite, Paper, Deep, and the blue-grey Slate, Mist, Fog and Night).
+A host hands the board its systems, tells it when a thing changes, runs the
+actions the board hands back, and names the things: the `PulseHost` interface
+in `packages/core/src/model.ts`. A system is a title and a few channels; a
+channel reads the host's state into one of three rings, a value, a line, and
+sometimes an alert with its actions. The homelab app is the smallest host
+(`apps/homelab/host.ts` and `model.ts`), the Home Assistant app the fullest.
+[Your own source](docs/sources.html) has the shape of it and
+[In your project](docs/adapt.html) the steps, from the imports to the theme.
+`apps/demo/elements.html` draws every element alone with sample data, under
+each of the seven themes (`THEMES` in the core: Graphite, Paper, Deep, and the
+blue-grey Slate, Mist, Fog and Night).
 
 ## Language
 

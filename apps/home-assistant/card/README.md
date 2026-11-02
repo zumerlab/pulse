@@ -3,9 +3,9 @@
 Pulse shows your home as one radial object per system: lights, climate,
 security, openings, media, energy, scenes and maintenance. Each system is a ring with
 its own controls, and the systems stack in depth by urgency: whatever calls the
-most sits in front, the rest waits behind. Nothing is configured by hand. Pulse
-reads your entities, decides what each ring shows, and raises an alert when a
-rule fires (a jammed lock, a siren, heating with a window open).
+most sits in front, the rest waits behind. Nothing to configure: Pulse reads
+your entities, decides what each ring shows, and raises an alert when a rule
+fires (a jammed lock, a siren, heating with a window open).
 
 ![The Pulse board inside a Home Assistant dashboard](images/dashboard-grid.png)
 
@@ -170,7 +170,8 @@ home has two or more), the channels of each system and, for a channel that
 follows one entity (a brightness dial, the humidity, a window), which entity it
 follows. *Board*: the view (and whether its switch shows on the board), systems or rooms, where it opens next time, the
 time in the orbit and how many layers it stacks. *Look*: the theme or colors of
-your own, the dial full or open at the bottom, the day ring bare or with hour
+your own, a glow or a photo behind the board (a file in `/config/www` is
+`/local/<name>`) with faces solid or glass, the dial full or open at the bottom, the day ring bare or with hour
 marks, the ring ends square or rounded, the energy month. *Tuning*: sliders for
 the distances and sizes of the orbit and the layers. Changes apply as they are
 made and are kept in that browser only, so the tablet in the kitchen and the

@@ -59,6 +59,12 @@
       <h2>The face</h2>
       <p><code>face({ glyph, name, big, label, aria, to?, props?, image?, extra? })</code>. The center of the front layer: the glyph, the channel's name, the big value and one line. With <code>to</code> the disc is the Zumly trigger of the detail; without it, the disc is only the face. With <code>image</code> a picture fills the disc and the text sits on a scrim.</p>
 
+      <h2>The keypad</h2>
+      <figure class="element">
+        <img src="images/el-keypad.png" alt="A phone keypad: Alarm · Away, two dots entered, the digits 1 to 9, delete, 0 and an Away key" loading="lazy">
+        <figcaption><code>keypad({ name, title, verb, format, value, wrong, glyph, level? })</code>. For an action that asks for a code: what the code is for, the code so far as dots (an input instead, for a text code), the digits, delete, and the key that sends it with the verb, in the alert's color when it answers one. The board puts it over the object and dims the object behind; a refusal paints it wrong until the next key.</figcaption>
+      </figure>
+
       <h2>The object</h2>
       <p>A system is its channels as layers: each one a nested Orbit universe with <code>data-depth</code>, in a container that moves them back in z and compensates the scale, so the apparent size is the same flat and in 3D. The front layer has the ring with its controls and the face; a layer behind is <code>backLayer({ text, at, grow, stroke, hit, pick })</code>: the arc label just outside its ring and a transparent interactive arc that brings it forward on a tap.</p>
       <div class="elements two">

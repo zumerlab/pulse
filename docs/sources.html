@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Your own source · Pulse</title>
-  <meta name="description" content="Pulse over something that is not Home Assistant: a car, a boat, a server. The object is the same; a source is a small contract.">
+  <meta name="description" content="Pulse over something that is not Home Assistant: a machine, a car, a boat. The object is the same; a host is a small contract.">
   <link rel="preload" href="assets/roboto-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="assets/site.css">
 </head>
@@ -16,7 +16,7 @@
     <article class="prose">
       <p class="eyebrow">In use</p>
       <h1>Your own source</h1>
-      <p class="lede">Pulse is more than Home Assistant. The object does not care where a reading comes from: a car's battery and tires, a boat's tanks and wind, a server's load and disks are systems with channels like any other. Home Assistant happens to be the first source that is real.</p>
+      <p class="lede">Pulse is more than Home Assistant. The object does not care where a reading comes from: a machine's load and disks, a car's battery and tires, a boat's tanks and wind are systems with channels like any other. Home Assistant is the first source that is real; a machine, read by a small collector, is the second.</p>
 
       <figure class="shot">
         <img src="images/demo-car.png" alt="A car as a Pulse object: the battery in front, the tires behind" loading="lazy">
@@ -24,30 +24,31 @@
       </figure>
 
       <h2>What a system is</h2>
-      <p>A system is a title and a few channels. A channel reads the source's state and returns a reading, or nothing when the source has nothing for it. A reading is one of three rings, a big value, one line, the entities it depends on, and optionally an alert with its action. That is the whole contract between a source and the object.</p>
+      <p>A system is a title and a few channels. A channel reads the host's state and returns a reading, or nothing when there is nothing for it. A reading is one of three rings, a big value, one line, the things it depends on, and sometimes an alert with its actions. That is the whole contract between a host and the object.</p>
 <pre><code>{
   kind: 'p',                  // a band ('p'), switches ('s') or a choice ('c')
   v: 0.74,                    // the band's progress
-  dial: { min: 0, max: 100, step: 1, unit: '%', value: 74, set: (v) => command },
+  dial: { min: 0, max: 100, step: 1, unit: '%', label: 'charge', value: 74, id: 'battery', set: (v) =&gt; action },
   big: '74%', label: '310 km',
-  entities: ['battery'],
-  alert: { level: 1, big: '12%', why: 'Battery under 15%', verb: 'Find a charger', calls: [command] },
+  ids: ['battery'],
+  alert: { level: 1, big: '12%', label: 'battery', why: 'Not enough charge for tomorrow', verb: 'Schedule charging', acts: [action] },
 }</code></pre>
-      <p>Two to four channels that compete for attention, ordered front to back, are a good system. More than that is usually two systems.</p>
+      <p>Two to four channels that compete for attention, ordered front to back, make a good system. More than that is usually two systems.</p>
 
-      <h2>What a source is</h2>
-      <p>A source holds the states, tells the object when they change, and takes its commands. In the Home Assistant app it is one interface, <code>PulseSource</code>, implemented twice: over Home Assistant's WebSocket for the app, and over the <code>hass</code> object for the card. A third implementation is the demo homes, which behave without a server.</p>
+      <h2>What a host is</h2>
+      <p>A host hands the board its systems, tells it when a thing changes, runs the actions the board hands back, and names the things. In the core it is one interface, <code>PulseHost</code>. The Home Assistant app makes one out of a source with three implementations (the WebSocket, the card's <code>hass</code> object, the demo homes); the homelab app makes one out of its collector.</p>
       <table>
-        <tr><th>The source gives</th><th>So that</th></tr>
-        <tr><td>states, and a change event</td><td>the object repaints only what changed</td></tr>
-        <tr><td>a registry: areas, floors, devices</td><td>the board can group by room, and name where things are</td></tr>
-        <tr><td><code>call(command)</code></td><td>a control on the ring does something, and the object waits for the confirmation</td></tr>
-        <tr><td>the user's language</td><td>numbers and times read as the user expects</td></tr>
+        <tr><th>The host gives</th><th>So that</th></tr>
+        <tr><td>systems, and a change event</td><td>the object repaints only what changed</td></tr>
+        <tr><td><code>act(action)</code></td><td>a control on the ring does something, and the object waits for the confirmation</td></tr>
+        <tr><td>a name and a state for each thing</td><td>the log and the detail say what they are reading</td></tr>
+        <tr><td>groups, and a way to read the systems within one</td><td>the board can filter by room, and be one object per room</td></tr>
+        <tr><td>the viewer's language</td><td>numbers and times read as the viewer expects</td></tr>
         <tr><td>optionally: a history, a day of changes, a picture, a stream, statistics</td><td>a detail can show a day, a timeline, a camera, a month</td></tr>
       </table>
 
       <h2>Where it runs</h2>
-      <p>The core is a plain module that mounts on an element and draws with CSS and a little SVG. It works inside a shadow root, which is what a Home Assistant card is, and on a round screen, which is what a boat's helm or a wall panel may be. The demo app and the Home Assistant app are the two examples in the repository. The steps, from the imports to the theme: <a href="adapt.html">In your project</a>.</p>
+      <p>The core is a plain module that mounts on an element and draws with CSS and a little SVG. It works inside a shadow root, which is what a Home Assistant card is, and on a round screen, which is what a boat's helm or a wall panel may be. The repository has three examples: the Home Assistant app, the homelab app over a Mac or a Linux box, and the demo app over made-up data. The steps, from the imports to the theme: <a href="adapt.html">In your project</a>.</p>
 
       <h2>Open</h2>
       <p>Pulse is MIT. A Signal K source for boats, and Victron with it, is the next one on the list.</p>

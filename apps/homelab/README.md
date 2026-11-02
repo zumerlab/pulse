@@ -4,7 +4,7 @@ The radial object over a machine: the Mac (or the Linux box, or the Raspberry
 Pi) you are sitting at, read by a small collector that runs on it. Same grammar
 as the other apps: board → layered system → detail. Nothing is written by
 hand: readings, alerts and their actions come from what the collector finds,
-and a machine without a battery or without Docker simply has fewer rings. The
+and a machine without a battery or without Docker has fewer rings. The
 object itself is the core package `@zumer/pulse`; this app adds the collector,
 `model.ts` (what a machine's things mean) and the shell.
 
