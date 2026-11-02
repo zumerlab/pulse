@@ -944,6 +944,33 @@ test('the gear picks a theme: the original three and the blue-grey ones that tel
   expect(await page.locator('[data-theme="custom"]').evaluate((el) => getComputedStyle(el).getPropertyValue('--bg').trim())).toBe('#e4e9ef');
 });
 
+test('the ground can glow or be a photo, and the faces turn to glass over it', async ({ page }) => {
+  await page.goto(`${HA}?demo=home&mode=list`);
+  const canvas = page.locator('[data-ground]');
+  await expect(canvas).toHaveAttribute('data-ground', 'flat');
+  await gearTo(page, 'look');
+  await expect(page.locator('.settings-faces')).toBeHidden();
+  await page.locator('.settings input[name="ground"][value="glow"]').check();
+  await expect(canvas).toHaveAttribute('data-ground', 'glow');
+  await expect(canvas).toHaveAttribute('data-faces', 'glass');
+  expect(await canvas.evaluate((el) => getComputedStyle(el).getPropertyValue('--backdrop'))).toContain('radial-gradient');
+  // Glass: the center of the list blurs what is behind it.
+  expect(await page.locator('.list-center').evaluate((el) => getComputedStyle(el).backdropFilter)).toContain('blur');
+  await page.locator('.settings input[name="faces"][value="solid"]').check();
+  expect(await page.locator('.list-center').evaluate((el) => getComputedStyle(el).backdropFilter)).toBe('none');
+  // A photo from this browser: kept apart from the settings, behind every view, under a veil.
+  await page.locator('.settings input[name="ground"][value="photo"]').check();
+  await expect(canvas).toHaveAttribute('data-ground', 'flat');
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGP8z8DAwMDAxMDAwMDAAAANHQEDK+mmyAAAAABJRU5ErkJggg==', 'base64');
+  await page.locator('.settings input[name="photo-file"]').setInputFiles({ name: 'room.png', mimeType: 'image/png', buffer: png });
+  await expect(canvas).toHaveAttribute('data-ground', 'photo');
+  await expect(page.locator('.photo-state')).toHaveText('Kept in this browser');
+  expect(await canvas.evaluate((el) => getComputedStyle(el).getPropertyValue('--backdrop'))).toMatch(/url\("data:image\/jpeg/);
+  expect(await page.evaluate(() => localStorage.getItem('pulse-ha-settings'))).not.toContain('data:image');
+  await page.reload();
+  await expect(page.locator('[data-ground]')).toHaveAttribute('data-ground', 'photo');
+});
+
 test('tuning lives in the gear: a slider moves the board as it is dragged, a reset per group, kept in the browser', async ({ page }) => {
   await page.goto(`${HA}?demo=home&mode=orbit`);
   await gearTo(page, 'tune');

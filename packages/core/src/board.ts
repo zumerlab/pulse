@@ -57,7 +57,13 @@ export type BoardSettings = {
 export type Look = { dial?: 'full' | 'open'; day?: 'plain' | 'marks'; ends?: 'flat' | 'rounded'; theme?: ThemeName | 'custom';
   colors?: Partial<Theme>; time?: 'off' | 'changes' | 'clock' | 'both'; month?: 'calendar' | 'rolling';
   // The switch between grid, orbit, layers and list on the board itself (the gear always has it).
-  modes?: 'shown' | 'hidden' };
+  modes?: 'shown' | 'hidden';
+  // The ground behind everything: the theme's flat color, a glow (a spherical gradient of `glow` into the ground),
+  // or a photo (`photo`: an address, or 'upload' for the one chosen in this browser), dimmed toward the ground and blurred.
+  ground?: 'flat' | 'glow' | 'photo'; glow?: string; photo?: string; dim?: number; blur?: number;
+  // Over a glow or a photo, the faces of the systems: solid, or glass (see-through and blurred).
+  faces?: 'solid' | 'glass' };
+
 type LookFull = Required<Omit<Look, 'colors'>> & Pick<Look, 'colors'>;
 // The gear's tabs.
 export const SETTINGS_TABS = ['content', 'board', 'look', 'tune'] as const;
@@ -66,8 +72,10 @@ const COLOR_KEYS: (keyof Theme)[] = ['bg', 'ink', 'muted', 'dim', 'line', 'minor
 // A theme as a small disc: its ground, a ring at rest, its text and its two alerts.
 const swatch = (c: Theme) => `<span class="theme-disc" aria-hidden="true" style="--sw-bg:${c.bg};--sw-ink:${c.ink};--sw-dim:${c.dim};--sw-minor:${c.minor};--sw-critical:${c.critical}"><i></i><i></i><i></i></span>`;
 export const DIALS = ['full', 'open'] as const, DAYS = ['plain', 'marks'] as const, ENDS = ['flat', 'rounded'] as const;
+export const GROUNDS = ['flat', 'glow', 'photo'] as const, FACES = ['solid', 'glass'] as const;
 export const TIMES = ['off', 'changes', 'clock', 'both'] as const, MONTHS = ['calendar', 'rolling'] as const;
-const LOOK_DEFAULT: LookFull = { dial: 'full', day: 'plain', ends: 'flat', theme: DEFAULT_THEME, time: 'off', month: 'calendar', modes: 'hidden' };
+const LOOK_DEFAULT: LookFull = { dial: 'full', day: 'plain', ends: 'flat', theme: DEFAULT_THEME, time: 'off', month: 'calendar', modes: 'hidden',
+  ground: 'flat', glow: '#4f7cac', photo: '', dim: 0.45, blur: 0, faces: 'glass' };
 
 export type Strings = typeof T;
 
@@ -171,6 +179,8 @@ const groupSystems = () => {
   for (const g of list) { SYS[g.id] = g; if (!views[`sys-${g.id}`]) views[`sys-${g.id}`] = (ctx: ViewContext) => system(ctx, g.id); }
   return list.map((g) => g.id);
 };
+const defined = <T extends object>(o?: T) => Object.fromEntries(Object.entries(o ?? {}).filter(([, v]) => v !== undefined)) as Partial<T>;
+const look = (): LookFull => ({ ...LOOK_DEFAULT, ...defined(frame.look), ...defined(local.look) });
 const applySettings = () => {
   const chosen = valid(local.systems).filter((id) => frame.systems.includes(id));
   CHOSEN = chosen.length ? chosen : frame.systems;
@@ -184,7 +194,43 @@ const applySettings = () => {
   const theme = local.look?.theme ?? frame.look?.theme;
   if (theme === 'custom') applyColors(canvas, { ...frame.look?.colors, ...local.look?.colors });
   else applyTheme(canvas, theme && THEME_NAMES.includes(theme) ? theme : DEFAULT_THEME);
+  applyGround();
 };
+// The ground: on the mount as --backdrop (each view paints it, so it zooms with the view).
+const PHOTO_KEY = STORE ? `${STORE}-photo` : null;
+const uploadedPhoto = () => { try { return PHOTO_KEY ? localStorage.getItem(PHOTO_KEY) ?? '' : ''; } catch { return ''; } };
+const cssUrl = (u: string) => `url("${u.replace(/["\\\n]/g, (c) => encodeURIComponent(c))}")`;
+function applyGround() {
+  const lk = look(), st = canvas.style;
+  const src = lk.ground === 'photo' ? (lk.photo === 'upload' ? uploadedPhoto() : lk.photo) : '';
+  const ground = lk.ground === 'glow' || (lk.ground === 'photo' && src) ? lk.ground : 'flat';
+  canvas.dataset.ground = ground;
+  canvas.dataset.faces = ground === 'flat' ? 'flat' : lk.faces;
+  if (ground === 'flat') { for (const k of ['--backdrop', '--backdrop-blur']) st.removeProperty(k); return; }
+  const veil = (p: number) => `color-mix(in srgb, var(--bg) ${Math.round(p * 100)}%, transparent)`;
+  st.setProperty('--backdrop', ground === 'glow'
+    ? `radial-gradient(130% 130% at 32% 22%, color-mix(in srgb, ${lk.glow} 62%, var(--bg)) 0%, color-mix(in srgb, ${lk.glow} 26%, var(--bg)) 36%, var(--bg) 78%)`
+    : `linear-gradient(${veil(lk.dim)}, ${veil(lk.dim)}), ${cssUrl(src)} center / cover no-repeat, var(--bg)`);
+  st.setProperty('--backdrop-blur', `${ground === 'photo' ? lk.blur : 0}px`);
+}
+// A photo from this browser: at most 1920 px on its long side, as a JPEG, kept apart from the settings.
+async function keepPhoto(file: File): Promise<boolean> {
+  if (!PHOTO_KEY) return false;
+  const url = URL.createObjectURL(file);
+  try {
+    const img = new Image();
+    img.src = url;
+    await img.decode();
+    const k = Math.min(1, 1920 / Math.max(img.naturalWidth, img.naturalHeight));
+    const c = document.createElement('canvas');
+    c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+    c.getContext('2d')!.drawImage(img, 0, 0, c.width, c.height);
+    for (const q of [0.82, 0.7, 0.55]) {
+      try { localStorage.setItem(PHOTO_KEY, c.toDataURL('image/jpeg', q)); return true; } catch { /* too big: try smaller */ }
+    }
+    return false;
+  } catch { return false; } finally { URL.revokeObjectURL(url); }
+}
 const startId = () => { const id = local.start ?? frame.start; return id && IDS.includes(id) ? id : null; };
 // The groups the gear offers: the host's, within the frame; and the ones in force.
 const hostGroups = () => host.groups?.() ?? [];
@@ -207,8 +253,6 @@ const hiddenChannels = (id: string) => {
 const views: Record<string, (ctx: ViewContext) => void> = {};
 applySettings();
 // The look in force: the viewer's choice over the shell's.
-const defined = <T extends object>(o?: T) => Object.fromEntries(Object.entries(o ?? {}).filter(([, v]) => v !== undefined)) as Partial<T>;
-const look = (): LookFull => ({ ...LOOK_DEFAULT, ...defined(frame.look), ...defined(local.look) });
 // How many layers the Layers view stacks: the viewer's choice, the shell's, or every system.
 const layersShown = () => { const n = local.layers ?? frame.layers; return n && n >= 1 ? Math.min(n, IDS.length) : IDS.length; };
 // How many channels a system stacks as layers: the viewer's choice, the shell's, or three (two on a phone), never past STACK_MAX.
@@ -1012,6 +1056,13 @@ function board(ctx: ViewContext) {
     form.addEventListener('input', (e) => {
       const target = e.target as HTMLInputElement;
       if (target.name === 'tune') { setTune(target.dataset.key as keyof Tune, Number(target.value)); syncTune(form); }
+      else if (target.name === 'dim' || target.name === 'blur' || target.name === 'glow') {
+        // Live while dragged: the ground only; kept on release (the change event).
+        const v = target.name === 'glow' ? target.value : Number(target.value);
+        local = { ...local, look: { ...local.look, [target.name]: v } };
+        applyGround();
+        if (target.name !== 'glow') form.querySelector<HTMLOutputElement>(`[data-ground-out="${target.name}"]`)!.textContent = target.name === 'dim' ? `${Math.round(Number(v) * 100)}%` : `${v}px`;
+      }
       else if (target.name === 'color') {
         const k = target.dataset.key as keyof Theme;
         applyColors(canvas, { ...currentColors(), [k]: target.value });
@@ -1067,6 +1118,24 @@ function board(ctx: ViewContext) {
         next.theme = field === 'color' ? 'custom' : target.value as Look['theme'];
         if (next.theme === (frame.look?.theme ?? LOOK_DEFAULT.theme)) delete next.theme;
         setSettings({ look: Object.keys(next).length ? next : undefined });
+      } else if (field === 'ground' || field === 'faces' || field === 'glow' || field === 'dim' || field === 'blur' || field === 'photo-url') {
+        const v = field === 'dim' || field === 'blur' ? Number(target.value) : field === 'photo-url' ? target.value.trim() : target.value;
+        const next: Look = { ...local.look, [field === 'photo-url' ? 'photo' : field]: v };
+        if (field === 'photo-url' && v) next.ground = 'photo';
+        for (const k of ['ground', 'faces', 'glow', 'photo', 'dim', 'blur'] as const) if (next[k] === (frame.look?.[k] ?? LOOK_DEFAULT[k])) delete next[k];
+        setSettings({ look: Object.keys(next).length ? next : undefined });
+      } else if (field === 'photo-file') {
+        const file = (target as HTMLInputElement).files?.[0];
+        const state = form.querySelector<HTMLElement>('.photo-state')!;
+        if (!file) return;
+        state.dataset.busy = '1';
+        state.textContent = t.photoLoading;
+        void keepPhoto(file).then((ok) => {
+          delete state.dataset.busy;
+          (target as HTMLInputElement).value = '';
+          if (!ok) { state.textContent = t.photoTooBig; return; }
+          setSettings({ look: { ...local.look, ground: 'photo', photo: 'upload' } });
+        });
       } else if (field === 'modes') {
         const next: Look = { ...local.look, modes: (target as HTMLInputElement).checked ? 'shown' : 'hidden' };
         if (next.modes === (frame.look?.modes ?? LOOK_DEFAULT.modes)) delete next.modes;
@@ -1138,6 +1207,18 @@ function settingsPanel() {
       <fieldset class="settings-colors" hidden><legend>${t.colorsField}</legend>
         <div class="color-grid">${COLOR_KEYS.map((k) => `<label class="color-field"><input type="color" name="color" data-key="${k}"><span>${t.colorLabels[k]}</span><output data-color-out="${k}"></output></label>`).join('')}</div>
         <p class="hint">${t.colorsHint}</p></fieldset>
+      <h3 class="settings-section">${t.groundSection}</h3>
+      ${radios('ground', GROUNDS, t.groundLook, t.groundField)}
+      <label class="settings-field settings-glow"><span>${t.glowField}</span><input type="color" name="glow"></label>
+      <div class="settings-photo">
+        <div class="photo-row"><label class="plain photo-pick">${t.photoPick}<input type="file" name="photo-file" accept="image/*"></label>
+          <span class="photo-state" aria-live="polite"></span></div>
+        <label class="settings-field"><span>${t.photoUrl}</span><input type="text" name="photo-url" inputmode="url" placeholder="/local/living-room.jpg" autocomplete="off" spellcheck="false"></label>
+        <p class="hint">${t.photoHint}</p>
+        <label class="tune-field"><span>${t.dimField}</span><output data-ground-out="dim"></output><input type="range" name="dim" min="0" max="0.85" step="0.05"></label>
+        <label class="tune-field"><span>${t.blurField}</span><output data-ground-out="blur"></output><input type="range" name="blur" min="0" max="24" step="1"></label>
+      </div>
+      <div class="settings-faces">${radios('faces', FACES, t.facesLook, t.facesField)}</div>
       <h3 class="settings-section">${t.ringsSection}</h3>
       ${radios('dial', DIALS, t.dialLook, t.dialField)}
       ${radios('day', DAYS, t.dayLook, t.dayField)}
@@ -1212,6 +1293,22 @@ function syncSettings(form: HTMLFormElement) {
   for (const box of form.querySelectorAll<HTMLInputElement>('input[name="dial"], input[name="day"], input[name="ends"]')) box.checked = lk[box.name as keyof Look] === box.value;
   for (const box of form.querySelectorAll<HTMLInputElement>('input[name="theme"]')) box.checked = box.value === lk.theme;
   form.querySelector<HTMLInputElement>('input[name="modes"]')!.checked = lk.modes === 'shown';
+  // The ground: its fields only for the ground chosen.
+  for (const box of form.querySelectorAll<HTMLInputElement>('input[name="ground"], input[name="faces"]')) box.checked = lk[box.name as 'ground' | 'faces'] === box.value;
+  form.querySelector<HTMLElement>('.settings-glow')!.hidden = lk.ground !== 'glow';
+  form.querySelector<HTMLElement>('.settings-photo')!.hidden = lk.ground !== 'photo';
+  form.querySelector<HTMLElement>('.settings-faces')!.hidden = lk.ground === 'flat';
+  const glowIn = form.querySelector<HTMLInputElement>('input[name="glow"]')!;
+  if (activeElement() !== glowIn) glowIn.value = lk.glow;
+  const urlIn = form.querySelector<HTMLInputElement>('input[name="photo-url"]')!;
+  if (activeElement() !== urlIn) urlIn.value = lk.photo === 'upload' ? '' : lk.photo;
+  const photoState = form.querySelector<HTMLElement>('.photo-state')!;
+  if (!photoState.dataset.busy) photoState.textContent = lk.photo === 'upload' && uploadedPhoto() ? t.photoKept : '';
+  for (const k of ['dim', 'blur'] as const) {
+    const input = form.querySelector<HTMLInputElement>(`input[name="${k}"]`)!;
+    if (activeElement() !== input) input.value = String(lk[k]);
+    form.querySelector<HTMLOutputElement>(`[data-ground-out="${k}"]`)!.textContent = k === 'dim' ? `${Math.round(lk.dim * 100)}%` : `${lk.blur}px`;
+  }
   // Your colors: shown with the custom theme, each as it is in force.
   const colorsField = form.querySelector<HTMLElement>('.settings-colors')!;
   colorsField.hidden = lk.theme !== 'custom';
