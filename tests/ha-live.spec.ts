@@ -16,7 +16,11 @@ test.skip(!tokensFile, 'PULSE_HA_TOKENS not set: no live Home Assistant');
 
 test('the app connects to the live Home Assistant with saved tokens and builds the board from its entities', async ({ page }) => {
   const tokens = JSON.parse(readFileSync(tokensFile!, 'utf8'));
-  await page.addInitScript((t) => localStorage.setItem('pulse-ha-auth', JSON.stringify(t)), tokens);
+  await page.addInitScript((t) => {
+    localStorage.setItem('pulse-ha-auth', JSON.stringify(t));
+    // The demo integration starts with its sirens on: the calm systems would fold into one tile.
+    localStorage.setItem('pulse-ha-settings', '{"calm":"open"}');
+  }, tokens);
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
   await page.goto(HA);
