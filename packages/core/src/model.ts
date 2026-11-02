@@ -6,7 +6,7 @@
 // uses it to mark what was sent and not confirmed, to log changes and to ask
 // the host for names, states and a day of history.
 
-import type { Tone } from './radial.ts';
+import type { Tone } from './radial/index.ts';
 
 export type Level = 1 | 2;
 

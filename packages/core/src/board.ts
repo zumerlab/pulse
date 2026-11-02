@@ -8,7 +8,7 @@ import {
   SCROLL_VISIBLE, scrollControls, scrollList, setViewToggle, startInside, systemShell, timeRing, timeline, viewToggle, zumlyOptions,
   type ListItem, type RingReading, type ScrollState,
   orbitHub, queueRings, timeWindow, zoomOutGestures, type HubLook, type HubNews, type TimeMark,
-} from './radial.ts';
+} from './radial/index.ts';
 import { DEFAULT_THEME, THEMES, THEME_NAMES, applyColors, applyTheme, type Theme, type ThemeName } from './themes.ts';
 import { localeOf, num, setLocale, t as T, time } from './i18n.ts';
 

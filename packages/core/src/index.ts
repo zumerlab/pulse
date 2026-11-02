@@ -3,7 +3,7 @@
 // whoever mounts it: a host (model.ts) turns its own data into systems and
 // readings, and the board (board.ts) shows them. The demo simulates it, the
 // Home Assistant app reads a home, the homelab app reads a machine.
-export * from './radial.ts';
+export * from './radial/index.ts';
 export * from './i18n.ts';
 export * from './themes.ts';
 export * from './model.ts';
