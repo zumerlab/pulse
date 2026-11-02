@@ -74,7 +74,7 @@ that behaves, so everything can be tried without a Home Assistant.
 ## Layout
 
 ```text
-packages/core/          @zumer/pulse: the radial object (rings, layers, dial, Zumly setup, strings, theme), the board over a host (board.ts) and the host contract (model.ts)
+packages/core/          @zumer/pulse: the radial object (rings, layers, dial, Zumly setup, strings, theme), the board over a host (board/) and the host contract (model.ts)
 apps/demo/              the object with simulated data (a home, a car, a pet, a server); what the tests run against; elements.html, every element alone
 apps/home-assistant/    the object over a live Home Assistant (sign-in with HA's OAuth, WebSocket), over the homes of demo.home-assistant.io, and as a custom card + dashboard and section strategies (card/, with the README for Home Assistant users)
 apps/homelab/           the object over a machine: a small collector (Node, no dependencies) reads a Mac or a Linux box and the app shows it; a demo machine when there is none

@@ -75,7 +75,7 @@ export const t = {
   cancel: 'Cancel',
   codeLine: (channel: string, what: string) => `${channel}: the code for ${what}.`,
 
-  // The board (board.ts). A shell may replace any of these with its own words
+  // The board (board/). A shell may replace any of these with its own words
   // (what it calls its things, its groups, its errors): `strings` in BoardOptions.
   connecting: 'Connecting…',
   allCalm: 'All calm.',

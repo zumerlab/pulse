@@ -243,7 +243,7 @@ already keeps; the demo homes build theirs from their own data.
 
 ## What each screen shows: the gear
 
-The gear at the top right of the board is the core's (`board.ts`): a panel in
+The gear at the top right of the board is the core's (`board/gear.ts`): a panel in
 four tabs, Content, Board, Look and Tuning, kept in that browser only
 (`localStorage['pulse-ha-settings']`). What it offers from the viewer's side
 is in the card's README; what this app adds is the translation of Home
