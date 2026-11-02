@@ -486,6 +486,60 @@ test('a control of one entity resolved on the face has no detail; a channel with
   await expect(current(page).locator('.detail h1')).toContainText('Sensors');
 });
 
+test('an alarm that asks for a code opens the keypad over the object: a wrong code is refused, the right one arms, Escape cancels', async ({ page }) => {
+  // Kernehed's panel has a code_format (anything): a text code, with the digits on the keys too.
+  await page.goto(`${HA}?demo=kernehed`);
+  await page.locator('.tile[data-system="security"]').click();
+  await bring(page, 'alarm');
+  const view = current(page), layer = view.locator('.layer-front[data-ch="alarm"]'), pad = view.locator('.keypad');
+  await layer.locator('o-arc[data-seg][aria-label="Away"]').dispatchEvent('click');
+  // A phone's keypad over the object (dimmed behind); the strip says what the code is for.
+  await expect(pad).toBeVisible();
+  await expect(pad.locator('button[data-key]')).toHaveText(['1', '2', '3', '4', '5', '6', '7', '8', '9', '0']);
+  await expect(pad.locator('.keypad-title')).toContainText('Alarm · Away');
+  await expect(view.locator('.obj')).toHaveClass(/is-waiting/);
+  await expect(view.locator('.strip')).toContainText('Alarm: the code for Away.');
+  const input = pad.locator('.code-input'), send = pad.locator('[data-code="enter"]');
+  await expect(send).toBeDisabled();
+  await expect(send).toHaveText('Away');
+  for (const d of ['1', '1']) await pad.locator(`[data-key="${d}"]`).click();
+  await expect(input).toHaveValue('11');
+  await send.click();
+  // Refused: the keypad says so, the code is gone, the keypad stays.
+  await expect(pad).toHaveClass(/is-wrong/);
+  await expect(pad.locator('.keypad-hint')).toContainText('not accepted');
+  await expect(view.locator('.strip')).toContainText('Invalid alarm code');
+  await expect(input).toHaveValue('');
+  for (const d of ['1', '2', '3', '3']) await pad.locator(`[data-key="${d}"]`).click();
+  await expect(pad).not.toHaveClass(/is-wrong/);
+  await pad.locator('[data-code="delete"]').click();
+  await expect(input).toHaveValue('123');
+  await pad.locator('[data-key="4"]').click();
+  await send.click();
+  // Accepted: the keypad goes, the object arms (an alert of the armed home may then take the front).
+  await expect(pad).toHaveCount(0);
+  await expect(view.locator('.obj')).not.toHaveClass(/is-waiting/);
+  await expect(view.locator('.layer-item[data-pick="alarm"]')).toContainText('Away', { timeout: 5000 });
+  // Disarming asks too; the keyboard types the code and Escape closes the keypad without sending.
+  await bring(page, 'alarm');
+  await layer.locator('o-arc[data-seg][aria-label="Disarmed"]').dispatchEvent('click');
+  await expect(pad).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(pad).toHaveCount(0);
+  await expect(layer.locator('.disc')).toContainText('Away');
+});
+
+test('an alarm that arms without a code still does it in one tap', async ({ page }) => {
+  // The main demo home's panel: no code_format, code_arm_required false.
+  await page.goto(`${HA}?demo=home`);
+  await page.locator('.tile[data-system="security"]').click();
+  await bring(page, 'alarm');
+  const layer = current(page).locator('.layer-front[data-ch="alarm"]');
+  await layer.locator('o-arc[data-seg][aria-label="Home"]').dispatchEvent('click');
+  await expect(current(page).locator('.keypad')).toHaveCount(0);
+  await expect(layer.locator('.disc')).toContainText(/Arming|Home/);
+});
+
 test('the board groups by room too: each area one object, what has no area in its own room, and the gear switches the axis', async ({ page }) => {
   await page.goto(`${HA}?demo=home&axis=rooms`);
   const tiles = page.locator('.tile[data-system]');

@@ -1,5 +1,5 @@
 import { emptyRegistry, type Call, type HassState, type Registry, type States } from './source.ts';
-import { listOf, num, type Alert, type Reading, type Seg, type TrackSpec } from '@zumer/pulse';
+import { listOf, num, type Alert, type CodeFormat, type Reading, type Seg, type TrackSpec } from '@zumer/pulse';
 
 // Every channel is read from Home Assistant's live state: there are no
 // hand-written "ok" and "alert" states. An alert comes out of a rule over the
@@ -32,8 +32,13 @@ let current = { key: '', picks: {} as Record<string, string>, claimed: false, ch
 // are lookups.
 const claim = () => { if (current.claimed) return false; current.claimed = true; return true; };
 
-// Alarm code of the Home Assistant demo integration (manual, "1234").
-const ALARM_CODE = '1234';
+// Whether an entity asks for a code (`code_format`: 'number' or 'text'; the
+// older frontends' regex, digits or anything) and so its actions wait on the keypad.
+const codeFormat = (e: HassState): CodeFormat | undefined => {
+  const f = e.attributes.code_format;
+  if (!f) return undefined;
+  return f === 'number' || /^\^?(\\d|\[0-9\])/.test(String(f)) ? 'number' : 'text';
+};
 
 // The channels name the entities of Home Assistant's demo integration (the
 // local test installation) and fall back to the first entity of the kind, so
@@ -160,8 +165,8 @@ export function meterOf(s: States) {
 const ownName = (s: States, id: string) => id in short || /^(climate\.(heatpump|hvac|ecobee)|water_heater\.demo_water_heater)$/.test(id) ? undefined : nameOf(s, id);
 const isClass = (cls: string) => (e: HassState) => e.attributes.device_class === cls;
 const list = (names: string[]) => listOf(names.map((n) => n.toLowerCase()));
-const call = (domain: string, service: string, entity_id: string | string[], data = {}): Call =>
-  ({ ids: ([] as string[]).concat(entity_id), domain, service, data: { entity_id, ...data } });
+const call = (domain: string, service: string, entity_id: string | string[], data = {}, asks?: CodeFormat): Call =>
+  ({ ids: ([] as string[]).concat(entity_id), domain, service, data: { entity_id, ...data }, ...(asks ? { asks } : {}) });
 const busy = (state: string) => /ing$/.test(state) && state !== 'playing';
 const cap = (t: string) => t.replace(/^./, (c) => c.toUpperCase());
 const strs = (e: HassState, k: string) => ((e.attributes[k] as unknown[] | undefined) ?? []).map(String);
@@ -394,15 +399,17 @@ const SYSTEMS: PulseSystem[] = [
       const modes: [string, string, string][] = [
         ['disarmed', 'Disarmed', 'alarm_disarm'], ['armed_home', 'Home', 'alarm_arm_home'], ['armed_away', 'Away', 'alarm_arm_away']];
       const next = String(e.attributes.next_state ?? '');
+      // The code: always to disarm when the panel has one, to arm unless it says it is not required.
+      const format = codeFormat(e), armAsks = e.attributes.code_arm_required === false ? undefined : format;
       const segs = modes.map(([st, label, service]) => ({ label, id,
         on: e.state === st || (e.state === 'arming' && next === st),
-        act: e.state === st ? undefined : call('alarm_control_panel', service, id, { code: ALARM_CODE }) }));
+        act: e.state === st ? undefined : call('alarm_control_panel', service, id, {}, st === 'disarmed' ? format : armAsks) }));
       const fired = e.state === 'triggered' || e.state === 'pending';
       return { kind: 'c', segs, ids: [id], big: alarmState[e.state] ?? e.state,
         label: e.state === 'arming' ? `switching to ${alarmState[next]?.toLowerCase() ?? 'armed'}` : nameOf(s, id).toLowerCase(),
         alert: fired ? { level: 2, big: alarmState[e.state], label: 'alarm', fail: [0, 1, 2],
           why: e.state === 'triggered' ? 'The alarm went off' : 'The alarm is about to sound', verb: 'Disarm',
-          acts: [call('alarm_control_panel', 'alarm_disarm', id, { code: ALARM_CODE })] } : undefined };
+          acts: [call('alarm_control_panel', 'alarm_disarm', id, {}, format)] } : undefined };
     } },
     { key: 'cameras', name: 'Cameras', glyph: g.eye, read: (s) => {
       // One camera in the face (the gear picks another); the ring counts them all.

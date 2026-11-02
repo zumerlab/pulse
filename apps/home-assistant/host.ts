@@ -43,7 +43,8 @@ export function hostOf(src: PulseSource): PulseHost {
     onChange: (fn: (changed: Changed[]) => void) => src.onChange((states) => fn(states.map((s) => ({ id: s.entity_id, logged: s.last_changed === s.last_updated })))),
     onStatus: (fn) => src.onStatus(fn),
     onStructure: (fn) => src.onRegistry(fn),
-    act: (a: Action) => src.call(a as Call),
+    // The code entered on the keypad goes in the service data.
+    act: (a: Action) => { const c = a as Call; return src.call(c.code ? { ...c, data: { ...c.data, code: c.code } } : c); },
     nameOf: (id) => nameOf(src.states, id),
     whereIs: (id) => placeOf(id),
     // Home Assistant's own words when the source has them (the user's language).

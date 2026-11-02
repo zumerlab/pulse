@@ -64,6 +64,17 @@ export const t = {
 
   between: (lo: string, hi: string, unit: string) => `between ${lo}${unit} and ${hi}${unit}`,
 
+  // The keypad: a code before an action goes (an alarm, a lock)
+  keypadAria: (what: string) => `Keypad: the code for ${what}`,
+  codeAria: (what: string) => `Code for ${what}`,
+  codeEmpty: '····',
+  enterCode: 'enter the code',
+  codeWrong: 'not accepted, try again',
+  nDigits: (n: number) => n ? count(n, 'digit') : 'no digits yet',
+  deleteDigit: 'Delete the last digit',
+  cancel: 'Cancel',
+  codeLine: (channel: string, what: string) => `${channel}: the code for ${what}.`,
+
   // The board (board.ts). A shell may replace any of these with its own words
   // (what it calls its things, its groups, its errors): `strings` in BoardOptions.
   connecting: 'Connecting…',

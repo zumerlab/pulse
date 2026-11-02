@@ -343,9 +343,16 @@ const ARM: Record<string, string> = {
   alarm_arm_vacation: 'armed_vacation', alarm_arm_custom_bypass: 'armed_custom_bypass',
 };
 
+// The demo's code, when a panel has a `code_format`: the same as the manual
+// alarm of Home Assistant's own demo integration.
+export const DEMO_CODE = '1234';
+
 class MockAlarmEntity extends MockEntity {
-  async handleService(domain: string, service: string) {
+  async handleService(domain: string, service: string, data: Attributes) {
     if (domain !== this.domain) return;
+    // A panel with a code refuses the wrong one the way Home Assistant does: the service fails.
+    const asks = !!this.attributes.code_format && (service === 'alarm_disarm' || (service in ARM && this.attributes.code_arm_required !== false));
+    if (asks && data.code !== DEMO_CODE) throw new Error('Invalid alarm code provided');
     this.clearTransition();
     if (service in ARM) this.transition('arming', ARM[service], 1000);
     else if (service === 'alarm_disarm') this.update({ state: 'disarmed' });

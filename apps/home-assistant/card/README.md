@@ -205,8 +205,8 @@ Four ways to look at it, switchable at the top:
 **A system.** Tap a ring to zoom in. The system's channels are layers of one
 object: the one in front has its controls on the ring (segments toggle, the
 dial sets a value by dragging, a choice such as the thermostat's mode or the
-alarm's state is picked by tapping its name, a comfort range has a knob at
-each end), the ones behind are read as arcs with their label. A camera, or
+alarm's state is picked by tapping its name, a panel that asks for a code opens
+a phone keypad over the object first, a comfort range has a knob at each end), the ones behind are read as arcs with their label. A camera, or
 the artwork of what is playing, fills the center; the detail shows it round
 or square, live for a camera, and draws the last 24 hours of a sensor as a
 ring and a color wheel for a color light. Alerts come with their action (*Retry*, *Disarm*, *Close
@@ -239,7 +239,7 @@ builds a different object. A channel that follows one entity takes its name.
 |---|---|
 | **Lights** | all `light` entities (segments toggle them) · the first dimmable light (brightness dial, in the light's color; a hue and saturation wheel in the detail when it supports color) · all `switch` entities as plugs |
 | **Climate** | the first `climate` entity (temperature dial) · its mode (`hvac_modes`, a choice on the ring) · its preset (`preset_modes`: eco, away, comfort…, a choice) · a second thermostat · a `fan` (speed dial) · a thermostat with a comfort range (`target_temp_low/high`: a band with a knob at each end) · a humidity sensor (`device_class: humidity`; its last 24 hours in the detail); past 70% its alert offers the dehumidifier |
-| **Security** | the `alarm_control_panel` (a choice: disarmed, home, away) · `camera` entities (the picture in the center; the gear picks which; live in the detail) · `siren` entities · `lock` entities · the `binary_sensor`s of Home Assistant's Security view: doors, windows, garage doors and openings; smoke, gas, carbon monoxide, moisture, glass break, safety and tamper; motion and occupancy (the ones detecting something first, eight at most) |
+| **Security** | the `alarm_control_panel` (a choice: disarmed, home, away; with a `code_format`, a keypad asks for the code) · `camera` entities (the picture in the center; the gear picks which; live in the detail) · `siren` entities · `lock` entities · the `binary_sensor`s of Home Assistant's Security view: doors, windows, garage doors and openings; smoke, gas, carbon monoxide, moisture, glass break, safety and tamper; motion and occupancy (the ones detecting something first, eight at most) |
 | **Openings** | the first two `cover`s with a position (dials) · the garage door (`device_class: garage`) · `valve` entities |
 | **Media** | `media_player` entities (play and pause; the artwork of what plays in the center) · a player's `source_list` (a choice) · the volume of the first one (dial) |
 | **Energy** | a power sensor in W · a carbon monoxide sensor (both with their last 24 hours in the detail) · the `water_heater` (dial) |

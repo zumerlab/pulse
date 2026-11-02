@@ -173,7 +173,7 @@ another installation, or one of the demo homes, builds its own object.
 |---|---|---|
 | Lights | all lights · brightness of the first dimmable one (the dial takes the light's color; a color wheel in the detail) · plugs | segments = `light.toggle`; dial = `brightness_pct`; wheel = `hs_color` |
 | Climate | thermostat · its mode (a choice) · air conditioning · fan speed · one with a range (Ecobee: a band with two ends) · humidity (a day ring in the detail) | dial = `climate.set_temperature`; choice = `set_hvac_mode`; dial = `fan.set_percentage`; range = `target_temp_low/high` |
-| Security | alarm (a choice) · cameras (the picture in the face) · sirens · locks · sensors (doors and windows, safety, motion) | alarm modes (the demo's code), sirens, locks |
+| Security | alarm (a choice; a keypad when the panel asks for a code) · cameras (the picture in the face) · sirens · locks · sensors (doors and windows, safety, motion) | alarm modes (with `code` when asked), sirens, locks |
 | Openings | two covers with position · garage door · irrigation valves | dial = `set_cover_position`; valves |
 | Media | players (the artwork in the face) · a player's source (a choice) · volume of the first one | play/pause; choice = `select_source`; dial = `volume_set` |
 | Energy | power (W) · carbon monoxide · hot water (the first two with a day ring) | dial = `water_heater.set_temperature` |
@@ -371,7 +371,10 @@ The cross rules are the interesting part: arming the alarm from the ring makes
 ## Demo notes
 
 - The unit is the installation's (the demo comes in °F).
-- The demo's alarm code is `1234` (it is in `model.ts`).
+- An alarm panel with a `code_format` asks for its code on a keypad over the
+  object before it arms or disarms (to arm only unless `code_arm_required` is
+  false); a wrong code is refused the way Home Assistant refuses it. The demo's
+  code is `1234`: Kernehed's panel asks for it, the main home's arms without one.
 - "Poorly Installed Door" jams on purpose when locked: it stays as a critical alert.
 - The demo's sirens start on: it is the first alert that appears.
 - The humidity and power channels look first for two simulated sensors of the

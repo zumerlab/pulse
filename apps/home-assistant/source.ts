@@ -8,13 +8,14 @@ import {
   ERR_INVALID_HTTPS_TO_HTTP, callService, createConnection, createLongLivedTokenAuth, getAuth,
   subscribeConfig, subscribeEntities, type AuthData, type Connection, type HassEntity,
 } from 'home-assistant-js-websocket';
-import { changesOf, hourly, type HistoryRow, type StateChange } from '@zumer/pulse';
+import { changesOf, hourly, type HistoryRow, type StateChange, type CodeFormat } from '@zumer/pulse';
 import { t } from './strings.ts';
 
 export type HassState = HassEntity;
 export type States = Map<string, HassState>;
 // A service call: the core's Action (`ids`: the entities it touches) plus what Home Assistant needs.
-export type Call = { ids: string[]; domain: string; service: string; data: Record<string, unknown> };
+// `asks`/`code`: the core's (an action that waits for a code on the keypad, and the code once entered).
+export type Call = { ids: string[]; domain: string; service: string; data: Record<string, unknown>; asks?: CodeFormat; code?: string };
 // signed-out: no credentials; the login is shown. The rest follow the socket.
 export type Status = 'signed-out' | 'connecting' | 'live' | 'offline' | 'error';
 
@@ -164,7 +165,11 @@ function reason(error: unknown) {
     case ERR_HASS_HOST_REQUIRED: return t.errHostRequired;
     case ERR_INVALID_HTTPS_TO_HTTP: return t.errHttpsToHttp;
     case ERR_INVALID_AUTH_CALLBACK: return t.errAuthCallback;
-    default: return error instanceof Error ? error.message : String(error);
+    default:
+      if (error instanceof Error) return error.message;
+      // A refused service call comes back as the socket's own result ({ code, message }).
+      if (error && typeof error === 'object' && 'message' in error) return String((error as { message: unknown }).message);
+      return String(error);
   }
 }
 
@@ -300,7 +305,8 @@ export class WebSocketSource implements PulseSource {
   call({ domain, service, data }: Call) {
     if (!this.conn) return Promise.reject(new Error(t.errNoConnection));
     const { entity_id, ...rest } = data;
-    return callService(this.conn, domain, service, rest, entity_id ? { entity_id: entity_id as string | string[] } : undefined);
+    return callService(this.conn, domain, service, rest, entity_id ? { entity_id: entity_id as string | string[] } : undefined)
+      .catch((error: unknown) => { throw new Error(reason(error)); });
   }
 
   stream(entity: string) {

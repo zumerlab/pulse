@@ -12,8 +12,11 @@ export type Level = 1 | 2;
 
 // Something the host can do. The board only looks at `ids`: the things the
 // action touches, which beat ("sending") until the host reports them changed.
+// An action that `asks` for a code (an alarm, a lock) does not go until the
+// viewer enters one on the keypad: the board sends it again with `code`.
 // The rest is the host's own (a service call, an HTTP request).
-export type Action = { ids: string[] } & Record<string, unknown>;
+export type CodeFormat = 'number' | 'text';
+export type Action = { ids: string[]; asks?: CodeFormat; code?: string } & Record<string, unknown>;
 
 export type Seg = { label: string; on: boolean; id: string; act?: Action };
 export type Dial = {

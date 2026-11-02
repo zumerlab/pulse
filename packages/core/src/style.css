@@ -135,6 +135,45 @@ o-arc.is-failed { --o-stroke: var(--critical); --o-stroke-width: 2; }
 .choice-label.is-on { --o-color: var(--ink); }
 .layer:not(.layer-front) .choice-labels { display: none; }
 
+/* The keypad: a phone's, centered over the object, which waits dimmed behind. */
+.obj.is-waiting { opacity: .16; pointer-events: none; transition: opacity .2s; }
+.keypad-slot { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; z-index: 3; }
+.keypad-slot:empty { display: none; }
+.keypad { pointer-events: auto; display: grid; justify-items: center; gap: 4px; --key: 54px; }
+.compact .keypad { --key: 48px; }
+.keypad-title { margin: 0; display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+.keypad-title .glyph { width: 16px; height: 16px; }
+.code-dots { font-size: 26px; font-weight: 600; letter-spacing: 6px; line-height: 1.2; min-height: 1.2em; }
+.code-dots.is-empty { color: var(--muted); font-weight: 400; }
+.code-input {
+  width: 9ch; font: inherit; font-size: 22px; font-weight: 600; letter-spacing: 4px; text-align: center; line-height: 1.4;
+  color: var(--ink); background: transparent; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; padding: 0 0 2px; outline: none;
+}
+.code-input:focus-visible { border-bottom-color: var(--ink); }
+.keypad-hint { margin: 0 0 6px; font-size: 12px; color: var(--muted); }
+.keypad.is-wrong :is(.code-dots, .code-input, .keypad-hint) { color: var(--critical); }
+.keypad.is-wrong .code-input { border-bottom-color: var(--critical); }
+.keypad.is-wrong .code-dots, .keypad.is-wrong .code-input { animation: shake .4s ease-out; }
+@keyframes shake { 0%, 100% { translate: 0; } 25% { translate: -6px; } 75% { translate: 6px; } }
+.keys { display: grid; grid-template-columns: repeat(3, var(--key)); gap: 10px; }
+.key {
+  width: var(--key); height: var(--key); border-radius: 50%; border: 0; padding: 0; cursor: pointer; font: inherit; font-size: 22px; font-weight: 500;
+  color: var(--ink); background: color-mix(in srgb, var(--ink) 9%, transparent);
+}
+.key:hover { background: color-mix(in srgb, var(--ink) 16%, transparent); }
+.key:active { background: color-mix(in srgb, var(--ink) 26%, transparent); }
+.key-plain { font-size: 18px; color: var(--muted); background: transparent; }
+.key-send { font-size: 13px; font-weight: 650; background: var(--ink); color: var(--bg); }
+.key-send.level-1 { background: var(--minor); }
+.key-send.level-2 { background: var(--critical); }
+.key:disabled { opacity: .35; cursor: default; }
+.key:disabled:hover { background: color-mix(in srgb, var(--ink) 9%, transparent); }
+.key-plain:disabled:hover { background: transparent; }
+.key-send:disabled { opacity: .4; }
+.key-send:disabled:hover, .key-send:hover { background: var(--ink); }
+.key-send.level-1:hover { background: var(--minor); }
+.key-send.level-2:hover { background: var(--critical); }
+
 /* Wave: comes out of the disc of the front alert. */
 .layer-front.is-alert .disc::after {
   content: ""; position: absolute; inset: -14px; border-radius: 50%;
@@ -583,7 +622,7 @@ o-arc.is-failed { --o-stroke: var(--critical); --o-stroke-width: 2; }
   .tile-big { font-size: 10px; max-width: 64px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .is-pending, .conn-live .conn-dot, .face-wait { animation: none; }
+  .is-pending, .conn-live .conn-dot, .face-wait, .keypad.is-wrong :is(.code-dots, .code-input) { animation: none; }
 }
 
 /* ─── Board: view selector ─────────────────────────────── */

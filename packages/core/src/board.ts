@@ -1,10 +1,10 @@
 import Zumly, { type ViewContext } from 'zumly';
-import type { Action, Alert, Changed, Channel, Dial, PulseHost, Reading, StateChange, Status, System } from './model.ts';
+import type { Action, Alert, Changed, Channel, CodeFormat, Dial, PulseHost, Reading, StateChange, Status, System } from './model.ts';
 import { spansOf } from './history.ts';
 import { CONTROLS, DEFAULTS, GROUPS, fmt, resetTune, setTune, tune, tuneText, tuned, type Tune, type TuneGroup } from './tune.ts';
 import {
   DOT_LANES, LANE, LOCK_MS, MAX_TRACKS, MINI_LANES, PHONE, STACK_MAX, backLayer, calmStrip, colorArcs, dialControls, dots, esc, face,
-  fitFor, hsCss, icon, labelAt, layerIndex, monthRing, musicVisual, parallax, ring as drawRing, ringCenter, satColor, sizes, strokeAt,
+  fitFor, hsCss, icon, keypad, labelAt, layerIndex, monthRing, musicVisual, parallax, ring as drawRing, ringCenter, satColor, sizes, strokeAt,
   SCROLL_VISIBLE, scrollControls, scrollList, setViewToggle, startInside, systemShell, timeRing, timeline, viewToggle, zumlyOptions,
   type ListItem, type RingReading, type ScrollState,
   orbitHub, queueRings, timeWindow, zoomOutGestures, type HubLook, type HubNews, type TimeMark,
@@ -230,14 +230,17 @@ const setSettings = (patch: BoardSettings) => {
   repaint();
 };
 
+// A code being entered for actions that ask for one: the front layer is the keypad meanwhile.
+type Code = { key: string; acts: Action[]; title: string; verb: string; format: CodeFormat; value: string; wrong: boolean; level?: 1 | 2 };
 type Ui = {
   pick: string | null;                 // channel chosen by hand
+  code: Code | null;                   // the keypad open on a channel
   since: Map<string, number>;          // when each alert appeared (rule 1: stable)
   sig: Map<string, string>;            // what each alert says: if it changes, it is no longer seen
   seen: Set<string>;                   // alerts marked as seen (no wave, they go behind)
 };
 const ui: Record<string, Ui> = {};
-const uiOf = (id: string): Ui => { let u = ui[id]; if (!u) { u = { pick: null, since: new Map(), sig: new Map(), seen: new Set() }; ui[id] = u; } return u; };
+const uiOf = (id: string): Ui => { let u = ui[id]; if (!u) { u = { pick: null, code: null, since: new Map(), sig: new Map(), seen: new Set() }; ui[id] = u; } return u; };
 let readings: Record<string, Map<string, { ch: Channel; r: Reading }>> = {};
 // Every channel with something to show, hidden ones included: what the gear lists.
 let channels: Record<string, { ch: Channel; r: Reading; hidden: boolean }[]> = {};
@@ -365,12 +368,14 @@ const retry = (ids: string) => {
 // ─── Actions to the host ────────────────────────────────────────────
 
 async function send(acts: Action[]) {
+  let ok = true;
   for (const a of acts) {
     a.ids.forEach((e) => pending.set(e, Date.now()));
     try {
       await host.act(a);
       a.ids.forEach((e) => failed.delete(e));
     } catch (error) {
+      ok = false;
       const message = error instanceof Error ? error.message : String(error);
       a.ids.forEach((e) => { pending.delete(e); hold.delete(e); failed.set(e, { acts: [a], message }); });
       toast = t.hostError(message);
@@ -384,6 +389,28 @@ async function send(acts: Action[]) {
     for (const [e, at] of pending) if (Date.now() - at >= PENDING_MS) { pending.delete(e); changed = true; }
     if (changed) repaint();
   }, PENDING_MS + 50);
+  return ok;
+}
+
+// Actions that ask for a code wait on the keypad; the rest go now. On the
+// keypad, the code is added to the ones that asked and all of them go
+// together; a refusal keeps the keypad open, wrong, and empty.
+function askCode(id: string, key: string, acts: Action[], title: string, verb: string, level?: 1 | 2) {
+  const asks = acts.find((a) => a.asks);
+  if (!asks) { void send(acts); return; }
+  const u = uiOf(id);
+  u.code = { key, acts, title, verb, format: asks.asks!, value: '', wrong: false, level };
+  u.pick = key;
+  repaint();
+}
+async function sendCode(id: string) {
+  const u = uiOf(id), c = u.code;
+  if (!c || !c.value) return;
+  const ok = await send(c.acts.map((a) => a.asks ? { ...a, code: c.value } : a));
+  if (u.code !== c) return;
+  if (ok) u.code = null;
+  else { c.value = ''; c.wrong = true; }
+  repaint();
 }
 
 function repaint() {
@@ -1371,10 +1398,12 @@ function system(ctx: ViewContext, id: string) {
   const paint = () => {
     if (dragging) return;              // repainting would cut the dial drag
     const ord = order(id), u = uiOf(id), map = readings[id] ?? new Map<string, { ch: Channel; r: Reading }>();
+    // The keypad only lives on the front layer: if its channel went behind (an alert came first), it closes.
+    if (u.code && ord[0] !== u.code.key) u.code = null;
     // Repaint only if something of this system changed.
     const SZ = sizes(stackShown());
     const now = JSON.stringify([ord, ord.map((k) => [map.get(k)!.r, isPending(map.get(k)!.r)]), [...u.seen], [...failed.keys()], flat, toast, SZ.length,
-      PHONE ? IDS.map((o) => [order(o)[0], worst(o)]) : 0]);
+      PHONE ? IDS.map((o) => [order(o)[0], worst(o)]) : 0, u.code && [u.code.key, u.code.value.length, u.code.wrong, u.code.format]]);
     if (now === last) return;
     last = now;
     // Focus returns to the same control after repainting.
@@ -1417,6 +1446,12 @@ function system(ctx: ViewContext, id: string) {
     });
 
     startVisuals(el, visuals);
+    // The keypad over the object while a code is being entered; the object waits behind.
+    const front = map.get(ord[0]);
+    setHTML(stage.querySelector<HTMLElement>('.keypad-slot')!, u.code && front
+      ? keypad({ name: front.ch.name, title: u.code.title, verb: u.code.verb, format: u.code.format, value: u.code.value, wrong: u.code.wrong, glyph: front.ch.glyph, level: u.code.level })
+      : '');
+    obj.classList.toggle('is-waiting', !!u.code);
     // Beside the object, the channels front to back, each a button; past the stack, hollow.
     setHTML(stage.querySelector<HTMLElement>('.layer-index-slot')!, layerIndex(ord.map((key, i) => {
       const { ch, r } = map.get(key)!, shown = r.alert && !u.seen.has(key) ? r.alert : r;
@@ -1433,8 +1468,9 @@ function system(ctx: ViewContext, id: string) {
         return { id: other, title: SYS[other].title, level: worst(other), ring: ring(k, readings[other].get(k)!.r, DOT_LANES) };
       }), id);
     }
-    strip.innerHTML = failuresOf(frontItem.r).length ? retryCard(frontItem.r)
-      : toast ? `<span class="error">${esc(toast)}</span>`
+    strip.innerHTML = toast ? `<span class="error">${esc(toast)}</span>`
+      : u.code ? `<span>${esc(t.codeLine(frontItem.ch.name, u.code.title))}</span> <button class="plain" data-code="cancel">${t.cancel}</button>`
+      : failuresOf(frontItem.r).length ? retryCard(frontItem.r)
       : fa ? `<strong>${frontItem.ch.name}:</strong> ${esc(fa.why)}.
           ${fa.busy ? `<span class="face-wait">${t.inProgress}</span>` : `<button class="primary level-${fa.level}" data-resolve="${ord[0]}">${esc(fa.verb)}</button>
           ${fa.acts.length ? `<button class="plain" data-seen="${ord[0]}">${t.mute}</button>` : ''}`}
@@ -1446,11 +1482,11 @@ function system(ctx: ViewContext, id: string) {
 
   const focusKey = (target: HTMLElement) => {
     const layer = target.closest<HTMLElement>('.layer')?.dataset.ch;
-    for (const a of ['data-seg', 'data-dial', 'data-pick', 'data-resolve', 'data-act']) {
+    for (const a of ['data-seg', 'data-dial', 'data-pick', 'data-resolve', 'data-act', 'data-key', 'data-code']) {
       const v = target.getAttribute(a);
       if (v === null) continue;
       const handle = target.getAttribute('data-handle');
-      return `${a === 'data-seg' && layer ? `.layer[data-ch="${layer}"] ` : ''}[${a}="${v}"]${handle ? `[data-handle="${handle}"]` : ''}`;
+      return `${(a === 'data-seg' || a === 'data-key') && layer ? `.layer[data-ch="${layer}"] ` : ''}[${a}="${v}"]${handle ? `[data-handle="${handle}"]` : ''}`;
     }
     return null;
   };
@@ -1499,24 +1535,67 @@ function system(ctx: ViewContext, id: string) {
     const again = target.closest<HTMLElement>('[data-retry]')?.dataset.retry;
     if (again) { retry(again); return; }
     if (go) { goSystem(go); return; }
+    // The keypad: a digit from the ring, delete, cancel or send.
+    const digit = target.closest<HTMLElement>('[data-key]')?.dataset.key;
+    const code = target.closest<HTMLElement>('[data-code]')?.dataset.code;
+    if (digit !== undefined) { typeCode(digit); return; }
+    if (code === 'delete') { typeCode(null); return; }
+    if (code === 'cancel') { uiOf(id).code = null; repaint(); return; }
+    if (code === 'enter') { void sendCode(id); return; }
     const seg = target.closest<HTMLElement>('[data-seg]');
     if (seg && !locked) {
       const key = seg.closest<HTMLElement>('.layer')!.dataset.ch!;
-      const s = readings[id].get(key)!.r.segs![Number(seg.dataset.seg)];
-      if (s.act && !pending.has(s.id)) void send([s.act]);
+      const { r } = readings[id].get(key)!, s = r.segs![Number(seg.dataset.seg)];
+      if (s.act && !pending.has(s.id)) askCode(id, key, [s.act], s.label, s.label, r.alert?.level);
       return;
     }
     if (pick && !locked) { uiOf(id).pick = pick; lock(); }
     else if (resolve) {
       const a = readings[id].get(resolve)?.r.alert;
       if (!a) return;
-      if (a.acts.length) void send(a.acts);
+      if (a.acts.length) askCode(id, resolve, a.acts, a.verb, a.verb, a.level);
       else uiOf(id).seen.add(resolve);
       lock();
     } else if (seenKey) { uiOf(id).seen.add(seenKey); lock(); }
     else if (act === 'view') flat = !flat;
     else return;
     repaint();
+  });
+
+  // A digit (or a deletion) into the code being entered; the input of a text code keeps its own.
+  const typeCode = (digit: string | null) => {
+    const c = uiOf(id).code;
+    if (!c) return;
+    c.wrong = false;
+    c.value = digit === null ? c.value.slice(0, -1) : c.value + digit;
+    repaint();
+  };
+  // With the keypad open the keyboard types the code wherever the focus is
+  // (a tap on the ring leaves none): digits, Backspace, Enter sends, Escape cancels.
+  const onKey = (e: KeyboardEvent) => {
+    const u = uiOf(id);
+    if (!u.code || !el.closest('.is-current-view')) return;
+    const target = e.target as HTMLElement;
+    const inInput = target.matches('.code-input');
+    if (!inInput && (target.matches('input, textarea, select') || target.closest('.settings'))) return;
+    if (e.key === 'Escape') { u.code = null; repaint(); }
+    else if (e.key === 'Enter' && (inInput || !target.matches('button, o-arc'))) void sendCode(id);
+    else if (inInput) return;
+    else if (/^[0-9]$/.test(e.key)) typeCode(e.key);
+    else if (e.key === 'Backspace') typeCode(null);
+    else return;
+    e.preventDefault();
+    e.stopPropagation();
+  };
+  document.addEventListener('keydown', onKey, true);
+  ctx.onCleanup(() => document.removeEventListener('keydown', onKey, true));
+  // Typing in the input of a text code: no repaint (it would lose the caret), the buttons follow by hand.
+  el.addEventListener('input', (e) => {
+    const target = e.target as HTMLInputElement, c = uiOf(id).code;
+    if (!c || !target.matches('.code-input')) return;
+    c.value = target.value; c.wrong = false;
+    el.querySelector('.keypad')?.classList.remove('is-wrong');
+    el.querySelectorAll<HTMLButtonElement>('[data-code="delete"], [data-code="enter"]').forEach((b) => { b.disabled = !c.value; });
   });
 
   // ─── Phone: from one system to the next ───
