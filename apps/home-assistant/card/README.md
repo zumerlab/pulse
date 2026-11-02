@@ -1,16 +1,15 @@
 # Pulse for Home Assistant
 
-Pulse shows your home as one radial object per system: lights, climate,
-security, openings, media, energy, scenes and maintenance. Each system is a ring with
-its own controls, and the systems stack in depth by urgency: whatever calls the
-most sits in front, the rest waits behind. Nothing to configure: Pulse reads
-your entities, decides what each ring shows, and raises an alert when a rule
-fires (a jammed lock, a siren, heating with a window open).
+Pulse groups your Home Assistant entities into systems such as lights, climate
+and security. Open a system to adjust the thermostat, toggle lights or arm
+the alarm. Related controls sit on layers, and alerts bring the affected
+channel to the front. Entities are selected automatically; you can choose
+which systems, areas and channels to show in settings.
 
 ![The Pulse board inside a Home Assistant dashboard](images/dashboard-grid.png)
 
-This folder is the Home Assistant distribution of Pulse: one JavaScript file,
-`zumer-pulse.js`, that adds three things to your dashboards.
+The card and both dashboard strategies are bundled in one JavaScript file,
+`zumer-pulse.js`. Choose how you want to use it:
 
 | What | Where it shows up | Use it when |
 |---|---|---|
@@ -20,17 +19,16 @@ This folder is the Home Assistant distribution of Pulse: one JavaScript file,
 
 ## Requirements
 
-- Home Assistant 2026.10 or newer (that is the version it is tested on; earlier
-  2025 and 2026 releases will probably work, but are not checked).
-- A current browser: Chrome or Edge 111+, Safari 16.4+, Firefox 128+. The rings
-  are drawn with recent CSS (trigonometry, `:has()`, registered properties).
-  The Companion apps use the system browser, so a current phone is fine.
-- No integration, add-on or server component: it is a dashboard resource only.
+Use a current browser or WebView. Pulse relies on modern CSS features for its
+rings and layers. Older kiosk browsers may not render them correctly.
+
+The local integration was tested with Home Assistant 2026.10.4. Earlier
+versions have not been verified. Pulse loads as a dashboard resource and uses
+your existing Home Assistant session.
 
 ## Install
 
-1. **Get `zumer-pulse.js`.** Download it from the latest release of this
-   repository, or build it from source:
+1. **Build `zumer-pulse.js`.** From a checkout of this repository, run:
 
    ```sh
    npm ci
@@ -64,9 +62,6 @@ This folder is the Home Assistant distribution of Pulse: one JavaScript file,
    file, change the URL to `/local/zumer-pulse.js?v=2` so browsers and the
    Companion apps fetch the new one).
 
-Listing in the Home Assistant Marketplace (HACS) comes once the repository is
-public; the install will then be one click, with updates.
-
 ## Use
 
 ### A Pulse dashboard
@@ -84,15 +79,14 @@ strategy:
   systems: [lights, climate, security, openings]
 ```
 
-### The card in a dashboard of yours
+### Add a card to an existing dashboard
 
 Pulse is a card like any other: in a dashboard's edit mode, *Add card*, search
-**Pulse**. The visual editor has the three options below, with a live preview.
+**Pulse**. The visual editor lets you change its options with a live preview.
 
 ![The card's visual editor](images/editor.png)
 
-In a **panel view** the card fills the screen, which is where Pulse is at its
-best:
+Use a **panel view** to give Pulse the full screen:
 
 ```yaml
 views:
@@ -104,9 +98,9 @@ views:
 ```
 
 In a **sections view** the card takes the full width of its section and at
-least six rows (420 px); in a box narrower than 640 px it tightens its board
-(smaller headline, fewer log lines). The *Grid* and *Layers* views fit a
-section well; *Orbit* wants a full-width section or a panel.
+least six rows (420 px); in a box narrower than 640 px it uses a compact layout
+with a smaller headline. The *Grid* and *Layers* views fit a
+section well; *Orbit* needs more room, so use a full-width section or a panel.
 
 ![Two Pulse cards in a sections view: one opened inside Climate, one on the layers board](images/sections.png)
 
@@ -132,127 +126,113 @@ views:
             mode: layers
 ```
 
-(Section strategies are not yet listed in the section editor of 2026.10; from
-2026.11 they appear there too. Until then, YAML.)
+In Home Assistant 2026.10, configure section strategies through YAML.
 
 ## Options
 
 All optional. They apply to the card, the dashboard strategy and the section
 strategy alike.
 
-| Option | Values | Default | What it does |
+| Option | Values | Default | Purpose |
 |---|---|---|---|
-| `systems` | list of `lights`, `climate`, `security`, `openings`, `media`, `energy`, `scenes`, `maintenance` | all eight | Which systems the board shows. A system with no matching entities does not show anyway. |
-| `areas` | list of area ids (the editor offers an area picker) | the whole home | Only the entities in those areas count, by their own area or their device's. An entity with no area stays out, as in Home Assistant's area views (whole-home sensors such as grid power usually have none). |
-| `mode` | `grid`, `orbit`, `layers`, `list` | the view the viewer picked last | The board's view when the card opens. With it set, the switch at the top still works, but the choice is not remembered. |
-| `axis` | `systems`, `rooms` | `systems` | What the board is made of: the systems (lights, climate, security…) or the rooms. By room, each area of the home is one object with what calls the most in front and the rest of its devices as layers; what has no area is the room "No area". The gear switches between the two. |
-| `start` | one of the system ids | the board (on a phone, the system that calls the most) | Open the card zoomed into that system. The board stays one step back ("Board" at the bottom left). Must be one of `systems` if both are given. |
-| `settings` | `true`, `false` | `true` | The gear at the top right of the board (see below). `false` hides it: the options above are final. |
-| `modes` | `true`, `false` | `false` | The switch between grid, orbit, layers and list as buttons above the board. Off, the view is chosen in the gear (or fixed by `mode`). |
-| `layers` | a whole number | all of them | How many systems the Layers view stacks, front to back; the list beside the object names them all in that order (the ones past the cap hollow), and each is a button that brings it to the front. |
-| `stack` | a whole number, 1 to 5 | 3 | How many channels a system stacks as layers when you open it, front to back; the rest are named under the object. |
-| `dial` | `full`, `open` | `full` | How a band (a thermostat, brightness, volume) is drawn: a full ring, or three quarters open at the bottom, its ends named (min and max) and a mark where the measurement is when the band is a target. |
-| `day` | `plain`, `marks` | `plain` | The ring of the last 24 hours in a detail (humidity, power, carbon monoxide): bars only, or with a tick per hour and "6 h ago", "12 h ago", "18 h ago" around it. |
-| `ends` | `flat`, `rounded` | `flat` | The ends of a band and of each segment of a ring: square, or rounded. |
-| `time` | `off`, `changes`, `clock`, `both` | `off` | What the orbit's center shows of time. `changes`: inside the ring of systems (each segment points at its satellite), the last 12 hours as a faint wake, now at the top, with the alerts still open as dots where they began; a line across the face puts the alert above it and, under it, the last change and the count that opens them all in a circular list. `clock`: while all is calm, the time above the line and the last 24 hours around it. `both`: the changes while something calls, the clock while all is calm. |
-| `month` | `calendar`, `rolling` | `calendar` | The energy detail's month: a calendar with the 1st at the top, or the last 30 days with today at the top (a notch where the month turns). |
-| `theme` | `graphite`, `paper`, `deep`, `slate`, `mist`, `fog`, `night` | `graphite` | The colors. Graphite, Paper and Deep tell an alert by hue (amber, red). Slate, Mist and Fog (light) and Night (dark) keep to one blue-grey family: the most urgent is the deepest tone (the brightest on Night), with a heavier ring and a quicker wave. |
+| `systems` | List of `lights`, `climate`, `security`, `openings`, `media`, `energy`, `scenes`, `maintenance` | All eight | Limit the available systems. Systems without matching entities stay hidden. |
+| `areas` | List of area ids | Whole home | Include entities assigned to these areas, directly or through their device. Entities without an area are excluded when this filter is set. |
+| `mode` | `grid`, `orbit`, `layers`, `list` | Saved preference, or `grid` | Initial board view. Browser preferences can override it. |
+| `axis` | `systems`, `rooms` | `systems` | Group by system or Home Assistant area. Unassigned entities appear under “No area” in room view. |
+| `start` | A system id | Board; highest-priority system on a phone | Open inside a system. If `systems` is set, it must include this id. |
+| `settings` | `true`, `false` | `true` | Show the settings panel. Set to `false` to use only the configured options. |
+| `modes` | `true`, `false` | `false` | Show view-switching buttons above the board. Otherwise, choose the view in settings. |
+| `layers` | Positive integer | All systems | Number of systems drawn in Layers view. Others remain accessible by name. |
+| `stack` | Integer from 1 to 5 | 3 on desktop, 2 on a phone | Visible channel layers inside a system. Phones show at most three. |
+| `dial` | `full`, `open` | `full` | Full ring or a 270-degree dial with minimum and maximum labels. |
+| `day` | `plain`, `marks` | `plain` | Sensor history as bars only, or with hour marks. |
+| `ends` | `flat`, `rounded` | `flat` | Shape of ring and segment ends. |
+| `time` | `off`, `changes`, `clock`, `both` | `off` | Orbit center: recent changes, a clock when there are no alerts, or both depending on alert state. |
+| `month` | `calendar`, `rolling` | `calendar` | Energy history as a calendar month or the last 30 days. |
+| `theme` | `graphite`, `paper`, `deep`, `slate`, `mist`, `fog`, `night` | `graphite` | Color theme. Graphite, Paper and Deep use amber and red for alerts; the others use variations of blue-grey. |
 
-A card with a wrong value refuses to render and says why ("Unknown system
-"climat". One of: lights, climate, …").
+Invalid options produce an error that names the problem. In YAML, `systems`
+is a list and `start` is a single system id.
 
-### The gear: what each screen shows
+### Settings for each screen
 
-Whoever looks at the card can tune it for their own screen without touching
-the dashboard: the gear at the top right of the board opens a panel in four
-tabs. *Content*: the systems to tick, the areas (grouped by floor, when the
-home has two or more), the channels of each system and, for a channel that
-follows one entity (a brightness dial, the humidity, a window), which entity it
-follows. *Board*: the view (and whether its switch shows on the board), systems or rooms, where it opens next time, the
-time in the orbit and how many layers it stacks. *Look*: the theme or colors of
-your own, a glow or a photo behind the board (a file in `/config/www` is
-`/local/<name>`) with faces solid or glass, the dial full or open at the bottom, the day ring bare or with hour
-marks, the ring ends square or rounded, the energy month. *Tuning*: sliders for
-the distances and sizes of the orbit and the layers. Changes apply as they are
-made and are kept in that browser only, so the tablet in the kitchen and the
-phone in a pocket can show different things from the same card. "Back to
-defaults" returns to what the card's options say; the tuning has its own reset.
+The gear button opens four tabs:
 
-The options you set in the card or the strategy are the frame: the gear only
-offers the systems and areas you allowed, and `mode`, `axis`, `start`, `layers`, `stack`, `dial`,
-`day` and `ends` are its defaults. At least one system, one area and one channel per system stay
-ticked. If you want the card to show exactly what you configured, everywhere,
-set `settings: false`.
+- **Content:** systems, areas, channels and the entity a channel follows.
+- **Board:** view, system or room grouping, starting system, time display and
+  visible layer counts.
+- **Look:** theme or custom colors, background, dial style and history display.
+- **Tuning:** distances and sizes for the rings and layers.
 
-## What you see
+Changes apply immediately and stay in that browser. A kitchen tablet and a
+phone can show different parts of the same home. **Back to defaults** restores
+the card's configured defaults; tuning has its own reset.
 
-**The board.** One ring per system, each with the one reading that matters
-(lights on, temperature, alarm state, power), the headline with what calls
-("4 things calling · poorly installed door did not finish locking."), the same
-in every view. What calls comes first, the most serious first; while something
-calls, the systems that are fine fold into one quiet element you can open. What
-calls never grows: its ring is heavier, its tone deeper, and a wave leaves it.
-Four ways to look at it, switchable at the top:
+Settings only offer the systems and areas allowed by the card configuration.
+Use `settings: false` when you want every screen to follow that configuration.
+A background image in Home Assistant's `www` folder is available at
+`/local/<filename>`.
 
-| View | What it is |
+## Using the card
+
+The board summarizes your systems and puts alerts first. Systems without
+alerts can be collapsed while you deal with a problem.
+
+| View | Layout |
 |---|---|
-| **Grid** | A mini ring per system in a row, what calls first and the calm folded into one tile. Reads fast. |
-| **Orbit** | The home's pulse in the center, the systems around it, the most serious first, clockwise from the top. The center holds the alert that matters most (the latest changes when all is calm); its ring shows which system calls. |
-| **Layers** | One object, one system per layer, the one calling the most in front; while something calls, only what calls is drawn. Tap a band to bring that system forward, the center to enter. |
-| **List** | A queue on two rings: what calls inside, in order, each named beside it; the calm on the outer ring, folded into one button. The center holds the most serious; tap another to see it there, tap the center to enter. |
+| Grid | A small ring per system, with alerts first |
+| Orbit | Systems around a central summary showing the most urgent alert or recent changes |
+| Layers | Systems stacked as layers; tap a ring to bring it forward, then the center to open it |
+| List | Alerts on an inner ring and other systems on an outer ring; select a system, then tap the center to open it |
 
 ![The orbit view](images/dashboard-orbit.png)
 
-**A system.** Tap a ring to zoom in. The system's channels are layers of one
-object: the one in front has its controls on the ring (segments toggle, the
-dial sets a value by dragging, a choice such as the thermostat's mode or the
-alarm's state is picked by tapping its name, a panel that asks for a code opens
-a phone keypad over the object first, a comfort range has a knob at each end), the ones behind are read as arcs with their label. A camera, or
-the artwork of what is playing, fills the center; the detail shows it round
-or square, live for a camera, and draws the last 24 hours of a sensor as a
-ring and a color wheel for a color light. Alerts come with their action (*Retry*, *Disarm*, *Close
-windows*) and *Mute*; a muted alert goes behind and comes back if its text
-changes. *View flat* shows the same system as a list; the center opens the
-detail with the entities behind each channel.
+Inside a system, drag a dial to adjust a value, tap a segment to switch a
+device, or choose a named mode on the ring. Tap a layer behind the active one
+to bring it forward. An alarm that needs a code opens a keypad first.
+
+The detail view adds information such as sensor history, a camera feed, color
+controls or the individual entities behind a reading. **View flat** displays
+the system as a list.
 
 ![Security opened on a jammed lock](images/dashboard-system.png)
 
-**What is shown is what was confirmed.** A control beats while the command is
-on its way and settles when Home Assistant reports the new state. If the call
-fails, the error shows and the value comes back.
+Alerts include an action when one is available, such as **Retry**, **Disarm**
+or **Close windows**. **Mute** moves an alert behind the active layer and stops
+its wave. It can return if its text changes.
+
+A control pulses while a command is pending and settles when Home Assistant
+reports the new state. If the service call fails, Pulse shows the error and
+restores the reported value.
 
 ## Language
 
-Pulse's own words are English for now. Numbers and times follow the language
-of your Home Assistant profile (a thermostat reads `21,5°` in German or
-Spanish), and the states in the pulse's list of changes come in your language
-from Home Assistant itself, as its own cards show them. Another language for
-Pulse's words is another dictionary; none exists yet.
+Pulse's interface text is currently English. Numbers and times follow your
+Home Assistant profile's language, and entity states use Home Assistant's
+translated labels where available.
 
 ## Which entities Pulse uses
 
-Pulse looks at the states Home Assistant already pushes to the dashboard; no
-entity list to write. Each channel picks its entities by domain, device class
-or capability, and a channel with nothing to show stays out, so every home
-builds a different object. A channel that follows one entity takes its name.
+Pulse reads the states already available in your dashboard. Channels select
+entities by domain, device class or supported controls. Channels without
+matches stay hidden. A channel that follows one entity uses that entity’s name.
 
-| System | Channels and what they look for |
+| System | Entity selection and controls |
 |---|---|
-| **Lights** | all `light` entities (segments toggle them) · the first dimmable light (brightness dial, in the light's color; a hue and saturation wheel in the detail when it supports color) · all `switch` entities as plugs |
-| **Climate** | the first `climate` entity (temperature dial) · its mode (`hvac_modes`, a choice on the ring) · its preset (`preset_modes`: eco, away, comfort…, a choice) · a second thermostat · a `fan` (speed dial) · a thermostat with a comfort range (`target_temp_low/high`: a band with a knob at each end) · a humidity sensor (`device_class: humidity`; its last 24 hours in the detail); past 70% its alert offers the dehumidifier |
-| **Security** | the `alarm_control_panel` (a choice: disarmed, home, away; with a `code_format`, a keypad asks for the code) · `camera` entities (the picture in the center; the gear picks which; live in the detail) · `siren` entities · `lock` entities · the `binary_sensor`s of Home Assistant's Security view: doors, windows, garage doors and openings; smoke, gas, carbon monoxide, moisture, glass break, safety and tamper; motion and occupancy (the ones detecting something first, eight at most) |
-| **Openings** | the first two `cover`s with a position (dials) · the garage door (`device_class: garage`) · `valve` entities |
-| **Media** | `media_player` entities (play and pause; the artwork of what plays in the center) · a player's `source_list` (a choice) · the volume of the first one (dial) |
-| **Energy** | a power sensor in W · a carbon monoxide sensor (both with their last 24 hours in the detail) · the `water_heater` (dial) |
-| **Scenes** | all `scene` entities: a choice on the ring, the one activated last marked; tapping one activates it (what it sets follows in the other systems) |
-| **Maintenance** | `update` entities (install) · `vacuum` entities (start, return to base) · battery sensors (`device_class: battery`, low under 20%) · `problem` binary sensors · the repairs of Settings › Repairs |
+| Lights | `light` entities as switches, the first dimmable light as a brightness dial, color controls when supported, and `switch` entities as plugs |
+| Climate | Thermostats with temperature, mode, preset and range controls; fan speed; humidity history and an alert at 70% or higher |
+| Security | Alarm modes and code entry, cameras, sirens, locks, opening sensors, safety sensors, motion and occupancy; up to eight sensor segments, active ones first |
+| Openings | The first two covers with position controls, a garage door and valves |
+| Media | Playback, artwork, source selection and volume from `media_player` entities |
+| Energy | Power and carbon monoxide readings with history, water heater controls and energy meter history |
+| Scenes | `scene` entities as named choices, with the most recently activated scene marked |
+| Maintenance | Updates, vacuums, battery sensors below 20%, problem sensors and Home Assistant repairs |
 
-What stays out: entities hidden in the registry, and config or diagnostic ones
-(a diagnostic switch is not a plug), as in Home Assistant's own summaries;
-batteries and tamper sensors are the exception, as there. An alert names the
+Entities hidden in the registry and configuration or diagnostic entities are
+generally excluded. Batteries and tamper sensors are included where relevant. An alert names the
 area of the entity, or of its device, when it has one ("Motion · Garden").
 
-Alerts are rules over those states; the interesting ones cross systems:
+Some alerts use a single state; others combine readings from several systems:
 
 | Alert | When |
 |---|---|
@@ -263,14 +243,13 @@ Alerts are rules over those states; the interesting ones cross systems:
 | Heating with windows open | a thermostat is heating **and** a window is open |
 | Garage open at night | the garage is open **and** the sun is below the horizon |
 | Carbon monoxide | 35 ppm (minor), 100 ppm (critical) |
-| High humidity | past 70% |
+| High humidity | 70% or higher |
 | Updates available | an `update` entity is on |
 | Low battery | a battery sensor under 20% |
 | Problem | a `problem` binary sensor is on |
 | Repairs | Home Assistant has repairs waiting (critical if it says so) |
 
-The exact rules are in `../model.ts`, one function per channel, and that is
-the file to change to teach Pulse a new entity or a new rule.
+See [model.ts](../model.ts) for entity selection and alert rules.
 
 ## Troubleshooting
 
@@ -283,38 +262,32 @@ the file to change to teach Pulse a new entity or a new rule.
   names it. In YAML, `systems` is a list and `start` is one id.
 - **Rings without arcs, or a flat object.** The browser is too old for the CSS
   the rings need (see Requirements). Kiosk devices with old WebViews show this.
-- **Only some systems appear.** That is the home: a system with no matching
+- **Only some systems appear.** A system with no matching
   entities is not drawn. Lights with no `light` entity, media with no
   `media_player`, and so on.
 - **Nothing reacts to a tap.** The board scrolls inside the card when the box
   is small; make the card taller (*Layout* tab in the card editor) or give it a
   panel view.
-- **The card shows fewer systems than configured.** Someone ticked them off in
-  the gear on that browser. Open the gear, *Back to defaults*; or set
-  `settings: false` to take the gear away.
+- **The card shows fewer systems than configured.** Check the saved settings in
+  that browser. Open the gear, *Back to defaults*; or set
+  `settings: false` to disable browser preferences.
 
 ## Development
 
-The card is built from the Home Assistant app of this repository
-(`apps/home-assistant`): `app.ts` is the object, `card/zumer-pulse.ts` wraps it
-in a custom element with a shadow root and the strategies,
-`card/hass-source.ts` feeds it from the `hass` object. Without a Home
-Assistant, `card.html` (`npm run dev:ha`, then
-<http://127.0.0.1:5174/card.html>) mounts the real card over one of the demo
-homes of demo.home-assistant.io; the query string picks the home, the card's
-config as JSON, and the box size:
+The card wraps `mountPulse` in a custom element with a shadow root.
+`HassSource` supplies states and service calls from the dashboard's `hass`
+object. Both strategies generate layouts containing the same card.
+
+For local testing, run `npm run dev:ha` from the repository root and open
+[the card bench](http://127.0.0.1:5174/card.html). It runs the real card with
+demo data. For example:
 
 ```text
 /card.html?home=sections&size=section&config={"systems":["climate"],"start":"climate"}
 ```
 
-Against a Home Assistant of your own, `scripts/ha-install-card.mjs` registers
-the dev server's copy of the build as a resource and creates two dashboards
-(the strategy, and a sections view) over the admin WebSocket, and
-`scripts/ha-check-card.mjs` opens both dashboards and the card editor in
-Playwright, checks for console errors and leaves screenshots; the tests in
-`tests/ha.spec.ts` cover the card on its bench. The app's own
-[README](../README.md) has the rest.
+The [app README](../README.md#development) covers source files, build commands,
+Playwright tests and helpers for testing against a live Home Assistant.
 
 ## Licence and credits
 
@@ -322,4 +295,4 @@ Pulse is MIT. It bundles [Orbit](https://github.com/zumerlab/orbit) (the rings
 and layers) and [Zumly](https://github.com/zumerlab/zumly) (the zoom), both by
 Zumerlab. The demo homes used in development are those of
 demo.home-assistant.io, from the Home Assistant frontend (Apache 2.0, see
-`../demo/NOTICE.md`).
+[demo/NOTICE.md](../demo/NOTICE.md)).

@@ -1,343 +1,239 @@
-# Pulse · Home Assistant
+# Pulse for Home Assistant
 
-The radial object over a real Home Assistant (the default demo, running in
-Docker). Board → layered system → detail. Nothing is written by hand: readings,
-alerts and their resolution come from the live state. The object and the board
-(rings, layers, the gear, the four views, the detail) are the core package
-`@zumer/pulse` (`packages/core`); this app adds `model.ts`, which turns Home
-Assistant's state into the readings the object draws, the source
-(`source.ts`), the sign-in, the demo homes and the card.
+Monitor and control your home through rings and layers. Pulse groups your
+Home Assistant entities into systems such as lights, climate and security.
+Open a system to adjust a value, switch a device or choose a mode. Alerts bring
+the affected channel to the front, with an action when one is available.
+
+You can run Pulse as a standalone web app or use it inside a Home Assistant
+dashboard. Both use the same interface and entity model.
+
+![Pulse showing a Home Assistant home](../../docs/images/board-orbit.png)
+
+For card installation, dashboard strategies and YAML options, see the
+[card README](card/README.md). This page covers the standalone app and how
+the Home Assistant adapter works.
+
+## Try it locally
+
+From the repository root, with Node.js 22.18+ or 24+ and npm installed:
 
 ```sh
-npm run dev:ha     # from the repo root; http://127.0.0.1:5174
+npm ci
+npm run dev:ha
 ```
 
-Open it, type the address of your Home Assistant and sign in there. No
-configuration files, no server. No Home Assistant at hand? The same panel opens
-one of the six homes of demo.home-assistant.io (see "Demo homes" below).
+Open [the app](http://127.0.0.1:5174), enter your Home Assistant URL and sign
+in. The browser connects directly to Home Assistant; Pulse does not need a
+separate backend or a Home Assistant integration installed on the server.
 
-## Files
+Without a Home Assistant instance, choose a home in the sign-in panel and
+select **Explore the demo**. You can also start from the
+[demo gallery](http://127.0.0.1:5174/gallery.html) or open
+[a demo home directly](http://127.0.0.1:5174/?demo=home).
 
-- `app.ts`: `mountPulse(canvas, { source, status, onAction, onStatus })`: the
-  core's board (`mountBoard`, `@zumer/pulse`) over the host `host.ts` makes of
-  a `PulseSource`, with Home Assistant's words (areas, entities) translated to
-  the board's (groups, picks). The board itself (grid, orbit, layers, the
-  gear, the system view, the detail) lives in the core.
-- `host.ts`: a `PulseSource` as the core's `PulseHost`: the seven systems of
-  `model.ts` bound to the source, entity ids as things, service calls as
-  actions, names and states as Home Assistant says them.
-- `main.ts`: the standalone shell: sign-in, the WebSocket source, the demo
-  homes.
-- `source.ts`: `PulseSource` and `WebSocketSource`. `demo/`: `DemoSource` and
-  the demo homes (`demo/scripts/import-homes.py` regenerates them from the
-  frontend repo). `card/`: `HassSource`, the card and the strategies, and the
-  README for Home Assistant users. `card.html`: the card's bench (dev only, not
-  in the build).
-- `model.ts`: the systems and channels, a function of the state and the
-  registry.
-- `scripts/`: `ha-tokens.mjs` (tokens from `.env.local`), `ha-install-card.mjs`
-  (registers the card and two dashboards in the local Home Assistant),
-  `ha-check-card.mjs` (opens them in Playwright and takes screenshots).
-  `tests/ha-live.spec.ts` runs the app against the live Home Assistant when
-  `PULSE_HA_TOKENS` points at a tokens file; otherwise it is skipped.
+## What appears in your home
 
-## Sign in and connection
+Pulse finds entities by domain, device class and supported controls. A channel
+appears only when it has matching entities. Some channels combine several
+devices; others follow one entity, which you can change in settings.
 
-`source.ts` defines `PulseSource`, the little the UI needs from Home Assistant
-(`states`, `unit`, `status`, `version`, `call`, `onChange`, `onStatus`, `url`),
-and implements it over the WebSocket with the official
-[`home-assistant-js-websocket`](https://github.com/home-assistant/home-assistant-js-websocket).
-The card's `HassSource` is the second implementation, over the `hass` object
-a dashboard pushes; the demo homes are the third.
+| System | What it shows and controls |
+|---|---|
+| Lights | Lights and switches, brightness, and color controls for supported lights |
+| Climate | Thermostat temperature, mode and preset, fan speed, comfort ranges and humidity |
+| Security | Alarm modes, cameras, sirens, locks, opening sensors, safety sensors and motion |
+| Openings | Cover positions, garage doors and valves |
+| Media | Playback, artwork, source selection and volume |
+| Energy | Power readings, carbon monoxide, water heater temperature and energy history |
+| Scenes | Available scenes, with the most recently activated one marked |
+| Maintenance | Updates, vacuums, low batteries, device problems and Home Assistant repairs |
 
-- **Sign in on Home Assistant, not on Pulse.** The login is Home Assistant's own
-  OAuth flow (`getAuth`): the browser goes to `<your HA>/auth/authorize`, you
-  sign in there (with your users, MFA, everything) and come back with a code.
-  Pulse never sees a password. The `client_id` is Pulse's own URL, as Home
-  Assistant expects; no registration.
-- **Tokens stay in the browser** (`localStorage`, `pulse-ha-auth`): a 30-minute
-  access token the library refreshes on its own and a refresh token. "Sign out"
-  revokes them in Home Assistant and forgets them.
-- **Long-lived access token** as the alternative, for wall panels and kiosks:
-  pasted once in the sign-in panel (created in Home Assistant under
-  profile › Security).
-- **Direct connection.** The browser opens the WebSocket to Home Assistant's
-  URL: its WebSocket accepts any origin, so no proxy is needed. REST is not
-  used (its CORS is closed by default); camera images come from
-  `entity_picture`, which already carries a token, resolved against the Home
-  Assistant URL (`source.url()`).
-- **One subscription.** `subscribe_entities` gives the initial states and
-  compressed diffs after (what the Companion apps use); the source turns them
-  into a list of changed entities. Reconnection is the library's, with
-  `reconnect-error` shown in the connection line; an invalid token signs out.
-- **Mixed content.** A Pulse served over HTTPS cannot open a WebSocket to an
-  HTTP Home Assistant; use the same URL you use remotely.
+The model uses Home Assistant's entity and device registries to find areas
+and floors. You can view the home by system or by room. Entities hidden in
+the registry and configuration or diagnostic entities are generally excluded;
+maintenance channels include diagnostics such as batteries and problem sensors.
+
+The board has four views: Grid, Orbit, Layers and List. Inside a system, drag
+a dial to change a value, tap a segment to toggle a device, or select a named
+option on the ring. A detail view adds history, camera images, color controls
+or the individual entities behind a reading.
+
+### Alerts and command feedback
+
+Alerts come from rules in [model.ts](model.ts). Some use one entity, such as
+a low battery or a jammed lock. Others combine states: heating with a window
+open, a garage door open at night, or motion while the alarm is armed.
+
+An alert can offer a service call, such as locking a door, or an acknowledgement.
+Muting an alert removes its wave and moves it behind the active layer. It can
+return if its text changes. A new critical alert opens its system when you
+are on the board.
+
+A control pulses while a command is pending. Pulse waits for Home Assistant
+to report the new state, with an eight-second limit on the pending indicator.
+If the call fails, it shows the error and a Retry option. Dial commands are
+sent on release; keyboard and wheel changes are sent after a short pause.
+Alarm actions that require a code open a keypad before sending the command.
+
+## Sign-in and connection
+
+The standalone app uses Home Assistant's login flow. You sign in on Home
+Assistant and return to Pulse; Pulse does not receive your password. Access
+and refresh tokens are stored in the browser under `pulse-ha-auth`. Signing
+out clears the saved session and attempts to revoke the refresh token.
+
+For a kiosk or wall panel, you can instead paste a long-lived access token
+into the sign-in panel. Create one in your Home Assistant profile under
+Security.
+
+The WebSocket connection uses `home-assistant-js-websocket`. It subscribes to
+entity updates, loads the registries and reconnects when the connection drops.
+The card uses the dashboard's existing `hass` object instead of opening its
+own connection.
+
+If Pulse is served over HTTPS, your Home Assistant URL must also use HTTPS.
+Browsers block a connection from an HTTPS page to an HTTP Home Assistant.
+The Home Assistant address must be reachable from the device running Pulse.
+
+Pulse's interface text is currently English. Numbers and times follow your
+Home Assistant profile's language, and entity states use Home Assistant's
+translated labels where available.
+
+## Settings for each screen
+
+The gear button opens four tabs:
+
+- **Content:** systems, areas, channels and the entity a channel follows.
+- **Board:** view, grouping by system or room, starting system, time display
+  and visible layer counts.
+- **Look:** theme, colors, background, dial style and other visual options.
+- **Tuning:** distances and sizes for the rings and layers.
+
+Changes apply immediately and stay in that browser. The standalone app uses
+`pulse-ha-settings` in local storage, so a wall tablet and a phone can show
+different parts of the same home. **Back to defaults** restores the app's
+configured defaults.
+
+### Open a specific view from a link
+
+The standalone app reads these URL parameters:
+
+| Parameter | Values | Purpose |
+|---|---|---|
+| `systems` | Comma-separated system ids from the table above, in lowercase | Limit the available systems |
+| `areas` | Comma-separated Home Assistant area ids | Limit entities to those areas |
+| `mode` | `grid`, `orbit`, `layers`, `list` | Set the initial board view |
+| `axis` | `systems`, `rooms` | Group by system or room |
+| `start` | A system id | Open inside that system |
+| `layers` | A positive integer | Set the number of systems stacked in Layers view |
+| `demo` | A demo home id | Use a demo home instead of a live connection |
+| `lang` | A locale tag, such as `es-AR` | Try number and time formatting in the demo |
+
+For example:
+
+```text
+http://127.0.0.1:5174/?systems=lights,climate&mode=orbit&start=climate&areas=kitchen,living_room
+```
+
+Use your own area ids. The systems and areas in the URL limit what settings
+can offer; saved browser preferences can override defaults such as the view.
+When embedding the app through `mountPulse`, `settings: false` hides the
+settings panel.
 
 ## Demo homes
 
-`demo/` is a `PulseSource` with no Home Assistant behind it: the homes of
-[demo.home-assistant.io](https://demo.home-assistant.io). That site is the
-Home Assistant frontend with a mocked `hass` and no server; its entities are
-hand-written lists (`demo/src/configs/*/entities.ts` in the frontend repo) and
-a small class per domain answers service calls in the browser. Pulse carries
-both: the lists in `demo/homes/` (six homes, 40 to 130 entities each, plus the
-energy sensors every demo gets) and the classes in `demo/entities.ts`, so a
-light toggles, a cover travels, a lock goes through `locking`, an alarm through
-`arming`, with the same `states` in and `call` out as the WebSocket. Origin and
-license: `demo/NOTICE.md` (Apache 2.0).
+The app includes six homes from demo.home-assistant.io: `home`, `sections`,
+`arsaboo`, `teachingbirds`, `kernehed` and `jimpower`. The `home` and `sections`
+demos have the widest range of controls; the others are mostly sensors.
 
-- From the sign-in panel: pick a home, "Explore the demo".
-- From the index, `gallery.html` (linked from the sign-in panel): a card per
-  home with the mini rings its entities fill, computed with the same model as
-  the board, plus cards for your own Home Assistant and, in development, the
-  demo app. The place to start a visitor.
-- From a link: `?demo=home` (also `sections`, `arsaboo`, `teachingbirds`,
-  `kernehed`, `jimpower`). The URL keeps the home while it is open; "Leave the
-  demo" returns to the sign-in or to the saved session.
-- Each home builds its own object: a home without an alarm has no alarm
-  channel, one without updates no Maintenance. `home` and `sections` are the
-  rich ones; the other four are mostly sensors.
-- The Playwright suite runs against these homes, so the whole app is tested
-  without a Home Assistant.
-- The data is generated, not edited: `demo/scripts/import-homes.py <frontend
-  checkout>` rewrites `demo/homes/*.ts` from the frontend repository (it prints
-  the commit; `--check` only compares, exit 1 on a difference). To update the
-  homes, pull the frontend and run it again.
+The demos simulate service calls in the browser. Lights toggle, covers move,
+locks change state and scenes activate. The Playwright tests use these homes
+to exercise the app without a running Home Assistant.
 
-## Card and dashboard strategy
+Kernehed's alarm code is `1234`. Some demo devices deliberately show failures,
+such as the lock named “Poorly Installed Door,” which jams when locked.
+These are useful for trying alerts and error handling.
 
-`card/zumer-pulse.ts` is the same object inside a Home Assistant dashboard, as
-the integration document planned (`docs/home-assistant-integration.md`, step
-2): one JavaScript module with the `zumer-pulse` custom card, the `zumer-pulse`
-dashboard strategy and the `zumer-pulse` section strategy, Orbit and Zumly bundled.
-**How to install and configure it in a Home Assistant is in
-[`card/README.md`](card/README.md)**, written for Home Assistant users; this
-section is the development side.
+The home data is generated from a Home Assistant frontend checkout:
 
 ```sh
-npm run build:card        # from the repo root; apps/home-assistant/dist-card/zumer-pulse.js
+python3 apps/home-assistant/demo/scripts/import-homes.py /path/to/frontend
 ```
 
-- **Card.** `custom:zumer-pulse`, a plain custom element. `set hass` feeds a
-  `HassSource` (`card/hass-source.ts`): the same `PulseSource` interface, over
-  the `hass` object Home Assistant pushes on every change (`hass.states` by
-  reference, `hass.callService`, `hass.hassUrl`). The object mounts in the
-  card's shadow root (`app.ts`, `mountPulse`); the four stylesheets are adopted
-  by that root, and Orbit's five `@property` are registered once at document
-  level from JS, since `@property` inside a shadow root is ignored. In
-  sections it takes the full width and six rows at least (`getGridOptions`);
-  under 640 px wide (or 540 px tall) the canvas gets `.compact` and the board
-  tightens.
-- **Options** (`systems`, `mode`, `start`, `settings`) are `mountPulse`
-  options; the card validates them (`assertConfig`) and remounts when the
-  editor changes them. The viewer's choices (the gear) are kept per card
-  config, under `zumer-pulse:<json of the options>`.
-  `static getConfigForm()` gives the dashboard editor its form (a multiple
-  select, two dropdowns, labels and helpers): no editor element to write.
-- **Strategies.** `strategy: { type: custom:zumer-pulse }` as a dashboard generates
-  one panel view with the card; as a section, one grid with the card. Home
-  Assistant hands `generate()` the strategy object itself (`type` plus the
-  options next to it), which goes through to the card. The New dashboard
-  dialog lists "Pulse" under Community dashboards.
-- **Bench without Home Assistant.** `card.html` (`card-bench.ts`) mounts the
-  real card over a `DemoSource`, with a `hass` object rebuilt on every change
-  (`states` by reference, `callService` to the demo entities). Query string:
-  `home`, `config` (JSON), `size=panel|section`, `width`, `height`. The tests
-  in `tests/ha.spec.ts` run the card there.
-- **Develop against the local Home Assistant.** With `npm run dev:ha` running,
-  the resource can point at the dev server's copy of the build,
-  `http://127.0.0.1:5174/dist-card/zumer-pulse.js`, so no files go into the
-  Home Assistant container. `scripts/ha-install-card.mjs <tokens.json> <url>`
-  registers that resource and creates (or updates) two dashboards over the
-  admin WebSocket: `pulse-demo` (the dashboard strategy) and `pulse-sections`
-  (a sections view with a Pulse section and a hand-placed card);
-  `scripts/ha-tokens.mjs .env.local tokens.json` gets the tokens from
-  `.env.local` (gitignored). Open Home Assistant, sign in, and both are in the
-  sidebar.
+Add `--check` to compare without writing. Update the source checkout and rerun
+the importer rather than editing files in `demo/homes/` by hand. Source
+attribution and the Apache 2.0 license are recorded in [demo/NOTICE.md](demo/NOTICE.md).
 
-Verified on the local Home Assistant 2026.10.4 (30/10/2026): the card renders
-the seven systems inside the dashboard, rings included (the registered
-properties reach the shadow root), zooms into a system, and a light toggled
-from the ring goes through `hass.callService` and comes back confirmed; the
-visual editor shows the three fields with a live preview; the section strategy
-opens inside Climate with one tile behind; two cards in a sections view run
-side by side in compact mode. No console errors.
+## Development
 
-## Systems
+The Home Assistant app converts entity states into the readings and actions
+used by `@zumer/pulse`. The core handles the board, layers, controls, details
+and settings panel.
 
-The channels name the entities of Home Assistant's `demo` integration (the
-local test installation) and fall back to the first entity of their kind, so
-another installation, or one of the demo homes, builds its own object.
+| File or directory | Responsibility |
+|---|---|
+| [main.ts](main.ts) | Starts the standalone app, reads URL options and switches between live and demo sources |
+| [login.ts](login.ts) | Sign-in panel and demo selection |
+| [app.ts](app.ts) | `mountPulse`: mounts the core board with Home Assistant options and labels |
+| [host.ts](host.ts) | Adapts a `PulseSource` to the core's `PulseHost` interface |
+| [model.ts](model.ts) | Entity selection, systems, channels, alert rules and room grouping |
+| [source.ts](source.ts) | Source interface, WebSocket connection, authentication and registry loading |
+| [strings.ts](strings.ts) | Home Assistant app text |
+| [demo/](demo/) | Simulated source, entity behavior and generated home data |
+| [card/](card/) | Custom card, dashboard and section strategies, and the `hass` source |
+| [card-bench.ts](card-bench.ts) | Runs the real card with demo data for local development |
+| [scripts/](scripts/) | Helpers for testing against a local Home Assistant |
 
-| System | Channels | Controls on the ring |
-|---|---|---|
-| Lights | all lights · brightness of the first dimmable one (the dial takes the light's color; a color wheel in the detail) · plugs | segments = `light.toggle`; dial = `brightness_pct`; wheel = `hs_color` |
-| Climate | thermostat · its mode (a choice) · air conditioning · fan speed · one with a range (Ecobee: a band with two ends) · humidity (a day ring in the detail) | dial = `climate.set_temperature`; choice = `set_hvac_mode`; dial = `fan.set_percentage`; range = `target_temp_low/high` |
-| Security | alarm (a choice; a keypad when the panel asks for a code) · cameras (the picture in the face) · sirens · locks · sensors (doors and windows, safety, motion) | alarm modes (with `code` when asked), sirens, locks |
-| Openings | two covers with position · garage door · irrigation valves | dial = `set_cover_position`; valves |
-| Media | players (the artwork in the face) · a player's source (a choice) · volume of the first one | play/pause; choice = `select_source`; dial = `volume_set` |
-| Energy | power (W) · carbon monoxide · hot water (the first two with a day ring) | dial = `water_heater.set_temperature` |
-| Maintenance | updates · vacuums · batteries · problems · repairs | install; start / return to base |
+To add a channel or change how entities are selected, start in `model.ts`.
+To change shared rendering or interactions, work in
+[`packages/core`](../../packages/core/README.md).
 
-The models are in `model.ts`: each channel is a function of the state. If no
-entity fits, the channel does not appear. A channel that follows one entity
-takes its name (the face says "Thermostat", "Kitchen shutter").
+### Build and check
 
-### The primitives a reading can use
+Run these commands from the repository root:
 
-The object has a few primitives (in `@zumer/pulse`), and every channel is one
-of them plus, sometimes, a picture or a day. `Reading.kind`:
+```sh
+npm run typecheck
+npm run lint
+npm test
+npm run build -w pulse-home-assistant
+npm run build:card
+```
 
-- `'p'`: a band that fills; with a `dial`, dragged on the ring. With a
-  `range` (`lo`, `hi`, `set`) the band goes from one end to the other and has
-  a knob at each: the nearer one follows the pointer, each is a slider for
-  the keyboard, and neither crosses the other (the Ecobee's comfort range).
-- `'s'`: segments that switch on and off (`segs` with `act`).
-- `'c'`: a choice, segments of which exactly one is on, with their names
-  along the inside of the ring (`role="radiogroup"`): the thermostat's
-  `hvac_modes`, the alarm's modes, a player's `source_list`. In the detail
-  they are radios.
+The app build writes `apps/home-assistant/dist/`, including the app and demo
+gallery. The card build writes
+`apps/home-assistant/dist-card/zumer-pulse.js`, with Orbit and Zumly bundled.
 
-An action that needs a code first (an alarm with a `code_format`) carries
-`asks`: the board opens a phone's keypad over the object and sends the action
-again with `code`; Home Assistant's refusal keeps the keypad open.
+For card development, open [the card bench](http://127.0.0.1:5174/card.html)
+while `npm run dev:ha` is running. It accepts `home`, `config` (JSON),
+`size=panel|section`, `width` and `height` as query parameters. The bench is
+available in development and is excluded from the app build.
 
-Besides the kind, a reading can carry `image` (`src`, `alt`, `id`): the
-picture fills the face's disc, with the text over it; in the detail it is
-round like the face or square on request, and a camera has a *Live* button
-when the source can stream it (`PulseSource.stream`: Home Assistant's MJPEG
-`camera_proxy_stream`; the snapshot is asked again every 8 s). Cameras,
-album art and, by the same path, a vacuum's map or a floor plan served as an
-`image` or `camera` entity. `tint` colors the band (the light's `rgb_color`).
-`color` (`hs`, `set`) adds a hue and saturation wheel to the detail: hue
-around, saturation outward, arrows on the keyboard (`light.turn_on` with
-`hs_color`). `history` names a numeric entity whose last 24 hours the detail
-draws as a ring (`PulseSource.history`: `history/history_during_period`
-bucketed per hour; the demo makes a day up around the current value). What
-has no honest radial reading (free text, long lists, maps with zones) stays
-out: Home Assistant's own more-info dialog is a tap away.
+```text
+/card.html?home=sections&size=section&config={"systems":["climate"],"start":"climate"}
+```
 
-The source also carries Home Assistant's registries (`PulseSource.registry`:
-areas, devices, entities, floors, and the repairs; `onRegistry` when they
-change). The model uses them the way Home Assistant's own summary views do:
+The card tests are in [tests/ha.spec.ts](../../tests/ha.spec.ts). Live app tests
+are in [tests/ha-live.spec.ts](../../tests/ha-live.spec.ts) and are skipped
+unless `PULSE_HA_TOKENS` points to a tokens file.
 
-- Entities hidden in the registry, and config or diagnostic ones, stay out of
-  the scans ("all lights" does not pick up a diagnostic switch). Maintenance
-  asks for diagnostic ones too, because batteries are; tamper sensors as well.
-  An entity named by id is taken as it is.
-- An alert says where: the area of the entity, or of its device ("Motion ·
-  Garden", "15% · motion sensor battery · bedroom").
-- The Security sensors channel follows the classes of Home Assistant's
-  Security view: openings (`door`, `window`, `garage_door`, `opening`,
-  `lock`), safety (`smoke`, `gas`, `carbon_monoxide`, `moisture`,
-  `glass_break`, `safety`, `tamper`) and `motion`/`occupancy`; the ones
-  detecting something come first, eight segments at most.
-- Maintenance reads what Home Assistant's Maintenance view reads: battery
-  sensors (low under 20%), `problem` binary sensors, and the repairs of
-  Settings › Repairs (`repairs/list_issues`, one segment per integration).
+For local integration work, `scripts/ha-tokens.mjs` creates a tokens file from
+`.env.local`. `scripts/ha-install-card.mjs` registers a dashboard resource and
+creates or updates two test dashboards in Home Assistant;
+`scripts/ha-check-card.mjs` checks them with Playwright and saves screenshots.
 
-Over the WebSocket the registries come from `config/*_registry/list` (no admin
-needed) and are fetched again after a `*_registry_updated` event; in the card
-they are the `hass.areas/devices/entities/floors` records Home Assistant
-already keeps; the demo homes build theirs from their own data.
+## Troubleshooting
 
-## What each screen shows: the gear
+- **The app cannot connect:** check that the Home Assistant URL is reachable
+  from this browser. For an HTTPS Pulse page, use an HTTPS Home Assistant URL.
+- **Only some systems or channels appear:** check for matching entities, area
+  filters and hidden channels in settings. Try **Back to defaults** to clear
+  saved display choices.
+- **A command fails or a dial returns to its old value:** read the error below
+  the object and check the device's state in Home Assistant.
+- **The rings do not render correctly:** try an up-to-date browser or WebView.
+  Pulse relies on modern CSS features.
 
-The gear at the top right of the board is the core's (`board/gear.ts`): a panel in
-four tabs, Content, Board, Look and Tuning, kept in that browser only
-(`localStorage['pulse-ha-settings']`). What it offers from the viewer's side
-is in the card's README; what this app adds is the translation of Home
-Assistant's words to the board's. Areas are the board's groups, grouped by
-floor from the registry; the entity a channel follows is a pick
-(`'lights/brightness': 'light.kitchen'`); rooms are the board's second axis
-(`roomSystems` in `model.ts`: each area one object, with the systems' channels
-read within it).
-
-The host sets the **frame** the viewer chooses within: `mountPulse`'s
-`systems` and `areas` (the gear offers only those), `mode`, `axis` and `start`
-(its defaults). In the standalone app the frame comes from the URL,
-`?systems=lights,climate&mode=orbit&start=climate&areas=kitchen,living_room`,
-so a kiosk or a shared link opens on a fixed subset; in the card, from its
-config. `settings: false` hides the gear.
-
-In the model, the choice of entity goes through `Context.picks`: the first
-scan a channel makes (`first`/`nth`) is the one that decides what it follows,
-reports every fitting entity as `Reading.choices` and takes the viewer's pick
-when it is one of them; later lookups in the same channel (the dehumidifier
-next to the humidity, the alarm behind the locks) are not choices. The area
-filter is `Context.areas`, applied to every scan and to the entities named by
-id.
-
-## Four views of the board
-
-Grid, Orbit, Layers and List, over the same data, each opening the same system
-when tapped; what they are and how they read is on the site's board page.
-The Orbit view is built with Orbit itself, nothing positioned by hand: the
-universe (`.bigbang`) is the largest square that fits, the systems are
-satellites of `orbit-10` (a 3.5-lane ring, shifted inward for the text) and
-the pulse is the `at-center` satellite of `orbit-0`. The systems are shifted
-half a step so none sits right at the top, each facing its segment of the
-center ring; in the top half the text goes above the ring (Orbit's
-`.outward-y`). In 3D the pulse is in front and the systems one step behind,
-without shrinking or dimming; the pointer tilts the whole ±7° (not on the
-phone). The center's text scales with it (`cqw` units). The Layers view breaks
-the "three layers at most" rule on purpose, with every system a layer that
-grows 16% instead of 42%, to try the integrated object; the Tuning tab of the
-gear has the sliders for both.
-
-## Alerts: rules over the state
-
-| Alert | Rule | Action |
-|---|---|---|
-| Sirens sounding (critical) | some `siren` is `on` | Turn off |
-| Lock jammed (critical) | `lock` in `jammed` | Retry |
-| Motion, or something open, with the alarm armed (critical) | a motion or opening sensor `on` **and** alarm armed | Got it |
-| Smoke, gas, carbon monoxide, water, glass break (critical); tampering (minor) | a safety sensor `on` | Got it |
-| Alarm triggered (critical) | `triggered` / `pending` | Disarm |
-| Heating with windows open (minor) | heating `heating` **and** windows open | Close windows |
-| Unlocked with the alarm armed (minor) | alarm armed **and** locks open | Lock |
-| Garage door open at night (minor) | garage open **and** sun below the horizon | Close |
-| Carbon monoxide (minor ≥ 35 ppm, critical ≥ 100) | `sensor.carbon_monoxide` | Got it |
-| Updates (minor) | `update` is `on` | Install |
-| Low battery (minor) | a battery sensor under 20% | Got it |
-| Problem (minor) | a `problem` (or `battery`) binary sensor `on` | Got it |
-| Repairs (minor; critical when Home Assistant says so) | issues in `repairs/list_issues`, not ignored | Got it |
-
-The cross rules are the interesting part: arming the alarm from the ring makes
-"motion" and "unlocked" appear without any device changing.
-
-## Behaviour worth knowing
-
-- **What is shown is what was confirmed, not what was asked.** A command marks
-  its segment or dial as *sending* (it beats) until Home Assistant sends the new
-  state, or 8 s. The dial moves in place while it is dragged and the command goes
-  out on release (with keyboard or wheel, after 0.5 s still). If Home Assistant
-  fails, the error shows in the strip and the value comes back.
-- **Alerts in progress.** While the windows close, the alert stays with
-  "in progress…" and no button; it leaves when Home Assistant confirms `closed`.
-- **Several failing segments** are all painted (two sirens, two doors). If the
-  alert calls (in front and not muted), the wave comes out of those segments
-  (Orbit's `o-arc.ripple`); the disc ripples only when the channel is a dial.
-- **The one in front stays** until a more serious alert arrives; the ones
-  waiting are their layers behind, named. **Mute** removes the wave and sends
-  the alert behind; if the alert's text changes, it comes back.
-- **A new critical alert opens its system on its own** only when on the board.
-- **Size by available space:** the object shrinks (`--fit`) if the front disc
-  does not fit with the alert zoom.
-- **Board with pulse:** connection status, a line with what calls and the latest
-  changes of the entities shown.
-- **Detail:** the same controls, the Home Assistant entities behind each channel
-  and the camera image when there is motion.
-
-## Demo notes
-
-- The unit is the installation's (the demo comes in °F).
-- An alarm panel with a `code_format` asks for its code on a keypad over the
-  object before it arms or disarms (to arm only unless `code_arm_required` is
-  false); a wrong code is refused the way Home Assistant refuses it. The demo's
-  code is `1234`: Kernehed's panel asks for it, the main home's arms without one.
-- "Poorly Installed Door" jams on purpose when locked: it stays as a critical alert.
-- The demo's sirens start on: it is the first alert that appears.
-- The humidity and power channels look first for two simulated sensors of the
-  local test installation (`sensor.humedad_simulada`, `sensor.consumo_simulado`)
-  and then for the demo's.
+For resource-loading errors, card configuration and dashboard layout issues,
+see [card troubleshooting](card/README.md#troubleshooting).
