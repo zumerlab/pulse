@@ -1,5 +1,5 @@
-// Pulse inside a Home Assistant dashboard: the `pulse-card` custom card, the
-// `pulse` dashboard strategy (one panel view with the card) and the `pulse`
+// Pulse inside a Home Assistant dashboard: the `zumer-pulse` custom card, the
+// `zumer-pulse` dashboard strategy (one panel view with the card) and the `zumer-pulse`
 // section strategy (one section with the card), in one file. Orbit's and
 // Zumly's CSS travel inside the card (adopted by its shadow root); Orbit's
 // registered properties go once at document level, where @property works (see
@@ -117,7 +117,7 @@ function assertConfig(config: PulseCardConfig) {
 // options next to it); the card's options go through to the card.
 function cardConfig(strategy: Record<string, unknown> = {}): PulseCardConfig {
   const { systems, areas, mode, axis, start, layers, stack, settings, dial, day, ends, theme, time, month, modes } = strategy as PulseCardConfig;
-  return { type: 'custom:pulse-card', ...(systems ? { systems } : {}), ...(areas?.length ? { areas } : {}), ...(mode ? { mode } : {}), ...(axis ? { axis } : {}), ...(start ? { start } : {}),
+  return { type: 'custom:zumer-pulse', ...(systems ? { systems } : {}), ...(areas?.length ? { areas } : {}), ...(mode ? { mode } : {}), ...(axis ? { axis } : {}), ...(start ? { start } : {}),
     ...(layers ? { layers } : {}), ...(stack ? { stack } : {}), ...(settings === false ? { settings } : {}), ...(dial ? { dial } : {}), ...(day ? { day } : {}), ...(ends ? { ends } : {}), ...(theme ? { theme } : {}), ...(time ? { time } : {}), ...(month ? { month } : {}), ...(modes !== undefined ? { modes } : {}) };
 }
 
@@ -136,7 +136,7 @@ const sheets = [orbitCss, zumlyCss, pulseCss, appCss, cardCss].map((css) => {
 class PulseCard extends HTMLElement implements LovelaceCard {
   private source = new HassSource();
   private pulse: PulseHandle | null = null;
-  private config: PulseCardConfig = { type: 'custom:pulse-card' };
+  private config: PulseCardConfig = { type: 'custom:zumer-pulse' };
 
   static getStubConfig() { return {}; }
 
@@ -152,7 +152,7 @@ class PulseCard extends HTMLElement implements LovelaceCard {
 
   setConfig(config: PulseCardConfig) {
     assertConfig(config);
-    this.config = { ...config, type: 'custom:pulse-card' };
+    this.config = { ...config, type: 'custom:zumer-pulse' };
     // Options changed on a mounted card (the editor's live preview): mount again.
     if (this.pulse) { this.unmount(); this.mount(); }
   }
@@ -170,7 +170,7 @@ class PulseCard extends HTMLElement implements LovelaceCard {
     const { systems, areas, mode, axis, start, layers, stack, settings, dial, day, ends, theme, time, month, modes } = this.config;
     // The viewer's choices are kept per card config: a card set up differently
     // starts afresh.
-    const key = `pulse-card:${JSON.stringify({ systems, areas, mode, axis, start })}`;
+    const key = `zumer-pulse:${JSON.stringify({ systems, areas, mode, axis, start })}`;
     this.pulse = mountPulse(root.querySelector<HTMLElement>('.zumly-canvas')!, { source: this.source, systems, areas, mode, axis, start, layers, stack, settings: settings === false ? false : key,
       look: dial || day || ends || theme || time || month || modes !== undefined ? { dial, day, ends, theme, time, month, modes: modes === undefined ? undefined : modes ? 'shown' : 'hidden' } : undefined });
   }
@@ -202,16 +202,16 @@ class PulseSectionStrategy extends HTMLElement {
   }
 }
 
-customElements.define('pulse-card', PulseCard);
-customElements.define('ll-strategy-dashboard-pulse', PulseDashboardStrategy);
-customElements.define('ll-strategy-section-pulse', PulseSectionStrategy);
+customElements.define('zumer-pulse', PulseCard);
+customElements.define('ll-strategy-dashboard-zumer-pulse', PulseDashboardStrategy);
+customElements.define('ll-strategy-section-zumer-pulse', PulseSectionStrategy);
 window.customCards = window.customCards ?? [];
 window.customCards.push({
-  type: 'pulse-card', name: 'Pulse', preview: true, documentationURL: DOCS,
+  type: 'zumer-pulse', name: 'Pulse', preview: true, documentationURL: DOCS,
   description: 'Your home as one radial object per system, layered by urgency: the one calling the most in front, with its control on the ring.',
 });
 window.customStrategies = window.customStrategies ?? [];
 window.customStrategies.push(
-  { type: 'pulse', strategyType: 'dashboard', name: 'Pulse', documentationURL: DOCS, description: 'One full-screen Pulse: the board of your systems, each a radial object you zoom into.' },
-  { type: 'pulse', strategyType: 'section', name: 'Pulse', documentationURL: DOCS, description: 'Pulse as a section: the board, or one system, inside a sections view.' },
+  { type: 'zumer-pulse', strategyType: 'dashboard', name: 'Pulse', documentationURL: DOCS, description: 'One full-screen Pulse: the board of your systems, each a radial object you zoom into.' },
+  { type: 'zumer-pulse', strategyType: 'section', name: 'Pulse', documentationURL: DOCS, description: 'Pulse as a section: the board, or one system, inside a sections view.' },
 );

@@ -111,7 +111,7 @@ The way most of the community's UI reaches users (Mushroom 5.2k stars, Bubble Ca
 
 **Contract** ([custom card](https://contributors.home-assistant.io/frontend/custom-ui/card/)):
 - Standard custom element. `setConfig(config)` (required; throw to show an error card), `set hass(hass)` on every state change, `getCardSize()` for masonry, `getGridOptions()` for sections (12 columns, 56 px rows; `columns: "full"`, `rows: "auto"`).
-- Registered with `customElements.define('pulse-card', …)` and `window.customCards.push({type, name, description, preview, documentationURL, getEntitySuggestion})`.
+- Registered with `customElements.define('zumer-pulse', …)` and `window.customCards.push({type, name, description, preview, documentationURL, getEntitySuggestion})`.
 - Visual editor: `static getConfigForm()` returns a schema with the same selectors blueprints use (`entity`, `area`, `select`…). No need to write an editor element.
 - Calls: `hass.callService`, `hass.callWS`, `hass.connection.subscribeMessage` (the connection is a `home-assistant-js-websocket` instance). `hass` also carries `areas`, `devices`, `entities`, `floors`, `config` (unit system), `user`, `themes`, `locale`.
 - Any library or none; Lit isn't required. Internal `ha-*` elements are unsupported and change often. `ha-card` is the practical exception.
@@ -134,12 +134,12 @@ The way most of the community's UI reaches users (Mushroom 5.2k stars, Bubble Ca
 
 A strategy is code that writes dashboard config when the dashboard loads ([strategies](https://contributors.home-assistant.io/frontend/custom-ui/strategy/)). Home Assistant builds its own dashboards this way: `home`, `areas`, `energy`, `map`, `original-states` are built-in strategies.
 
-- Element `ll-strategy-dashboard-pulse` with `static async generate(config, hass)`. Config: `strategy: { type: custom:pulse, … }`.
-- Registered with `window.customStrategies.push({ type: 'pulse', strategyType: 'dashboard', name: 'Pulse', description, documentationURL })`. The **New dashboard dialog lists it under "Community dashboards"**. Confirmed in the local bundle: the dialog reads `window.customStrategies` filtered by `strategyType === 'dashboard'`.
+- Element `ll-strategy-dashboard-zumer-pulse` with `static async generate(config, hass)`. Config: `strategy: { type: custom:zumer-pulse, … }`.
+- Registered with `window.customStrategies.push({ type: 'zumer-pulse', strategyType: 'dashboard', name: 'Pulse', description, documentationURL })`. The **New dashboard dialog lists it under "Community dashboards"**. Confirmed in the local bundle: the dialog reads `window.customStrategies` filtered by `strategyType === 'dashboard'`.
 - Regenerates on registry changes (entities, devices, areas, floors), not on state changes. `registryDependencies` and `shouldRegenerate` tune this.
 - Users can "Take control" and get the generated YAML to edit.
 
-For Pulse: `generate()` reads areas, devices and entity domains, groups them into systems (Lights, Climate, Security…, the same seven as the prototype) and emits one panel view with a `custom:pulse-card`, plus maybe one view per system. This replaces the hard-coded demo entities with "your house, whatever it has", which the README already wants ("another installation builds its own object").
+For Pulse: `generate()` reads areas, devices and entity domains, groups them into systems (Lights, Climate, Security…, the same seven as the prototype) and emits one panel view with a `custom:zumer-pulse`, plus maybe one view per system. This replaces the hard-coded demo entities with "your house, whatever it has", which the README already wants ("another installation builds its own object").
 
 Same JavaScript file as the card. Cost: small once C exists.
 
@@ -281,7 +281,7 @@ Updates `../coordinacion/pulse-venta-ha.md` (25/10) with what changed:
 - Define a `PulseSource` interface with what `main.ts` uses: `states`, `units`, `status`, `call`, `onChange`, `onStatus`. Two implementations: the current WebSocket client, and one over the `hass` object.
 - Make the render mount on an element it's given (today Zumly mounts on the page's `#canvas` and the tune panel goes on the page).
 
-**Step 2: `pulse-card` + `pulse` dashboard strategy, one file (medium).**
+**Step 2: `zumer-pulse` card + `zumer-pulse` dashboard strategy, one file (medium).**
 - Card: plain custom element, Orbit and Zumly bundled, CSS adopted into the shadow root, Orbit's `@property` registered at document level. `getGridOptions` for sections; full height in a panel view. Visual editor with `getConfigForm` (which systems, which areas).
 - Strategy: systems from areas, devices and domains; one panel view.
 - Test on Home Assistant 2026.11 (update the local Docker), in the iOS and Android Companion apps, and on a tablet with kiosk-mode.
@@ -328,8 +328,8 @@ Updates `../coordinacion/pulse-venta-ha.md` (25/10) with what changed:
 
 - Step 1 and the login of step 4: `PulseSource` with `WebSocketSource` (OAuth via `getAuth`, `subscribe_entities`), the object mounted on an element (`app.ts`, `mountPulse`).
 - A third source, `DemoSource`: the six homes of demo.home-assistant.io inside the standalone app (`?demo=home`, index at `gallery.html`).
-- Step 2, first cut: `pulse-card` + `pulse` dashboard strategy in one module (`card/`, `npm run build:card`). Verified in the local 2026.10.4: CSS adopted in the shadow root works; the five Orbit `@property` registered from JS at document level work (rings render); Zumly mounts and zooms inside the shadow root; `hass.callService` round trip confirmed. Not yet: systems from registries, public repo and Marketplace listing.
-- Step 2, second cut (30/10/2026, night): options `systems`, `mode`, `start` on the card and both strategies; visual editor via `static getConfigForm()` (verified in 2026.10.4: checklist, two dropdowns, live preview); section strategy `ll-strategy-section-pulse` (works in 2026.10 from YAML; the editor lists it from 2026.11); compact board under 640 px; a bench page without HA (`card.html`) and tests; the user guide `apps/home-assistant/card/README.md` (install as a resource, the three ways in, options, entities, troubleshooting).
+- Step 2, first cut: `zumer-pulse` card + `zumer-pulse` dashboard strategy in one module (`card/`, `npm run build:card`). Verified in the local 2026.10.4: CSS adopted in the shadow root works; the five Orbit `@property` registered from JS at document level work (rings render); Zumly mounts and zooms inside the shadow root; `hass.callService` round trip confirmed. Not yet: systems from registries, public repo and Marketplace listing.
+- Step 2, second cut (30/10/2026, night): options `systems`, `mode`, `start` on the card and both strategies; visual editor via `static getConfigForm()` (verified in 2026.10.4: checklist, two dropdowns, live preview); section strategy `ll-strategy-section-zumer-pulse` (works in 2026.10 from YAML; the editor lists it from 2026.11); compact board under 640 px; a bench page without HA (`card.html`) and tests; the user guide `apps/home-assistant/card/README.md` (install as a resource, the three ways in, options, entities, troubleshooting).
 - The gear (30/10/2026, night): the viewer's settings inside the object (systems, board view, where it opens), per browser, within the frame the host sets (URL in the app, config in the card, `settings: false` hides it).
 - Registries and Home Assistant's own signals (30/10/2026, late): `PulseSource.registry` (areas, devices, entities, floors, repairs; `config/*_registry/list` and `repairs/list_issues` over the WebSocket, `hass.*` records in the card, the demo's own data). The model skips hidden and config/diagnostic entities as HA's summaries do, names the area in alerts, follows the Security view's sensor classes, and Maintenance gained batteries (< 20%), problems and repairs. Verified in the local 2026.10.4 (a 12% battery the demo integration marks diagnostic shows up, as in HA's Maintenance view). Also: the generator of the demo homes (`demo/scripts/import-homes.py`), the check script (`scripts/ha-check-card.mjs`) and an opt-in live test; `card.html` out of the production build; frame times at tablet size with a 6× slower CPU (emulated) stay at 60 fps but for one long frame when a system mounts.
 - Areas and the gear's second level (30/10/2026, late): option `areas` on the app (URL), the card and both strategies (the editor shows HA's area picker); the model filters every scan by the entity's or its device's area. The gear now also offers the areas by floor, the channels of each system, and the entity a single-entity channel follows (every fitting entity, with its place). Verified on the bench and in the local 2026.10.4.

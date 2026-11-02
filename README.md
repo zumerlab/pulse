@@ -53,7 +53,7 @@ different object.
 
 Three ways in, all from one JavaScript module and nothing on the server:
 
-- **The card**, `custom:pulse-card`, from the Add card dialog, with a visual
+- **The card**, `custom:zumer-pulse`, from the Add card dialog, with a visual
   editor.
 - **The strategies**: a dashboard that is one full-screen Pulse, and a section
   strategy for a sections view.
@@ -104,7 +104,7 @@ npm run dev:homelab  # homelab, http://127.0.0.1:5175; ?demo for the demo machin
 npm run typecheck   # TypeScript, whole workspace
 npm run lint        # ESLint
 npm test            # Playwright: the demo app, the Home Assistant app over its demo homes, the homelab app over its demo machine
-npm run build:card  # the Home Assistant card + strategies as one module: apps/home-assistant/dist-card/pulse-card.js
+npm run build:card  # the Home Assistant card + strategies as one module: apps/home-assistant/dist-card/zumer-pulse.js
                     # install and options: apps/home-assistant/card/README.md; bench without HA: http://127.0.0.1:5174/card.html
 npm run build       # typecheck and build the apps
 ```

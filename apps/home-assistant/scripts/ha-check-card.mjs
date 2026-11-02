@@ -33,7 +33,7 @@ const deep = (sel) => page.evaluate((sel) => {
 }, sel);
 const cards = () => page.evaluate(() => {
   const found = [];
-  const walk = (n) => { for (const el of n.querySelectorAll('*')) { if (el.localName === 'pulse-card') found.push(el); if (el.shadowRoot) walk(el.shadowRoot); } };
+  const walk = (n) => { for (const el of n.querySelectorAll('*')) { if (el.localName === 'zumer-pulse') found.push(el); if (el.shadowRoot) walk(el.shadowRoot); } };
   walk(document);
   return found.map((c) => {
     const r = c.getBoundingClientRect(), sr = c.shadowRoot;

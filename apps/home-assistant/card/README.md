@@ -10,12 +10,12 @@ rule fires (a jammed lock, a siren, heating with a window open).
 ![The Pulse board inside a Home Assistant dashboard](images/dashboard-grid.png)
 
 This folder is the Home Assistant distribution of Pulse: one JavaScript file,
-`pulse-card.js`, that adds three things to your dashboards.
+`zumer-pulse.js`, that adds three things to your dashboards.
 
 | What | Where it shows up | Use it when |
 |---|---|---|
 | **Pulse dashboard** | Settings › Dashboards › Add dashboard, under *Community dashboards* | You want Pulse full screen as its own entry in the sidebar |
-| **Pulse card** (`custom:pulse-card`) | The *Add card* dialog of any dashboard, with a visual editor | You want Pulse inside a dashboard you already have |
+| **Pulse card** (`custom:zumer-pulse`) | The *Add card* dialog of any dashboard, with a visual editor | You want Pulse inside a dashboard you already have |
 | **Pulse section** | A `strategy:` section of a sections view (YAML) | You want one system, or the board, as a section among others |
 
 ## Requirements
@@ -29,12 +29,12 @@ This folder is the Home Assistant distribution of Pulse: one JavaScript file,
 
 ## Install
 
-1. **Get `pulse-card.js`.** Download it from the latest release of this
+1. **Get `zumer-pulse.js`.** Download it from the latest release of this
    repository, or build it from source:
 
    ```sh
    npm ci
-   npm run build:card        # writes apps/home-assistant/dist-card/pulse-card.js
+   npm run build:card        # writes apps/home-assistant/dist-card/zumer-pulse.js
    ```
 
 2. **Copy it into your Home Assistant.** Put the file in the `www` folder of
@@ -44,7 +44,7 @@ This folder is the Home Assistant distribution of Pulse: one JavaScript file,
    config/
      configuration.yaml
      www/
-       pulse-card.js
+       zumer-pulse.js
    ```
 
    If `www` did not exist, create it and **restart Home Assistant once**; it
@@ -54,14 +54,14 @@ This folder is the Home Assistant distribution of Pulse: one JavaScript file,
    *Settings › Dashboards*, open the three-dots menu at the top right,
    *Resources*, *Add resource*:
 
-   - URL: `/local/pulse-card.js`
+   - URL: `/local/zumer-pulse.js`
    - Resource type: **JavaScript module**
 
    The *Resources* entry only appears when *Advanced mode* is on in your user
    profile (your name at the bottom of the sidebar).
 
 4. **Reload the page.** Hard-reload the browser (and, after an update of the
-   file, change the URL to `/local/pulse-card.js?v=2` so browsers and the
+   file, change the URL to `/local/zumer-pulse.js?v=2` so browsers and the
    Companion apps fetch the new one).
 
 Listing in the Home Assistant Marketplace (HACS) comes once the repository is
@@ -78,7 +78,7 @@ dashboard, the pencil, the three dots, *Raw configuration editor*:
 
 ```yaml
 strategy:
-  type: custom:pulse
+  type: custom:zumer-pulse
   # optional, see "Options" below
   mode: orbit
   systems: [lights, climate, security, openings]
@@ -100,7 +100,7 @@ views:
     path: pulse
     type: panel
     cards:
-      - type: custom:pulse-card
+      - type: custom:zumer-pulse
 ```
 
 In a **sections view** the card takes the full width of its section and at
@@ -121,14 +121,14 @@ views:
     type: sections
     sections:
       - strategy:
-          type: custom:pulse
+          type: custom:zumer-pulse
           systems: [climate]
           start: climate
       - type: grid
         cards:
           - type: heading
             heading: Pulse, one card
-          - type: custom:pulse-card
+          - type: custom:zumer-pulse
             mode: layers
 ```
 
@@ -273,7 +273,7 @@ the file to change to teach Pulse a new entity or a new rule.
 
 ## Troubleshooting
 
-- **"Custom element doesn't exist: pulse-card".** The resource is not loaded:
+- **"Custom element doesn't exist: zumer-pulse".** The resource is not loaded:
   check the URL and type under *Resources*, and hard-reload. In the Companion
   app, clear its frontend cache (*Settings › Companion app › Troubleshooting*).
 - **The card still looks like the old version after an update.** Change the
@@ -295,7 +295,7 @@ the file to change to teach Pulse a new entity or a new rule.
 ## Development
 
 The card is built from the Home Assistant app of this repository
-(`apps/home-assistant`): `app.ts` is the object, `card/pulse-card.ts` wraps it
+(`apps/home-assistant`): `app.ts` is the object, `card/zumer-pulse.ts` wraps it
 in a custom element with a shadow root and the strategies,
 `card/hass-source.ts` feeds it from the `hass` object. Without a Home
 Assistant, `card.html` (`npm run dev:ha`, then

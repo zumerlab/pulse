@@ -106,19 +106,19 @@ license: `demo/NOTICE.md` (Apache 2.0).
 
 ## Card and dashboard strategy
 
-`card/pulse-card.ts` is the same object inside a Home Assistant dashboard, as
+`card/zumer-pulse.ts` is the same object inside a Home Assistant dashboard, as
 the integration document planned (`docs/home-assistant-integration.md`, step
-2): one JavaScript module with the `pulse-card` custom card, the `pulse`
-dashboard strategy and the `pulse` section strategy, Orbit and Zumly bundled.
+2): one JavaScript module with the `zumer-pulse` custom card, the `zumer-pulse`
+dashboard strategy and the `zumer-pulse` section strategy, Orbit and Zumly bundled.
 **How to install and configure it in a Home Assistant is in
 [`card/README.md`](card/README.md)**, written for Home Assistant users; this
 section is the development side.
 
 ```sh
-npm run build:card        # from the repo root; apps/home-assistant/dist-card/pulse-card.js
+npm run build:card        # from the repo root; apps/home-assistant/dist-card/zumer-pulse.js
 ```
 
-- **Card.** `custom:pulse-card`, a plain custom element. `set hass` feeds a
+- **Card.** `custom:zumer-pulse`, a plain custom element. `set hass` feeds a
   `HassSource` (`card/hass-source.ts`): the same `PulseSource` interface, over
   the `hass` object Home Assistant pushes on every change (`hass.states` by
   reference, `hass.callService`, `hass.hassUrl`). The object mounts in the
@@ -131,10 +131,10 @@ npm run build:card        # from the repo root; apps/home-assistant/dist-card/pu
 - **Options** (`systems`, `mode`, `start`, `settings`) are `mountPulse`
   options; the card validates them (`assertConfig`) and remounts when the
   editor changes them. The viewer's choices (the gear) are kept per card
-  config, under `pulse-card:<json of the options>`.
+  config, under `zumer-pulse:<json of the options>`.
   `static getConfigForm()` gives the dashboard editor its form (a multiple
   select, two dropdowns, labels and helpers): no editor element to write.
-- **Strategies.** `strategy: { type: custom:pulse }` as a dashboard generates
+- **Strategies.** `strategy: { type: custom:zumer-pulse }` as a dashboard generates
   one panel view with the card; as a section, one grid with the card. Home
   Assistant hands `generate()` the strategy object itself (`type` plus the
   options next to it), which goes through to the card. The New dashboard
@@ -146,7 +146,7 @@ npm run build:card        # from the repo root; apps/home-assistant/dist-card/pu
   in `tests/ha.spec.ts` run the card there.
 - **Develop against the local Home Assistant.** With `npm run dev:ha` running,
   the resource can point at the dev server's copy of the build,
-  `http://127.0.0.1:5174/dist-card/pulse-card.js`, so no files go into the
+  `http://127.0.0.1:5174/dist-card/zumer-pulse.js`, so no files go into the
   Home Assistant container. `scripts/ha-install-card.mjs <tokens.json> <url>`
   registers that resource and creates (or updates) two dashboards over the
   admin WebSocket: `pulse-demo` (the dashboard strategy) and `pulse-sections`
