@@ -1,0 +1,45 @@
+/* ─── List, clock, calendar: one object in the space left ── */
+.list-stage, .clock-stage, .calendar-stage { position: absolute; inset: 0; display: grid; place-items: center; overflow: visible; }
+/* One flat object (no 3D, no parallax): the largest square that fits, up to 560 px. */
+.one { width: min(var(--S), 560px); aspect-ratio: 1; }
+.one > .bigbang { width: 100%; }
+/* On a phone the names of the list ride outside the ring: the object leaves them room. */
+@media (max-width: 640px) {
+  .one { width: min(calc(var(--S) * .8), 560px); }
+  /* A smaller disc: one line for the label, and no Open pill (the disc itself is the button). */
+  .list-center .face-label { -webkit-line-clamp: 1; }
+  .list-center .list-open { display: none; }
+}
+
+/* The wheel turns to its new place when it settles (items, names, ticks and the capsules turning back, all
+   by the same rotation); while the pointer turns it they follow at once. */
+.radial-list :is(.list-orbit, .list-name-orbit, .list-ticks, .list-item .capsule) { transition: rotate .35s cubic-bezier(.2, .8, .2, 1), opacity .35s; }
+.radial-list .list-orbit > .satellite { transition: width .35s cubic-bezier(.2, .8, .2, 1), height .35s cubic-bezier(.2, .8, .2, 1), opacity .35s; }
+.radial-list.is-turning :is(.list-orbit, .list-name-orbit, .list-ticks, .list-item .capsule, .list-orbit > .satellite) { transition: none; }
+.list-item .list-ring { pointer-events: none; }
+.list-center.disc { --disc-pad: 10px; }
+.list-center .face-big { font-size: clamp(18px, 12cqw, 30px); }
+.list-center .face-label { max-width: 86cqw; white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+@media (prefers-reduced-motion: reduce) { .radial-list :is(.list-orbit, .list-name-orbit, .list-ticks, .list-item .capsule, .list-orbit > .satellite) { transition: none; } }
+
+/* ─── The calm, folded while something calls ─────────────── */
+/* In the grid, one tile: a faint ring with a dot per calm system. */
+.calm-fold { cursor: pointer; }
+.calm-ring { position: relative; width: 84px; aspect-ratio: 1; border-radius: 50%; border: 1px solid var(--line);
+  display: flex; align-items: center; justify-content: center; gap: 5px; }
+.calm-ring i { width: 6px; height: 6px; border-radius: 50%; background: var(--dim); }
+.calm-fold.is-open .calm-ring { border-style: dashed; }
+.calm-fold:hover .calm-ring, .calm-fold:focus-visible .calm-ring { border-color: var(--muted); }
+@media (max-width: 600px) { .calm-ring { width: 56px; gap: 3px; } .calm-ring i { width: 4px; height: 4px; } }
+/* Under the layers and the list: one quiet button. */
+.calm-toggle { min-height: 36px; padding: 6px 14px; border-radius: 999px; border: 1px solid var(--line); background: none; color: var(--muted); font-size: 13px; cursor: pointer; }
+.calm-toggle:hover, .calm-toggle:focus-visible { color: var(--ink); border-color: var(--muted); }
+
+/* ─── List: the queue on two rings ──────────────────────── */
+/* Room on both sides for the names beside the items. */
+.queue-stage .one { width: min(calc(var(--S) * .78), 520px); }
+.queue-foot { position: absolute; left: 0; right: 0; bottom: 4px; display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
+.queue-back { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 6px 14px; border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--critical) 45%, transparent); background: none; color: var(--critical); font-size: 13px; cursor: pointer; }
+.queue-back-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--critical); }
+

@@ -1,0 +1,37 @@
+/* The Graphite style from the cookbook. On the page (:root) and inside a card's shadow root (:host). */
+:root, :host {
+  color-scheme: dark;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --bg: #0e1013;
+  --ink: #f2f3f5;
+  --muted: #9aa0a8;
+  --dim: #3a3f47;
+  --line: #262a31;
+  --minor: #ffb020;      /* level 1 alert */
+  --critical: #ff5a4f;   /* level 2 alert */
+  background: var(--bg);
+  color: var(--ink);
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); }
+h1, p { margin: 0; }
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+[hidden] { display: none !important; }
+
+.shell { position: relative; height: 100dvh; overflow: hidden; }
+/* The object is handled, not read: a drag over a dial, the list or the wheel never
+   starts a text selection, a long press never offers one, and a picture never lifts
+   as a ghost. Form fields keep their own. */
+.zumly-canvas { user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+.zumly-canvas :is(input, textarea, select) { user-select: auto; -webkit-user-select: auto; }
+.zumly-canvas img { -webkit-user-drag: none; }
+.zumly-canvas { background: var(--bg); }
+.z-view { width: 100%; height: 100%; background: var(--bg); }
+
+.eyebrow { font-size: 15px; color: var(--muted); }
+.plain, .primary { min-height: 44px; padding: 10px 16px; border-radius: 8px; border: 1px solid var(--dim); background: transparent; cursor: pointer; }
+.plain:hover { border-color: var(--muted); }
+.primary { background: var(--ink); color: var(--bg); border-color: var(--ink); font-weight: 650; margin-left: 10px; }
+

@@ -1,0 +1,35 @@
+/* ─── The ground: a glow or a photo behind every view ─────────────── */
+/* Each view paints it (it zooms with the view, like the rest of it); blurred in a layer of its own. */
+[data-ground="glow"] .z-view, [data-ground="photo"] .z-view { background: none; isolation: isolate; }
+[data-ground="glow"] .z-view::before, [data-ground="photo"] .z-view::before {
+  content: ""; position: absolute; inset: calc(-2 * var(--backdrop-blur, 0px)); z-index: -1; pointer-events: none;
+  background: var(--backdrop); filter: blur(var(--backdrop-blur, 0px));
+}
+/* Text over a photo keeps a soft shadow of the ground, to stay legible. */
+[data-ground="photo"] .z-view { text-shadow: 0 1px 3px color-mix(in srgb, var(--bg) 80%, transparent), 0 0 12px color-mix(in srgb, var(--bg) 50%, transparent); }
+[data-ground="photo"] .settings { text-shadow: none; }
+/* The faces over it: solid (the ground's color), or glass (see-through, blurring what is behind). */
+[data-faces="solid"], [data-faces="glass"] { --face-fill: color-mix(in srgb, var(--bg) 92%, var(--ink)); --face-edge: transparent; --face-blur: none; }
+[data-faces="glass"] { --face-fill: color-mix(in srgb, var(--bg) 38%, transparent); --face-edge: color-mix(in srgb, var(--ink) 16%, transparent); --face-blur: blur(14px) saturate(1.4); }
+:is([data-faces="solid"], [data-faces="glass"]) :is(.tile .mini-ring, .otile-ring, .calm-ring) { position: relative; }
+:is([data-faces="solid"], [data-faces="glass"]) :is(.tile .mini-ring, .otile-ring, .calm-ring)::before,
+:is([data-faces="solid"], [data-faces="glass"]) .queue-hit::after {
+  content: ""; position: absolute; inset: 7%; z-index: -1; border-radius: 50%; pointer-events: none;
+  background: var(--face-fill); box-shadow: inset 0 0 0 1px var(--face-edge); -webkit-backdrop-filter: var(--face-blur); backdrop-filter: var(--face-blur);
+}
+:is([data-faces="solid"], [data-faces="glass"]) :is(.tile, .otile, .queue-hit) { isolation: isolate; }
+:is([data-faces="solid"], [data-faces="glass"]) :is(.hub-face, .list-center.disc) {
+  background: var(--face-fill); box-shadow: inset 0 0 0 1px var(--face-edge); -webkit-backdrop-filter: var(--face-blur); backdrop-filter: var(--face-blur);
+}
+/* Layers stack in 3D, where a backdrop filter flickers: the glass there is see-through only. */
+:is([data-faces="solid"], [data-faces="glass"]) .board .disc { background: var(--face-fill); }
+/* The gear's background fields. */
+.settings-glow input[type="color"] { width: 48px; height: 32px; padding: 0; border: 1px solid var(--line); border-radius: 8px; background: none; cursor: pointer; }
+.settings-photo { display: grid; gap: 10px; }
+.settings-photo[hidden], .settings-glow[hidden], .settings-faces[hidden] { display: none !important; }
+.photo-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.settings .photo-pick { position: relative; min-height: 0; padding: 8px 14px; font-size: 13px; border-radius: 999px; display: inline-flex; }
+.photo-pick input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.photo-pick:has(input:focus-visible) { outline: 2px solid var(--ink); outline-offset: 2px; }
+.photo-state { font-size: 12px; color: var(--muted); }
+.settings input[type="text"] { font: inherit; font-size: 14px; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--dim); background: var(--bg); color: var(--ink); width: 100%; box-sizing: border-box; }

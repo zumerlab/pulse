@@ -1,0 +1,23 @@
+/* ─── Layers: a single object, one system per layer ────── */
+.board-stage { position: absolute; inset: 0; }
+.board-strip { position: absolute; left: 0; right: 0; bottom: 0; min-height: 36px; font-size: 13px; }
+.board-stage .obj, .board-stage[data-zoom="alert"] .obj { --zoom: var(--t-layer-zoom, 1.1); }
+.board-stage .obj .depth { --o-back-opacity: var(--t-layer-opacity, .6); --o-depth-step: var(--t-layer-step, -70); }
+/* The rings behind soften with the distance: a halo of their color (see the core's 3D rule). */
+.board-stage .layer:not(.layer-front) > .orbit-12 :is(o-arc, o-progress) { --o-stroke: color-mix(in srgb, var(--o-fill, var(--muted)) 30%, transparent); --o-stroke-width: var(--halo, 0); }
+.board-stage .face-label { max-width: 150px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .hub.beat .hub-ring, .slide { animation: none; }
+  .tile.has-alert .mini-ring::after, .otile.has-alert .otile-ring::after { animation: none; opacity: .35; transform: scale(1.12); }
+}
+.ticker li { justify-content: center; }
+/* Under the object in layers: the latest changes, and the systems past the cap. */
+.board-strip { display: grid; justify-items: center; gap: 2px; font-size: 12px; color: var(--muted); }
+.board-strip .behind { font-size: 13px; margin-bottom: 4px; }
+.board-strip .tick { display: flex; gap: 8px; white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.board-strip .tick:first-of-type { color: var(--ink); }
+.board-strip .tick.level-1 { color: var(--minor); }
+.board-strip .tick.level-2 { color: var(--critical); }
+.board-strip time { font-variant-numeric: tabular-nums; opacity: .7; }
+

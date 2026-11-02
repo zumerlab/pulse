@@ -1,0 +1,112 @@
+/* ─── Detail ──────────────────────────────────────────── */
+/* Rows at their content's size: a scroll container's auto rows stop at their
+   minimum once the content overflows, and the timeline would overlap what follows. */
+.detail { height: 100%; max-width: 520px; margin: 0 auto; display: grid; grid-auto-rows: max-content; align-content: center; gap: 14px; padding: 24px 16px; }
+.detail h1 { display: flex; align-items: center; gap: 12px; font-size: 30px; font-weight: 550; }
+.detail-big { font-size: 64px; font-weight: 600; letter-spacing: -2px; }
+.detail-label, .hint { color: var(--muted); }
+.detail-why { color: var(--critical); }
+.slider { display: grid; gap: 8px; color: var(--muted); }
+.slider input { width: 100%; accent-color: var(--ink); }
+.segments { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+.segments li { padding: 10px 14px; border: 1px solid var(--dim); border-radius: 8px; color: var(--muted); }
+.segments li.on { color: var(--ink); border-color: var(--muted); }
+.segments li.fail { color: var(--critical); border-color: var(--critical); }
+
+@media (prefers-reduced-motion: reduce) {
+  .obj { transition: none; }
+  .disc::after { animation: none; }
+}
+
+
+/* ─── Zumly: the levels behind ────────────────────────── */
+/* They recede by opacity, never by a filter (see zumlyOptions): opacity is
+   composited, a filter re-renders a screen-sized surface on every frame. */
+.zumly-canvas > .z-view.is-previous-view:not(.hide) { opacity: .4; }
+.zumly-canvas > .z-view.is-last-view:not(.hide) { opacity: .2; }
+
+/* ─── Direct controls ─────────────────────────────────── */
+.dial { touch-action: none; cursor: grab; outline: none; }
+.dial:active { cursor: grabbing; }
+.knob { background: var(--ink); border-radius: 50%; pointer-events: none; box-shadow: 0 0 0 3px var(--bg); }
+.layer:has(.dial:focus-visible) .knob { box-shadow: 0 0 0 3px var(--bg), 0 0 0 5px var(--ink); }
+/* A range's knobs are sliders of their own: each takes the pointer and the focus. */
+.knob[data-handle] { pointer-events: auto; cursor: grab; outline: none; touch-action: none; }
+.knob[data-handle]:focus-visible { box-shadow: 0 0 0 3px var(--bg), 0 0 0 5px var(--ink); }
+.layer:has(.dial:focus-visible) .knob[data-handle]:not(:focus-visible) { box-shadow: 0 0 0 3px var(--bg); }
+.range-track { cursor: grab; }
+
+/* ─── Time ring ───────────────────────────────────────── */
+.time-ring { width: 220px; aspect-ratio: 1; margin: 10px auto; }
+.time-bar { --o-fill: var(--ink); --o-stroke: transparent; cursor: default; }
+.time-bar.is-now { opacity: 1 !important; --o-stroke: color-mix(in srgb, var(--ink) 45%, transparent); --o-stroke-width: 3; }
+.time-center { display: grid; justify-items: center; text-align: center; gap: 1px; }
+.time-range { font-size: 10px; color: var(--ink); white-space: nowrap; }
+.time-ring.has-marks { margin: 26px auto; }
+.time-tick { height: 1px; background: var(--dim); --o-alignment: 5px; }
+.time-tick.is-major { height: 2px; background: var(--muted); }
+.time-hour { --o-fill: transparent; --o-color: var(--muted); font-size: 10px; }
+.time-big { font-size: 13px; font-weight: 600; letter-spacing: -.3px; white-space: nowrap; }
+.time-label { font-size: 10px; color: var(--muted); white-space: nowrap; }
+
+/* ─── Timeline: a day per entity ──────────────────────── */
+/* Sized in container units: a percentage width with an aspect ratio gives the
+   row above it nothing to measure, and the rings would overlap what follows. */
+.timeline { --tl: min(320px, 100cqi); width: var(--tl); height: var(--tl); margin: 10px auto; }
+.timeline.has-marks { --tl: min(320px, 100cqi - 40px); margin: 26px auto; }
+.track-back { --o-fill: var(--line); --o-stroke: transparent; cursor: default; }
+.track-span { --o-fill: var(--ink); --o-stroke: transparent; cursor: default; }
+.track.warn .track-span { --o-fill: var(--minor); }
+.track.critical .track-span { --o-fill: var(--critical); }
+.track.has-act o-arc { cursor: pointer; }
+.track-name { --o-fill: var(--bg); --o-color: var(--muted); }
+/* The ring on right now arrives at the top brighter (a glow would be a filter: those are drawn every frame behind a zoom). */
+.track.is-on .track-span:last-of-type { --o-stroke: color-mix(in srgb, var(--ink) 40%, transparent); --o-stroke-width: 2.5; }
+.track.warn.is-on .track-span:last-of-type { --o-stroke: color-mix(in srgb, var(--minor) 40%, transparent); }
+.track.critical.is-on .track-span:last-of-type { --o-stroke: color-mix(in srgb, var(--critical) 40%, transparent); }
+.track.is-pending { animation: track-beat 1.2s ease-in-out infinite; }
+.capsule.time-event { width: max-content; height: auto; }
+@keyframes track-beat { 50% { opacity: .35; } }
+.time-event { position: relative; padding-left: 10px; font-size: 10px; color: var(--muted); white-space: nowrap; }
+.time-event::before { content: ''; position: absolute; left: 0; top: 50%; width: 6px; height: 6px; margin-top: -3px; border-radius: 50%; background: var(--ink); }
+.time-event.warn::before { background: var(--minor); }
+.time-event.critical::before { background: var(--critical); }
+.timeline .time-center { width: 100%; padding: 0 8px; box-sizing: border-box; }
+.timeline .time-big, .timeline .time-label { max-width: 100%; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.timeline .time-big { font-size: 22px; }
+.timeline .time-label { font-size: 11px; }
+
+/* ─── Detail ring: the channel's dial, big, with the color arcs inside ── */
+.detail-ring { width: 260px; height: 260px; margin: 16px auto; }
+.ring-grab { outline: none; }
+.ring-grab o-arc { --o-fill: transparent; --o-stroke: transparent; cursor: grab; }
+.ring-grab:focus-visible + .knob-orbit .knob { box-shadow: 0 0 0 3px var(--bg), 0 0 0 5px var(--ink); }
+.hue-ring o-arc, .sat-ring o-arc { --o-stroke: transparent; }
+.hue-ring.is-unset, .sat-ring.is-unset { opacity: .5; }
+.hue-knob, .sat-knob { box-shadow: 0 0 0 2px #fff, 0 0 0 3px rgba(0,0,0,.4); }
+.ring-center { width: 100%; height: 100%; border-radius: 50%; display: grid; place-content: center; justify-items: center; gap: 2px; text-align: center; }
+.ring-center.has-color { background: color-mix(in srgb, var(--c) 30%, transparent); }
+.ring-big { font-size: 22px; font-weight: 600; letter-spacing: -.5px; white-space: nowrap; }
+.ring-label { font-size: 11px; color: var(--muted); white-space: nowrap; max-width: 90px; overflow: hidden; text-overflow: ellipsis; }
+
+/* ─── Color wheel ─────────────────────────────────────── */
+.color-wheel {
+  position: relative; width: 180px; aspect-ratio: 1; margin: 0 auto; border-radius: 50%; touch-action: none; cursor: crosshair; outline: none;
+  background:
+    radial-gradient(circle, #fff 0%, rgba(255,255,255,.9) 12%, rgba(255,255,255,0) 72%),
+    conic-gradient(from 0deg, hsl(0 100% 50%), hsl(60 100% 50%), hsl(120 100% 50%), hsl(180 100% 50%), hsl(240 100% 50%), hsl(300 100% 50%), hsl(360 100% 50%));
+  box-shadow: 0 0 0 1px var(--line);
+}
+.color-wheel:focus-visible { box-shadow: 0 0 0 3px var(--bg), 0 0 0 5px var(--ink); }
+.color-handle {
+  position: absolute; width: 22px; height: 22px; border-radius: 50%; transform: translate(-50%, -50%);
+  border: 3px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.4), 0 2px 6px rgba(0,0,0,.4); pointer-events: none;
+}
+.color-wheel.is-unset .color-handle { opacity: .5; }
+.toggle { cursor: pointer; outline: none; }
+.toggle:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; border-radius: 50%; }
+.how { flex-basis: 100%; font-size: 12px; color: var(--muted); }
+.switches { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+.switches label { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 14px; border: 1px solid var(--dim); border-radius: 8px; cursor: pointer; }
+.switches input { width: 18px; height: 18px; accent-color: var(--ink); }
+

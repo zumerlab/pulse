@@ -1,0 +1,57 @@
+/* ─── Time in the orbit (look.time): the window on the center's ring ── */
+.hub-time { position: absolute; inset: 0; }
+.orbit-stage .hub-orbit .tw-hit { pointer-events: auto; }
+.hub-clock .clock-big { font-size: clamp(22px, 17cqw, 64px); font-variant-numeric: tabular-nums; letter-spacing: -1.5px; }
+/* The month as the last 30 days (look.month: rolling), the same size as the calendar. */
+.month-window { position: relative; width: min(100%, 300px); margin: 24px auto; }
+.month-window-center { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 2px; text-align: center; pointer-events: none; }
+.month-window .time-big { font-size: 26px; }
+
+/* ─── The changes of the last hours, one tap past the orbit ── */
+.changes-view { height: 100%; display: grid; grid-template-rows: auto minmax(0, 1fr); justify-items: center; padding: 24px 16px 72px; gap: 8px; }
+.changes-stage { position: relative; width: min(100%, 520px); display: grid; place-items: center; align-self: center; }
+.changes-stage .scroll-list { width: min(100%, 520px); height: auto; aspect-ratio: 1; margin: 0; }
+/* The whole text of the one in focus, in the left half of the ring, where the names do not reach. */
+.changes-center { position: absolute; left: 7%; top: 50%; translate: 0 -50%; width: 34%; display: grid; gap: 6px; text-align: left; }
+.changes-text { font-size: clamp(15px, 3.4vw, 20px); line-height: 1.3; overflow-wrap: anywhere; }
+.changes-text.level-1 { color: var(--minor); }
+.changes-text.level-2 { color: var(--critical); }
+
+/* ─── The orbit's face with time on: a line across it ─────── */
+/* The face leaves the gap the hub asks for (orbitHub's inset). */
+.orbit-stage .hub-face { inset: var(--hub-face-inset, 9%); }
+.orbit-stage .hub-ring svg { position: absolute; inset: 0; }
+/* Above the line, now: the alert (dots to step through the open ones) or the clock. Under it, before, in grey. */
+.hub-face.is-split { padding: 0; display: block; }
+.hub-face.is-split .hub-slide { position: absolute; left: 10%; right: 10%; top: 0; height: calc(var(--hub-split, .75) * 100%); display: grid; place-items: safe center; padding: 8% 0 4%; box-sizing: border-box; overflow: hidden; z-index: 1; }
+/* Split, the alert says only what and where; the reason waits in its system. The whole half opens it. */
+.hub-face.is-split .hub-slide:has(.hub-dots) { padding-top: 4%; }
+.hub-face.is-split .slide { gap: 1.4cqw; }
+.hub-face.is-split .slide-why { display: none; }
+/* No Open button in the center: the alert itself opens its system (the whole face, or the half above the line). */
+.orbit-stage .hub-face .slide-go { position: absolute; inset: 0; z-index: 1; display: block; margin: 0; padding: 0; border: 0; border-radius: 50%; background: none; font-size: 0; color: transparent; cursor: pointer; }
+.orbit-stage .hub-face .slide-go:focus-visible { outline: 2px solid var(--ink); outline-offset: -6px; }
+.hub-face.is-split .slide-go { border-radius: 50% 50% 0 0; }
+.orbit-stage .hub-face .hub-dots { z-index: 2; }
+.orbit-stage .hub-face:has(.slide-go:hover) .slide-big { text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: .12em; }
+/* Under the line only the way into the changes. */
+.hub-face.is-split .hub-last { display: none; }
+.hub-face.is-split .hub-before { justify-content: center; padding-top: 0; padding-bottom: 6%; }
+.hub-face.is-split .slide-why { -webkit-line-clamp: 2; }
+.hub-face.is-split .hub-before { position: absolute; left: 0; right: 0; bottom: 0; top: calc(var(--hub-split, .75) * 100%); border-top: 1px solid var(--dim);
+  background: color-mix(in srgb, var(--bg) 55%, transparent); display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 1.2cqw; padding: 2.4cqw 18% 0; }
+.hub-face:not(.is-split) .hub-before { display: none; }
+.hub-last { font-size: clamp(9px, 3.4cqw, 12px); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.hub-changes { min-height: 0; padding: 0; border: 0; background: none; color: var(--muted); font-size: clamp(9px, 3.4cqw, 12px); cursor: pointer; white-space: nowrap; }
+.hub-changes:hover, .hub-changes:focus-visible { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+/* The dots under the alert: one per open alert, in its color, all the same size; the one shown full, the rest faint. */
+.hub-slide .hub-dots { position: static; translate: none; display: flex; justify-content: center; gap: 0; margin-top: .6cqw; }
+/* Split: the dots lead the alert's half, at its top, clear of the line and of the changes under it. */
+.hub-face.is-split .hub-slide .hub-dots { order: -1; margin: 0; position: relative; left: auto; bottom: auto; translate: none; z-index: 2; }
+.hub-slide .hub-dot { width: 22px; height: 22px; }
+.hub-slide .hub-dot::before { transform: none !important; box-shadow: none !important; opacity: .4; }
+.hub-slide .hub-dot[aria-current="true"]::before { opacity: 1; }
+/* The list of changes: whether it is still open, and the way to its system. */
+.changes-still { font-size: 13px; color: var(--muted); }
+.changes-go { justify-self: start; min-height: 36px; padding: 6px 14px; border-radius: 999px; margin-top: 4px; white-space: nowrap; }
+

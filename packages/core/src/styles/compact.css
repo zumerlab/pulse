@@ -1,0 +1,13 @@
+/* A small box (a card in a section, a narrow window): the board tightens. */
+.compact .board { gap: 14px; }
+.compact .board-head { padding: 0 88px; }
+.compact .board-head .conn-slot { position: static; order: 3; }
+.compact .board-head h1 { font-size: 14px; }
+.compact .gear, .compact .exit { width: 34px; height: 34px; top: 8px; right: 8px; }
+.compact .exit.with-gear { right: 48px; }
+.compact .modes { margin-top: 0; }
+.compact .ticker { min-height: 0; width: min(360px, 100%); }
+.compact .ticker li:nth-child(n+3) { display: none; }
+.compact .tile { height: 132px; }
+.compact .board.mode-layers .board-body { min-height: 240px; }
+

@@ -1,0 +1,71 @@
+/* ─── Orbit: the pulse in the center, the systems around ── */
+/* Visible: the text of the systems at the bottom may go just past the edge of the universe. */
+.orbit-stage { position: absolute; inset: 0; overflow: visible; }
+/* No zoom; the layers behind keep size and color (they only move away). */
+.orbit-stage .obj { --zoom: 1; }
+.orbit-stage .obj .depth { --o-depth-grow: 0; --o-back-opacity: 1; --o-depth-step: var(--t-orbit-step, -110); }
+/* The universe is the largest square that fits (--S). Each system's ring fills
+   its satellite: 3.5 lanes (0.15 of the universe). They shift 20 px inward so
+   the text hanging outside fits. */
+.orbit-stage .obj > .bigbang { width: var(--S); }
+.orbit-stage .orbit-tiles { --o-size-ratio: var(--t-tile, 3.5); --o-alignment: var(--t-align, 20px); }
+/* The pulse: the center satellite, 11 lanes (0.46 of the universe), drawn over
+   the systems' rings, which cross it: its face is opaque and above them. Only
+   the round face takes the pointer: the square around it would cover the tiles. */
+.orbit-stage .hub-orbit { --o-size-ratio: var(--t-hub, 11); z-index: 2; }
+.orbit-stage .hub-orbit, .orbit-stage .hub-orbit * { pointer-events: none; }
+.orbit-stage .hub-face, .orbit-stage .hub-face *, .orbit-stage .hub-entry, .orbit-stage .hub-entry * { pointer-events: auto; }
+/* In the orbit, what calls is already in the center: the headline is redundant. */
+/* The center scales with its own size (cqw units), not with the screen: it
+   never overflows, even when the orbit shrinks it. */
+.hub { position: relative; width: 100%; aspect-ratio: 1; container-type: inline-size; }
+.hub-ring-slot, .hub-ring { position: absolute; inset: 0; width: 100%; }
+.hub.beat .hub-ring { animation: hub-beat .7s ease-out; }
+@keyframes hub-beat { 30% { opacity: .6; } }
+.hub-face {
+  position: absolute; inset: 9%; border-radius: 50%; overflow: hidden; background: color-mix(in srgb, var(--bg) 94%, var(--ink));
+  display: grid; place-items: center; padding: 14% 12% 24%;
+}
+.slide { display: grid; justify-items: center; gap: 2cqw; text-align: center; min-width: 0; animation: slide-in .45s ease-out; }
+@keyframes slide-in { from { opacity: 0; transform: translateY(6px); } }
+.slide .eyebrow { font-size: clamp(10px, 4.4cqw, 15px); }
+.slide.level-1 .eyebrow, .slide.level-1 .slide-big { color: var(--minor); }
+.slide.level-2 .eyebrow, .slide.level-2 .slide-big { color: var(--critical); }
+.slide-big { font-size: clamp(14px, 10.5cqw, 46px); font-weight: 600; letter-spacing: -.5px; line-height: 1.05; hyphens: auto; }
+.slide-big.is-calling { color: var(--minor); }
+.slide-why {
+  font-size: clamp(10px, 4.4cqw, 15px); color: var(--muted); max-width: 28ch;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+.slide-go { min-height: 0; padding: 1.6cqw 4cqw; margin: 1cqw 0 0; font-size: clamp(10px, 3.8cqw, 13px); border-radius: 999px; }
+.hub-rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 1.2cqw; width: 56cqw; max-width: 100%; font-size: clamp(9px, 4cqw, 14px); color: var(--muted); }
+.hub-rows li { display: flex; gap: 8px; justify-content: space-between; white-space: nowrap; min-width: 0; }
+.hub-rows li span { overflow: hidden; text-overflow: ellipsis; }
+.hub-rows li:first-child { color: var(--ink); }
+.hub-rows strong { font-weight: 550; font-variant-numeric: tabular-nums; }
+@container (max-width: 260px) {
+  .hub-rows li:nth-child(n+2) { display: none; }
+  .slide-why { -webkit-line-clamp: 2; }
+  .slide-go { display: none; }   /* small: opens by tapping the system's tile */
+}
+/* Carousel dots: one per alert plus the pulse; the color tells the level. */
+.hub-dots { position: absolute; left: 50%; bottom: 14%; translate: -50% 0; display: flex; gap: 2px; }
+.hub-dot { width: clamp(14px, 9cqw, 22px); height: 22px; padding: 0; border: 0; background: none; cursor: pointer; display: grid; place-items: center; }
+.hub-dot::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--dim); transition: transform .2s; }
+.hub-dot.level-1::before { background: var(--minor); }
+.hub-dot.level-2::before { background: var(--critical); }
+.hub-dot.pulse::before { background: var(--muted); }
+.hub-dot[aria-current="true"]::before { transform: scale(1.6); box-shadow: 0 0 0 2px var(--bg), 0 0 0 3px currentColor; }
+/* The button is the whole satellite: the ring fills it and the text hangs
+   outside with Orbit's `.outward-y`: above in the top half, below in the rest. */
+.otile { position: relative; width: 100%; aspect-ratio: 1; padding: 0; border: 0; background: none; cursor: pointer; }
+.otile-label { width: max(100%, 110px); display: grid; justify-items: center; gap: 4px; }
+.otile-ring { position: relative; width: 100%; aspect-ratio: 1; display: grid; place-items: center; }
+.otile-ring .bigbang { position: absolute; inset: 0; width: 100%; }
+.otile-glyph .glyph { width: calc(var(--S) * .045); height: calc(var(--S) * .045); }
+.otile .tile-title { font-size: clamp(10px, calc(var(--S) * .02), 13px); }
+.otile .tile-big { font-size: clamp(10px, calc(var(--S) * .019), 12px); }
+.otile.level-1 .tile-title, .otile.level-1 .tile-big { color: var(--minor); }
+.otile.level-2 .tile-title, .otile.level-2 .tile-big { color: var(--critical); }
+
+

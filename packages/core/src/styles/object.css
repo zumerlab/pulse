@@ -1,0 +1,159 @@
+/* ─── Board ───────────────────────────────────────────── */
+.board { height: 100%; display: grid; align-content: center; justify-items: center; gap: 36px; padding: 24px 16px; }
+.board-head { text-align: center; display: grid; gap: 10px; }
+.board-head h1 { font-size: clamp(22px, 3vw, 32px); font-weight: 550; letter-spacing: -.6px; }
+.tiles { display: flex; flex-wrap: wrap; justify-content: center; gap: 22px; }
+.tile { position: relative; width: 120px; height: 140px; padding: 0; border: 0; background: none; display: grid; justify-items: center; align-content: start; gap: 10px; }
+.mini-glyph { position: absolute; top: 29px; }
+.tile-title { font-size: 13px; color: var(--muted); }
+.tile.has-alert .tile-title { color: var(--critical); }
+
+/* ─── Rings (Orbit) ───────────────────────────────────── */
+/* The universe measures its box: the orbit-12 ring touches the edge. */
+.mini-ring { width: 84px; }
+.glyph { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.arc-label { --o-fill: transparent; --o-color: var(--muted); }
+.ring-hit { --o-fill: transparent; }
+/* What Home Assistant refused: a red outline on the segment or the band until it goes through. */
+o-arc.is-failed { --o-stroke: var(--critical); --o-stroke-width: 2; }
+.orbit-12.is-failed o-progress { --o-back-fill: var(--critical); }
+/* The card that says so, with its Retry. */
+.errc { display: inline-flex; align-items: center; gap: 10px; padding: 6px 6px 6px 14px; border-radius: 999px; border: 1px solid var(--critical); color: var(--ink); font-size: 13px; text-align: left; }
+.errc .plain { min-height: 36px; padding: 6px 14px; border-radius: 999px; }
+.ring-hit:hover, .ring-hit:focus-visible { --o-fill: color-mix(in srgb, var(--ink) 8%, transparent); outline: none; }
+
+/* ─── System ──────────────────────────────────────────── */
+.system { position: relative; height: 100%; display: grid; grid-template-rows: 1fr auto; justify-items: center; padding: 16px 16px 72px; gap: 14px; }
+/* The footer bar: the back button (Zumly's, bottom left of the canvas) gets its
+   room at the left, the dots the middle, the controls the right. */
+.foot { position: absolute; left: 0; right: 0; bottom: 0; height: 72px; display: grid; grid-template-columns: 64px minmax(0, 1fr) auto; align-items: center; padding: 0 12px 0 0; }
+.foot .controls { padding: 0; justify-content: flex-end; }
+.foot .dots { justify-self: center; }
+.icon-btn { width: 44px; min-height: 44px; padding: 0; display: inline-grid; place-items: center; border-radius: 50%; color: var(--muted); }
+.icon-btn[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.icon-btn .glyph { stroke-width: 1.5; }
+.stage { position: relative; width: 100%; overflow: hidden; perspective: 900px; }
+.obj {
+  position: absolute; inset: 0; display: grid; place-items: center;
+  transform-style: preserve-3d;
+  /* The 3D container takes no clicks (cookbook §11.8): the satellites and the
+     interactive arcs bring their own. */
+  pointer-events: none;
+  /* --fit is set by the view from the stage's size (fitFor): the object fills what it has. */
+  transform: scale(calc(var(--zoom, 1.2) * var(--fit, 1)));
+  transition: transform .8s cubic-bezier(.2,.8,.2,1);
+  /* The tilt with the pointer (parallax) animates `rotate` on the compositor. */
+  will-change: transform, rotate;
+}
+/* In 3D the rings behind soften with the distance: a translucent halo of
+   their own color, wider the farther (--halo, set by the view). A blur filter
+   would do it better, but a filter inside a 3D-transformed tree flickers in
+   Chrome. */
+.stage.is-3d .layer:not(.layer-front) > .orbit-12 :is(o-arc, o-progress) { --o-stroke: color-mix(in srgb, var(--o-fill, var(--muted)) 30%, transparent); --o-stroke-width: var(--halo, 0); }
+.stage[data-zoom="alert"] .obj { --zoom: 1.35; }
+.obj > .bigbang { width: 240px; }
+.obj .depth {
+  --o-perspective: 900;             /* the same as .stage */
+  --o-depth-grow: .42;
+  --o-back-opacity: .55;
+}
+.obj .depth.is-flat { --o-depth-step: 0; }
+.stage.is-locked .ring-hit { pointer-events: none; }
+.layer.is-alert[data-level="2"] .arc-label { --o-color: var(--critical); }
+.layer.is-alert[data-level="1"] .arc-label { --o-color: var(--minor); }
+
+.disc {
+  position: relative; width: 100%; height: 100%; border-radius: 50%;
+  display: grid; place-content: center; justify-items: center; gap: 4px;
+  background: color-mix(in srgb, var(--ink) 6%, transparent); border: 0;   /* no backdrop-filter: inside a 3D tree it flickers black in Chrome and costs a frame */
+  color: var(--ink); text-align: center;
+  container-type: size;                /* the face sizes its lines from the disc (cqw) */
+}
+/* Each line of the face is one line, sized from the disc, and never past it. */
+.face-name, .face-big, .face-label { max-width: 78cqw; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.face-name { font-size: clamp(11px, 6.5cqw, 15px); color: var(--muted); }
+.face-big { font-size: clamp(18px, 14.5cqw, 34px); font-weight: 600; letter-spacing: -1px; line-height: 1.1; }
+.face-label { font-size: clamp(10px, 5.5cqw, 13px); color: var(--muted); }
+.layer.is-alert[data-level="2"] .face-big { color: var(--critical); }
+.layer.is-alert[data-level="1"] .face-big { color: var(--minor); }
+
+/* The face over a picture (a camera, a cover): the image fills the disc and the text sits on a scrim. */
+.disc.has-image { overflow: hidden; isolation: isolate; }
+.face-image { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 50%; z-index: -1; }
+.disc.has-image::before {
+  content: ""; position: absolute; inset: 0; border-radius: 50%; z-index: -1;
+  background: radial-gradient(circle at 50% 55%, rgba(0,0,0,.65) 0, rgba(0,0,0,.45) 45%, rgba(0,0,0,.12) 78%);
+}
+.disc.has-image .face-big, .disc.has-image .face-name, .disc.has-image .face-label, .disc.has-image .glyph { text-shadow: 0 1px 3px rgba(0,0,0,.7); }
+.disc.has-image .face-name, .disc.has-image .face-label { color: rgba(255,255,255,.85); }
+.disc.has-image .face-big { font-size: clamp(16px, 11cqw, 26px); }
+
+/* The open dial: its ends named just outside, a mark where the measurement is. */
+.dial-end { font-size: 10px; color: var(--muted); white-space: nowrap; }
+.now-mark { height: 2px; background: var(--muted); border-radius: 1px; }
+.layer:not(.layer-front) .dial-ends, .layer:not(.layer-front) .now-orbit { display: none; }
+
+/* The names of a choice, along the inside of the ring. */
+.choice-label { --o-fill: transparent; --o-color: var(--muted); font-size: 12px; }
+.choice-label.is-on { --o-color: var(--ink); }
+.layer:not(.layer-front) .choice-labels { display: none; }
+
+/* The keypad: a phone's, centered over the object, which waits dimmed behind. */
+.obj.is-waiting { opacity: .16; pointer-events: none; transition: opacity .2s; }
+.keypad-slot { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; z-index: 3; }
+.keypad-slot:empty { display: none; }
+.keypad { pointer-events: auto; display: grid; justify-items: center; gap: 4px; --key: 54px; }
+.compact .keypad { --key: 48px; }
+.keypad-title { margin: 0; display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+.keypad-title .glyph { width: 16px; height: 16px; }
+.code-dots { font-size: 26px; font-weight: 600; letter-spacing: 6px; line-height: 1.2; min-height: 1.2em; }
+.code-dots.is-empty { color: var(--muted); font-weight: 400; }
+.code-input {
+  width: 9ch; font: inherit; font-size: 22px; font-weight: 600; letter-spacing: 4px; text-align: center; line-height: 1.4;
+  color: var(--ink); background: transparent; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; padding: 0 0 2px; outline: none;
+}
+.code-input:focus-visible { border-bottom-color: var(--ink); }
+.keypad-hint { margin: 0 0 6px; font-size: 12px; color: var(--muted); }
+.keypad.is-wrong :is(.code-dots, .code-input, .keypad-hint) { color: var(--critical); }
+.keypad.is-wrong .code-input { border-bottom-color: var(--critical); }
+.keypad.is-wrong .code-dots, .keypad.is-wrong .code-input { animation: shake .4s ease-out; }
+@keyframes shake { 0%, 100% { translate: 0; } 25% { translate: -6px; } 75% { translate: 6px; } }
+.keys { display: grid; grid-template-columns: repeat(3, var(--key)); gap: 10px; }
+.key {
+  width: var(--key); height: var(--key); border-radius: 50%; border: 0; padding: 0; cursor: pointer; font: inherit; font-size: 22px; font-weight: 500;
+  color: var(--ink); background: color-mix(in srgb, var(--ink) 9%, transparent);
+}
+.key:hover { background: color-mix(in srgb, var(--ink) 16%, transparent); }
+.key:active { background: color-mix(in srgb, var(--ink) 26%, transparent); }
+.key-plain { font-size: 18px; color: var(--muted); background: transparent; }
+.key-send { font-size: 13px; font-weight: 650; background: var(--ink); color: var(--bg); }
+.key-send.level-1 { background: var(--minor); }
+.key-send.level-2 { background: var(--critical); }
+.key:disabled { opacity: .35; cursor: default; }
+.key:disabled:hover { background: color-mix(in srgb, var(--ink) 9%, transparent); }
+.key-plain:disabled:hover { background: transparent; }
+.key-send:disabled { opacity: .4; }
+.key-send:disabled:hover, .key-send:hover { background: var(--ink); }
+.key-send.level-1:hover { background: var(--minor); }
+.key-send.level-2:hover { background: var(--critical); }
+
+/* Wave: comes out of the disc of the front alert. */
+.layer-front.is-alert .disc::after {
+  content: ""; position: absolute; inset: -14px; border-radius: 50%;
+  border: 2px solid var(--critical); pointer-events: none; animation: wave .9s ease-out infinite;
+}
+.layer-front.is-alert[data-level="1"] .disc::after { border-color: var(--minor); animation-duration: 1.6s; }
+@keyframes wave { from { transform: scale(1); opacity: .8; } to { transform: scale(1.35); opacity: 0; } }
+/* When the failure is a segment, the wave comes out of it (Orbit's o-arc.ripple), not of the disc. */
+.layer-front.is-alert:has(o-arc.ripple) .disc::after { display: none; }
+
+.strip { min-height: 44px; display: flex; align-items: center; flex-wrap: wrap; justify-content: center; gap: 6px; color: var(--muted); text-align: center; }
+.strip strong { color: var(--ink); }
+.strip .more { all: unset; cursor: pointer; color: var(--ink); text-decoration: underline dotted; text-underline-offset: 3px; padding: 8px 2px; }
+.strip .more:hover { text-decoration-style: solid; }
+.strip .more:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; border-radius: 4px; }
+.controls { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+/* The alert's main action carries the level's color. */
+.primary.level-1 { background: var(--minor); border-color: var(--minor); color: var(--bg); }
+.primary.level-2 { background: var(--critical); border-color: var(--critical); color: var(--bg); }
+

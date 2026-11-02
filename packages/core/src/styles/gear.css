@@ -1,0 +1,95 @@
+/* The gear and its panel: what this screen shows */
+.gear { position: absolute; top: 10px; right: 10px; z-index: 5; width: 40px; height: 40px; padding: 0; border-radius: 50%; border: 1px solid var(--line); background: var(--bg); color: var(--muted); display: grid; place-items: center; cursor: pointer; }
+.gear:hover, .gear[aria-expanded="true"] { color: var(--ink); border-color: var(--muted); }
+/* The way out (sign out, leave the demo): the same round button, left of the gear. */
+.exit { position: absolute; top: 10px; right: 10px; z-index: 5; width: 40px; height: 40px; min-height: 0; padding: 0; border-radius: 50%; border: 1px solid var(--line); background: var(--bg); color: var(--muted); display: grid; place-items: center; cursor: pointer; }
+.exit.with-gear { right: 58px; }
+.exit:hover, .exit:focus-visible { color: var(--ink); border-color: var(--muted); }
+.exit[hidden] { display: none; }
+.settings-side.settings-open .exit { visibility: hidden; }
+.settings-check { margin-top: 2px; }
+/* The panel: a dialog over the board, or (wide) a sheet at the side with the board moved over to stay in view. */
+.settings-backdrop { position: absolute; inset: 0; z-index: 20; display: grid; place-items: center; padding: 16px; background: color-mix(in srgb, #000 55%, transparent); }
+.settings-backdrop[hidden] { display: none; }
+.settings { --sheet-pad: 20px; width: min(460px, 100%); height: min(720px, 100%); background: var(--bg); border: 1px solid var(--line); border-radius: 16px;
+  display: grid; grid-template-rows: auto auto minmax(0, 1fr) auto; text-align: left; overflow: hidden; }
+.settings-side .settings-backdrop { background: none; pointer-events: none; padding: 0; place-items: stretch end; }
+.settings-side .settings { pointer-events: auto; width: 400px; height: 100%; border-width: 0 0 0 1px; border-radius: 0; }
+.settings-side.settings-open .board { padding-right: 400px; transition: padding-right .25s ease; }
+.settings-side.settings-open .gear { visibility: hidden; }
+.settings header { display: flex; align-items: center; justify-content: space-between; padding: 16px var(--sheet-pad) 8px; }
+.settings h2 { font-size: 18px; font-weight: 600; margin: 0; }
+.settings-close { min-height: 0; width: 36px; height: 36px; padding: 0; border-radius: 50%; font-size: 20px; line-height: 1; }
+/* The tabs: the same pill as the board's views. */
+.settings-tabs { display: flex; gap: 2px; margin: 0 var(--sheet-pad) 4px; padding: 3px; border: 1px solid var(--line); border-radius: 999px; }
+.settings-tab { flex: 1; min-height: 0; padding: 7px 4px; border: 0; border-radius: 999px; background: none; color: var(--muted); font: inherit; font-size: 13px; cursor: pointer; white-space: nowrap; }
+.settings-tab:hover { color: var(--ink); }
+.settings-tab[aria-selected="true"] { background: var(--ink); color: var(--bg); }
+.settings-tab:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.settings-body { overflow-y: auto; overscroll-behavior: contain; padding: 8px var(--sheet-pad) 20px; }
+.settings-pane { display: grid; gap: 14px; }
+.settings-pane[hidden] { display: none; }
+.settings-lead { font-size: 13px; color: var(--muted); margin: 4px 0 2px; line-height: 1.4; }
+.settings .hint { font-size: 12px; color: var(--muted); margin: -6px 0 0; line-height: 1.4; }
+.settings fieldset .hint { margin: 0; }
+.settings-section { font-size: 14px; font-weight: 600; margin: 10px 0 -4px; padding-top: 14px; border-top: 1px solid var(--line); }
+.settings-pane > .settings-lead + .settings-section { border-top: 0; padding-top: 0; margin-top: 4px; }
+.settings fieldset { border: 0; padding: 0; margin: 0; display: grid; gap: 6px; min-width: 0; }
+.settings legend { font-size: 13px; color: var(--muted); padding: 0; margin-bottom: 4px; }
+.settings-systems { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 2px 12px; }
+.settings label { display: flex; align-items: center; gap: 8px; font-size: 14px; min-height: 32px; cursor: pointer; }
+.settings input[type="checkbox"], .settings input[type="radio"] { width: 18px; height: 18px; margin: 0; accent-color: var(--ink); }
+.settings-row { display: flex; gap: 4px 16px; flex-wrap: wrap; }
+.settings-group { display: grid; gap: 0; }
+.settings-group + .settings-group { margin-top: 8px; }
+.settings-group-title { font-size: 12px; color: var(--muted); margin: 4px 0 0; }
+.settings-groups-list .settings-group { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 0 12px; }
+.settings-groups-list .settings-group-title { grid-column: 1 / -1; }
+.settings-channel { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.settings-channel select { min-width: 0; max-width: 100%; flex: 1 1 160px; padding: 5px 8px; font-size: 13px; }
+/* A field with a menu: its name above, the menu the full width. */
+.settings-field { display: grid !important; gap: 6px !important; min-height: 0 !important; cursor: default !important; }
+.settings-field > span { font-size: 13px; color: var(--muted); }
+.settings select { font: inherit; font-size: 14px; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--dim); background: var(--bg); color: var(--ink); width: 100%; min-width: 0; }
+/* Themes as tiles: a small disc of each (its ground, a ring, its text and its two alerts) and its name. */
+.theme-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 8px; }
+.settings .theme-tile { position: relative; display: grid; grid-template-columns: auto 1fr; gap: 8px; align-items: center; padding: 8px; border: 1px solid var(--line); border-radius: 10px; min-height: 0; }
+.theme-tile input { position: absolute; opacity: 0; pointer-events: none; }
+.theme-tile:hover { border-color: var(--dim); }
+.theme-tile:has(input:checked) { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
+.theme-tile:has(input:focus-visible) { outline: 2px solid var(--ink); outline-offset: 2px; }
+.theme-name { display: grid; font-size: 13px; line-height: 1.2; }
+.theme-name small { font-size: 11px; color: var(--muted); }
+.theme-disc { position: relative; width: 30px; height: 30px; border-radius: 50%; background: var(--sw-bg, var(--bg)); box-shadow: inset 0 0 0 3px var(--sw-dim, var(--dim)), 0 0 0 1px var(--line); }
+.theme-disc i { position: absolute; width: 6px; height: 6px; border-radius: 50%; top: 12px; }
+.theme-disc i:nth-child(1) { left: 6px; background: var(--sw-ink, var(--ink)); }
+.theme-disc i:nth-child(2) { left: 12px; background: var(--sw-minor, var(--minor)); }
+.theme-disc i:nth-child(3) { left: 18px; background: var(--sw-critical, var(--critical)); }
+.color-grid { display: grid; gap: 0; }
+.settings .color-field { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; }
+.color-field input { width: 32px; height: 24px; padding: 0; border: 1px solid var(--line); border-radius: 6px; background: none; cursor: pointer; }
+.color-field output { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+/* Fine-tuning: a slider per value, the changed ones in ink, a reset per group once something changed. */
+.tune-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.tune-group { display: grid; gap: 4px; }
+.tune-group .settings-section { border-top: 0; padding-top: 0; margin: 0; }
+.tune-group + .tune-group { margin-top: 10px; padding-top: 14px; border-top: 1px solid var(--line); }
+.tune-head { min-height: 28px; align-items: center; }
+.tune-reset, .tune-actions button { min-height: 0; padding: 4px 10px; font-size: 12px; }
+.tune-reset[hidden], .tune-actions button[hidden] { display: none; }
+.settings .tune-field { display: grid; grid-template-columns: 1fr auto; gap: 0 8px; min-height: 0; padding: 4px 0; cursor: default; font-size: 13px; color: var(--muted); }
+.tune-field output { font-variant-numeric: tabular-nums; font-size: 12px; }
+.tune-field output.changed { color: var(--ink); font-weight: 600; }
+.tune-field input { grid-column: 1 / -1; width: 100%; margin: 2px 0 0; accent-color: var(--ink); }
+.tune-actions { display: flex; gap: 8px; margin-top: 8px; padding-top: 14px; border-top: 1px solid var(--line); }
+.settings footer { display: flex; align-items: center; gap: 10px; padding: 12px var(--sheet-pad) 14px; border-top: 1px solid var(--line); }
+.settings-kept { font-size: 12px; color: var(--muted); margin-right: auto; }
+.settings footer .plain, .settings footer .primary { min-height: 0; padding: 9px 14px; font-size: 13px; white-space: nowrap; }
+.settings .primary { margin-left: 0; }
+/* A phone: the panel takes the screen. */
+@media (max-width: 520px) {
+  .settings-backdrop { padding: 0; }
+  .settings { width: 100%; height: 100%; border-radius: 0; border: 0; --sheet-pad: 16px; }
+  .settings-kept { display: none; }
+}
+

@@ -1,0 +1,111 @@
+/* ─── The board over a host (board/): connection line, tiles, ticker, system, detail, modes, orbit, layers, the gear, tuning ─── */
+/* Connection */
+.conn { display: inline-flex; align-items: center; gap: 8px; justify-self: center; font-size: 12px; color: var(--muted); }
+.conn-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--dim); }
+.conn-live .conn-dot { background: #3ecf8e; animation: live 2.4s ease-in-out infinite; }
+.conn .plain { min-height: 0; padding: 2px 8px; font-size: 12px; margin-left: 4px; }
+.conn-offline .conn-dot, .conn-connecting .conn-dot { background: var(--minor); }
+.conn-error .conn-dot { background: var(--critical); }
+@keyframes live { 50% { opacity: .35; } }
+.error { color: var(--critical); text-align: center; max-width: 46ch; }
+
+/* Board: seven systems and the home's latest pulse */
+/* Every view of the board has the same head in the same place: the view
+   switch, then the headline (what calls, or that all is calm). The connection
+   sits in the bottom left corner and the gear in the top right one; nothing under
+   the object feeds the latest changes. */
+.board { position: relative; grid-template-rows: auto minmax(0, 1fr); grid-template-columns: minmax(0, 1fr);
+  align-content: stretch; justify-items: stretch; gap: 16px; padding: 14px 16px 16px; overflow: hidden; }
+.board-head { justify-items: center; gap: 14px; padding: 0 104px; }
+.board-head h1 { font-size: clamp(14px, 1.5vw, 17px); font-weight: 500; letter-spacing: 0; color: var(--muted); }
+.board-head h1.level-2 { color: var(--critical); }
+/* In the orbit the center says what calls: the headline is only for screen readers. */
+.board.mode-orbit .board-head h1 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.board-head .conn-slot { position: absolute; bottom: 14px; left: 16px; z-index: 1; }
+.board.mode-grid .board-body { overflow-y: auto; align-content: safe center; }
+.tile:not(.has-alert) .tile-big, .otile:not(.has-alert) .tile-big { color: var(--muted); }
+.tile { height: 160px; position: relative; }
+/* Media's sound, in the tile: the visual's canvas over the mini ring. */
+.tile .face-visual { position: absolute; top: 0; left: 50%; width: 84px; height: 84px; transform: translateX(-50%); z-index: 0; }
+@media (max-width: 640px) { .tile .face-visual { width: 56px; height: 56px; } }
+.tile-big { font-size: 12px; color: var(--ink); max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tile.level-1 .tile-title, .tile.level-1 .tile-big { color: var(--minor); }
+.tile.level-2 .tile-title, .tile.level-2 .tile-big { color: var(--critical); }
+/* What calls never changes size: a wave leaves its ring and fades (quicker for
+   the more serious), and the ring itself is drawn heavier (boardLanes). */
+.tile.has-alert .mini-ring, .otile.has-alert .otile-ring { position: relative; }
+.tile.has-alert .mini-ring::after, .otile.has-alert .otile-ring::after {
+  content: ""; position: absolute; inset: 0; border-radius: 50%; pointer-events: none;
+  border: 1.5px solid var(--minor); animation: wave 2.6s ease-out infinite;
+}
+.tile.level-2 .mini-ring::after, .otile.level-2 .otile-ring::after { border-color: var(--critical); animation-duration: 1.5s; }
+.ticker { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; min-height: 100px; width: min(420px, 100%); font-size: 12px; color: var(--muted); }
+.ticker:empty { min-height: 0; }
+.ticker li { display: flex; gap: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; animation: tick-in .5s ease-out; }
+.ticker li:first-child { color: var(--ink); }
+.ticker li.level-1 { color: var(--minor); }
+.ticker li.level-2 { color: var(--critical); }
+.ticker time { font-variant-numeric: tabular-nums; opacity: .7; }
+@keyframes tick-in { from { opacity: 0; transform: translateY(-4px); } }
+
+/* System */
+.system { grid-template-columns: minmax(0, 1fr); }
+.strip { max-width: 100%; }
+.dots { flex-wrap: wrap; gap: 6px; max-width: 100%; }
+.system:has(.sys-title) { grid-template-rows: auto 1fr auto; }
+.sys-title { padding-top: 8px; }
+.face-wait { font-size: 12px; color: var(--muted); animation: live 1s ease-in-out infinite; }
+/* What was sent and not confirmed beats: the ring shows what the host says, not what was asked. */
+.is-pending, o-arc.is-pending { animation: live .9s ease-in-out infinite; }
+.layer.is-seen .disc::after { display: none; }
+.strip .plain { min-height: 36px; padding: 6px 12px; }
+
+
+/* Detail */
+.detail { overflow-y: auto; align-content: start; padding-top: 48px; grid-template-columns: minmax(0, 1fr); }
+.detail-big { font-size: clamp(36px, 14vw, 64px); overflow-wrap: anywhere; }
+.detail-big.level-1, .detail-why.level-1 { color: var(--minor); }
+.detail-big.level-2, .detail-why.level-2 { color: var(--critical); }
+.detail-why { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.detail-why .primary { margin-left: 0; }
+.switches label .state { margin-left: auto; font-size: 12px; color: var(--muted); }
+.switches label.fail.level-1 { border-color: var(--minor); }
+.switches label.fail.level-2 { border-color: var(--critical); }
+.switches input:disabled + * { opacity: .6; }
+/* A picture in the detail: round like the face, or square when asked. */
+.detail-image { display: grid; justify-items: center; gap: 10px; margin: 0; }
+.detail-image img { width: min(100%, 320px); aspect-ratio: 1; object-fit: cover; border-radius: 50%; border: 1px solid var(--line); background: #000; transition: border-radius .4s, width .4s; }
+.detail-image.is-square img { width: 100%; aspect-ratio: auto; border-radius: 10px; }
+.detail-image figcaption { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.history { display: grid; gap: 6px; justify-items: center; min-height: 200px; padding: 6px 0; container-type: inline-size; }
+.history .hint { font-size: 13px; }
+.ranges { display: grid; gap: 10px; }
+.things { font-size: 12px; color: var(--muted); }
+.things summary { cursor: pointer; }
+.things ul { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 4px; }
+.things li { display: flex; gap: 8px; flex-wrap: wrap; }
+.things code { color: var(--ink); opacity: .7; }
+.things strong { margin-left: auto; color: var(--ink); font-weight: 500; }
+
+@media (max-width: 600px) {
+  .tiles { flex-wrap: wrap; gap: 12px 4px; }
+  .tile { height: auto; }
+  .board { gap: 20px; }
+  .conn { flex-wrap: wrap; justify-content: center; row-gap: 6px; }
+  .tile-big { font-size: 10px; max-width: 64px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .is-pending, .conn-live .conn-dot, .face-wait, .keypad.is-wrong :is(.code-dots, .code-input) { animation: none; }
+}
+
+/* ─── Board: view selector ─────────────────────────────── */
+.modes { display: inline-flex; flex-wrap: wrap; justify-content: center; max-width: 100%; justify-self: center; gap: 2px; padding: 3px; border-radius: 24px; border: 1px solid var(--line); margin-top: 6px; }
+.modes[hidden] { display: none; }
+.mode { border: 0; background: none; padding: 6px 14px; border-radius: 999px; font-size: 12px; color: var(--muted); cursor: pointer; }
+.mode[aria-pressed="true"] { background: color-mix(in srgb, var(--ink) 8%, transparent); color: var(--ink); }
+.board.mode-orbit, .board.mode-layers, .board.mode-list, .board.mode-clock, .board.mode-calendar {
+  grid-template-rows: auto minmax(0, 1fr) auto; grid-template-columns: minmax(0, 1fr);
+  align-content: stretch; justify-items: stretch; gap: 12px;
+}
+.board-body { position: relative; min-height: 0; display: grid; place-items: center; }
+
