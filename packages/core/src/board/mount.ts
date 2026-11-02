@@ -16,7 +16,7 @@ import { loadTab } from './gear.ts';
 import { applySettings, loadSettings, setSettings, settings, startId, valid } from './settings.ts';
 import { compute, repaint, watched, worst } from './state.ts';
 import { AXES, type BoardHandle, type BoardOptions } from './types.ts';
-import { boardView } from './views/board.ts';
+import { boardView } from './views/board/index.ts';
 import { changesView } from './views/changes.ts';
 import { detailView } from './views/detail.ts';
 import { systemView } from './views/system.ts';
