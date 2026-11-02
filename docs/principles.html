@@ -16,13 +16,13 @@
     <article class="prose">
       <p class="eyebrow">Pulse</p>
       <h1>Why</h1>
-      <p class="lede">States compete for attention. A home has lights, heating, locks, a media player, batteries running down; a car has a battery and tires; a server has load and disks. Most interfaces answer with a grid of cards and leave the sorting to you. Pulse sorts first, and uses shape to say what it sorted.</p>
+      <p class="lede">A home can have lights, heating, locks and batteries that need attention at the same time. Pulse groups related readings and controls into circular objects, then brings alerts to the front. The layers keep other channels visible while you deal with the alert.</p>
 
-      <h2>The idea in one sentence</h2>
-      <p>Each system is a radial object with a few channels. The active channel sits in front; the others wait behind, larger and fainter. An alert brings its channel to the front and, once resolved, sends it back. A new system is only data.</p>
+      <h2>Systems and channels</h2>
+      <p>Each system is a circular object with a few channels, such as temperature, mode and fan speed. The active channel sits in front; the others appear as larger, fainter rings behind it. An alert brings its channel forward. Once resolved, the channel moves back behind the active one.</p>
 
       <h2>Why round</h2>
-      <p>A circle has a center and an edge, and that is all Pulse needs. The center holds the present: the name, the value, one line that says why. The edge holds the control: a band you drag, segments you tap, names along the ring you choose from. There is no corner to put a menu in, so nothing permanent competes with what is in front.</p>
+      <p>The center shows the channel name, its current value and a short explanation. The ring around it holds the control: a band to drag, segments to tap or named options to choose from.</p>
       <p>Round things also stack. Put a larger ring behind a smaller one and the eye reads depth without a shadow or a blur. The layers of a system are rings of growing size, each one a bit further back.</p>
 
       <h2>Depth has to mean something</h2>
@@ -32,10 +32,10 @@
         <li><strong>What is urgent.</strong> An alert raises its layer. A more serious one displaces it; a resolved one goes back on its own.</li>
         <li><strong>How much room.</strong> A system comes closer when something needs focus, and steps back when nothing does.</li>
       </ol>
-      <p>Anything else that moves in z is decoration, and decoration is what tires people. There is no parallax for its own sake, no breathing for its own sake. The pointer tilts the object a few degrees so the layers read as layers, and that is all.</p>
+      <p>Layer movement follows changes in priority or navigation. The pointer also tilts the object a few degrees to make the depth easier to see.</p>
 
       <h2>Several alerts</h2>
-      <p>One alert is easy. Three at once is where interfaces usually start to shout. Pulse has five cumulative rules for that.</p>
+      <p>When several alerts are active, these five rules determine which one stays in front and how the others appear.</p>
       <table>
         <tr><th>Rule</th><th>What it does</th></tr>
         <tr><td>Stable</td><td>The one in front stays. Only a more serious one displaces it. The others wait in order of arrival.</td></tr>
@@ -58,11 +58,11 @@
         <li><strong>The 3D container takes no clicks.</strong> The layers do. Tapping a ring brings it forward.</li>
       </ol>
 
-      <h2>A control resolved on the face has no detail</h2>
-      <p>A disc opens a detail only when the detail adds something the face does not have: a day of readings, a picture, a long list, a color wheel, a month, several entities to name. A dial you can drag on the ring, a mode you can pick on the ring, an alarm you can arm on the ring: those are done where they are. Opening something that repeats the face is a tap wasted and a step to come back.</p>
+      <h2>When to open a detail view</h2>
+      <p>Tapping the disc opens a detail view when there is more to show: history, a camera image, a long list, a color wheel or individual entities. Controls that fit on the ring, such as a temperature dial or an alarm mode, stay there.</p>
 
-      <h2>What is shown is what was confirmed</h2>
-      <p>A control beats while a command is on its way and settles when the source reports the new state. If the command is refused, the value comes back, the control keeps a red outline and a Retry appears. When a command needs a code first, a keypad asks for it before anything is sent.</p>
+      <h2>Command feedback</h2>
+      <p>A control pulses while a command is on its way and settles when the source reports the new state. If the command is refused, the value comes back, the control keeps a red outline and a Retry appears. When a command needs a code first, a keypad asks for it before anything is sent.</p>
 
       <h2>One way to read time</h2>
       <p>A ring that shows time is a window, not a clock face. Now is always at the top and the past runs clockwise into it, fainter the older; the slot past now stays empty, the seam. No numerals on the rim, one tick at now, at most a notch where a month turns. The clock time, when it matters, is text in the face. The day of a sensor, the day of the lights, the orbit's changes and the month all read this way, so nobody has to guess where noon is.</p>

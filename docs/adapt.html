@@ -16,7 +16,7 @@
     <article class="prose">
       <p class="eyebrow">In use</p>
       <h1>In your project</h1>
-      <p class="lede">Pulse is a few primitives, a board over them, and a grammar. To put it over your own data you describe your systems, write the function that turns your state into readings, hand the board a host, and mount it. The homelab app in the repository, <code>apps/homelab/</code>, does that over a machine in four small files. This page walks through it.</p>
+      <p class="lede">To use Pulse with your own data, describe your systems and write a host adapter that supplies readings and runs actions. Then mount the board on your page. The homelab app in <code>apps/homelab/</code> is a small working example. This guide follows the same steps.</p>
 
       <h2>1. Install and import</h2>
       <p>The core is <code>@zumer/pulse</code>, with Orbit and Zumly beside it. It is not on npm yet: today it lives in the repository's workspace, and a project starts from a clone of it. Four stylesheets and two runtimes, then the board.</p>
@@ -97,7 +97,7 @@ import { mountBoard, type PulseHost, type Reading } from '@zumer/pulse';</code><
 });</code></pre>
       <p>The handle gives you <code>setHost</code> to swap the host at runtime (the demo machine for the real one), <code>setSettings</code> and <code>repaint</code>, and <code>destroy</code>. The board owns the rest: the four views, the system view with its layers, the detail, the changes of the last hours, and the gear with its four tabs.</p>
 
-      <h2>5. What is shown is what was confirmed</h2>
+      <h2>5. Command feedback</h2>
       <p>When the viewer taps a segment or releases a dial, the board calls <code>act</code> and marks the action's <code>ids</code> as sending: the control beats until <code>onChange</code> reports one of them, or eight seconds pass. If <code>act</code> rejects, the control keeps a red outline and the strip gets a Retry with the host's message. An action that <code>asks</code> for a code (an alarm to arm, a lock) does not go yet: the board opens a phone's keypad over the object, and calls <code>act</code> again with <code>code</code> once the viewer has entered it. A refusal keeps the keypad open, wrong and empty.</p>
 
       <h2>6. A second axis, if you have groups</h2>

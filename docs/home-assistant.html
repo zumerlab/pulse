@@ -16,7 +16,7 @@
     <article class="prose">
       <p class="eyebrow">In use</p>
       <h1>Home Assistant</h1>
-      <p class="lede">Home Assistant is the first real source of Pulse, and the most thorough demonstration of it. Pulse reads the states Home Assistant already pushes to the dashboard. There is no entity list to write: each channel picks its entities by domain, device class or capability, and a channel with nothing to show stays out. Every home builds a different object.</p>
+      <p class="lede">Pulse connects to the states Home Assistant already sends to your dashboard. Each channel finds its entities by domain, device class or capability, so you do not need to write an entity list. Channels appear when there is something to show. This is the most complete Pulse integration so far.</p>
 
       <figure class="shot">
         <img src="images/board-orbit.png" alt="The orbit of a Home Assistant home" loading="lazy">
@@ -51,11 +51,11 @@
         <img src="images/system-alert.png" alt="A battery alert, in amber, with its action under the object" loading="lazy">
       </figure>
 
-      <h2>What is shown is what was confirmed</h2>
-      <p>A control beats while the service call is on its way and settles when Home Assistant reports the new state. A refused call keeps a red outline and a Retry. Numbers and times follow the language of your Home Assistant profile, and the states in the pulse's list of changes come in your language from Home Assistant itself.</p>
+      <h2>Command feedback</h2>
+      <p>A control pulses while the service call is on its way and settles when Home Assistant reports the new state. A refused call keeps a red outline and a Retry. Numbers and times follow the language of your Home Assistant profile, and the states in the pulse's list of changes come in your language from Home Assistant itself.</p>
 
-      <h2>Try it without a Home Assistant</h2>
-      <p>The repository carries the six homes of demo.home-assistant.io as a source that behaves: lights that turn on, a thermostat that heats, a scene that activates. The tests run over them, and so can you: <code>npm run dev:ha</code>, then open the gallery.</p>
+      <h2>Try it without Home Assistant</h2>
+      <p>The repository carries the six homes of demo.home-assistant.io as an interactive demo source: lights that turn on, a thermostat that heats, a scene that activates. The tests run over them, and so can you: <code>npm run dev:ha</code>, then open the gallery.</p>
       <figure class="shot">
         <img src="images/system-scenes.png" alt="The scenes of a demo home on a ring: Movie Time, Morning Lights" loading="lazy">
         <figcaption>The scenes of one of the demo homes. Movie Time was just activated.</figcaption>
