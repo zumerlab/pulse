@@ -21,7 +21,7 @@ test.afterEach(async ({ page }) => {
 });
 
 test('with no network answering, the app says so and offers the demo', async ({ page }) => {
-  await page.route(/^https?:\/\/(?!127\.0\.0\.1)/, (r) => r.abort());
+  await page.route(/^https?:\/\/(?!127\.0\.0\.1)|^http:\/\/127\.0\.0\.1:\d+\/net\//, (r) => r.abort());
   await page.goto(FLIGHTS);
   await expect(page.locator('.connect h1')).toHaveText('Pulse');
   await expect(page.locator('.connect .error')).toContainText('None of the networks answered');

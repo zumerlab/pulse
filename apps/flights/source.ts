@@ -2,9 +2,9 @@
 // ADS-B networks (adsb.lol, airplanes.live, adsb.fi: one API, free, no key)
 // and OpenSky: the aircraft squawking an emergency anywhere, the traffic
 // around a place, and the whole sky now and then. Each question on its own
-// clock, straight from the browser. The object (@zumer/pulse) never sees
-// this: `model.ts` turns the aircraft into readings and `host.ts` wraps it
-// as the board's host.
+// clock, through the dev server (none of them lets a page read it:
+// `vite.config.ts`). The object (@zumer/pulse) never sees this: `model.ts`
+// turns the aircraft into readings and `host.ts` wraps it as the board's host.
 
 import type { Action, Status } from '@zumer/pulse';
 import { t } from './strings.ts';
@@ -44,15 +44,18 @@ export interface SkySource {
 }
 
 export const DEFAULT_REGION: Region = { name: 'Buenos Aires', lat: -34.6037, lon: -58.3816, nm: 250 };
+// The networks' APIs as the dev server passes them on; the maps open in a tab of their own.
 export const NETWORKS: Record<string, { api: string; map: (hex: string) => string }> = {
-  'adsb.lol': { api: 'https://api.adsb.lol', map: (hex) => `https://adsb.lol/?icao=${hex}` },
-  'airplanes.live': { api: 'https://api.airplanes.live', map: (hex) => `https://globe.airplanes.live/?icao=${hex}` },
-  'adsb.fi': { api: 'https://opendata.adsb.fi/api', map: (hex) => `https://globe.adsb.fi/?icao=${hex}` },
+  'adsb.lol': { api: '/net/adsb.lol', map: (hex) => `https://adsb.lol/?icao=${hex}` },
+  'airplanes.live': { api: '/net/airplanes.live', map: (hex) => `https://globe.airplanes.live/?icao=${hex}` },
+  'adsb.fi': { api: '/net/adsb.fi', map: (hex) => `https://globe.adsb.fi/?icao=${hex}` },
 };
 export const DEFAULT_NETWORK = 'adsb.lol';
 const TRAIL = 12, EMERGENCY_SQUAWKS = ['7700', '7600', '7500'];
 
-type V2 = { ac?: Record<string, unknown>[]; now?: number; msg?: string };
+// The aircraft come in `ac`, or in `aircraft` (adsb.fi, around a point).
+type V2 = { ac?: Record<string, unknown>[]; aircraft?: Record<string, unknown>[]; now?: number; msg?: string };
+const listOf = (v: V2) => v.ac ?? v.aircraft ?? [];
 const n = (x: unknown) => (typeof x === 'number' && Number.isFinite(x) ? x : null);
 // One aircraft of the v2 answer; `alt_baro` is "ground" on the ground.
 export function aircraftOf(a: Record<string, unknown>, now: number, was?: Aircraft): Aircraft | null {
@@ -98,6 +101,7 @@ export class NetworkSource implements SkySource {
   error = '';
   failed: string[] = [];
   private timers = new Map<string, number>();
+  private turn: Promise<unknown> = Promise.resolve();
   private stopped = true;
   private listeners = new Set<(ids: string[]) => void>();
   private statusListeners = new Set<() => void>();
@@ -106,7 +110,7 @@ export class NetworkSource implements SkySource {
   readonly mapUrl: (hex: string) => string;
   private opensky: string;
 
-  constructor(region: Region, network = DEFAULT_NETWORK, opensky = 'https://opensky-network.org/api') {
+  constructor(region: Region, network = DEFAULT_NETWORK, opensky = '/net/opensky') {
     this.region = region;
     const net = NETWORKS[network] ?? { api: network.replace(/\/+$/, ''), map: (hex: string) => `https://globe.adsbexchange.com/?icao=${hex}` };
     this.api = net.api; this.mapUrl = net.map; this.opensky = opensky.replace(/\/+$/, '');
@@ -146,6 +150,12 @@ export class NetworkSource implements SkySource {
     if (!res.ok) throw new Error(`${res.status}`);
     return res.json() as Promise<T>;
   }
+  // A network takes one question a second (adsb.fi turns the rest away), so they wait their turn.
+  private ask<T>(path: string): Promise<T> {
+    const answer = this.turn.then(() => this.get<T>(`${this.api}${path}`));
+    this.turn = answer.catch(() => {}).then(() => new Promise((r) => setTimeout(r, 1_000)));
+    return answer;
+  }
 
   // Takes a batch of aircraft; the ones not in it that belong to the same question are kept a while, then forgotten.
   private take(list: Record<string, unknown>[], now: number, mine: (a: Aircraft) => boolean, changed: Set<string>) {
@@ -167,8 +177,8 @@ export class NetworkSource implements SkySource {
 
   private async fetchEmergencies() {
     const now = Date.now(), changed = new Set<string>();
-    const answers = await Promise.all(EMERGENCY_SQUAWKS.map((sq) => this.get<V2>(`${this.api}/v2/squawk/${sq}`)));
-    const list = answers.flatMap((v) => v.ac ?? []);
+    const answers = await Promise.all(EMERGENCY_SQUAWKS.map((sq) => this.ask<V2>(`/v2/sqk/${sq}`)));
+    const list = answers.flatMap(listOf);
     const before = new Set(this.emergencies);
     this.emergencies.clear();
     for (const raw of list) if (typeof raw.hex === 'string') this.emergencies.add(raw.hex.toLowerCase());
@@ -178,8 +188,8 @@ export class NetworkSource implements SkySource {
   }
   private async fetchRegion() {
     const now = Date.now(), changed = new Set<string>();
-    const v = await this.get<V2>(`${this.api}/v2/point/${this.region.lat.toFixed(4)}/${this.region.lon.toFixed(4)}/${Math.min(250, this.region.nm)}`);
-    this.take(v.ac ?? [], now, (a) => a.dst != null, changed);
+    const v = await this.ask<V2>(`/v2/lat/${this.region.lat.toFixed(4)}/lon/${this.region.lon.toFixed(4)}/dist/${Math.min(250, this.region.nm)}`);
+    this.take(listOf(v), now, (a) => a.dst != null, changed);
     if (changed.size) this.listeners.forEach((fn) => fn([...changed]));
   }
   private async fetchSky() {

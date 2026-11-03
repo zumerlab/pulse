@@ -1,8 +1,8 @@
 # Pulse flights
 
-The sky as Pulse objects, read straight from the browser: the aircraft
-squawking an emergency anywhere in the world, the traffic around a place and
-what is odd in it, and the whole sky on a globe.
+The sky as Pulse objects: the aircraft squawking an emergency anywhere in
+the world, the traffic around a place and what is odd in it, and the whole
+sky on a globe. The page asks the dev server, which asks the networks for it.
 
 | System | Channels | Source | Alerts |
 |---|---|---|---|
@@ -39,8 +39,8 @@ descent, a lost signal, a Cessna low and slow.
 | Parameter | What it does |
 |---|---|
 | `?at=-34.6,-58.4&place=Buenos Aires&nm=250` | The region: its center and its radius (250 nm at most, the networks' limit). "Use my location" in the status line asks the browser |
-| `?network=adsb.lol` | Which network answers: `adsb.lol` (default), `airplanes.live`, `adsb.fi`, or any API with the same v2 shape |
-| `?opensky=https://opensky-network.org/api` | Where OpenSky is (a proxy, if its CORS does not allow the page) |
+| `?network=adsb.lol` | Which network answers: `adsb.lol` (default), `adsb.fi`, `airplanes.live` (see below), or the URL of any API with the same v2 shape that lets the page read it |
+| `?opensky=/net/opensky` | Where OpenSky is: by default the dev server's way to it; a URL of your own proxy otherwise |
 | `?axis=groups` | Open on the aircraft, one object each |
 | `?systems=emergencies,anomalies&mode=orbit` | What the page shows; the gear chooses within it |
 | `?demo` | The recorded sky instead of the networks |
@@ -51,14 +51,24 @@ The community networks (adsb.lol, airplanes.live, adsb.fi) share the
 ADSBExchange v2 API, free and without a key: an aircraft is `hex`, `flight`,
 `r`, `t`, `alt_baro` (feet, or `ground`), `gs`, `track`, `baro_rate`,
 `squawk`, `emergency`, `lat`, `lon`, `seen`, and `dst`/`dir` from the point
-asked. OpenSky's anonymous allowance is 400 credits a day and a whole-sky
-call costs 4, which is why the sky is asked every 15 minutes; an account
-raises it. Each question is asked again on its own clock; a network that
-stops answering is named in the status line; nothing answering shows a panel
-with a retry and the demo.
+asked. The app asks `/v2/sqk/{code}` and `/v2/lat/{lat}/lon/{lon}/dist/{nm}`,
+the paths adsb.lol and adsb.fi both answer (adsb.fi has no `/v2/squawk` or
+`/v2/point`, and around a point it lists the aircraft under `aircraft`
+rather than `ac`). A network takes one question a second (adsb.fi answers a
+second one at once with 429), so they are asked in turn. OpenSky's anonymous
+allowance is 400 credits a day and a whole-sky call costs 4, which is why the
+sky is asked every 15 minutes; an account raises it. Each question is asked
+again on its own clock; a network that stops answering is named in the status
+line; nothing answering shows a panel with a retry and the demo.
 
-Not verified from where this was written: that the three networks and
-OpenSky send `Access-Control-Allow-Origin` to a page (the networks are built
-for scripts and pages alike; a small proxy fixes any that does not), and the
+None of them lets a page read it: adsb.lol and adsb.fi send no
+`Access-Control-Allow-Origin`, OpenSky sends only its own origin. So the dev
+server (and `vite preview`) asks them for the page: `/net/adsb.lol/…`,
+`/net/adsb.fi/…`, `/net/airplanes.live/…` and `/net/opensky/…` are their
+APIs (`vite.config.ts`). A static build needs a proxy of its own, given with
+`?network=` and `?opensky=`.
+
+airplanes.live answers 403 and asks to be written to first
+(contact@airplanes.live, with a description of the project). Not verified: the
 networks' coverage outside Europe and North America, which depends on their
-feeders.
+feeders (Buenos Aires had about twenty aircraft on both on 3 November 2026).

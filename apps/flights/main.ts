@@ -10,9 +10,9 @@ import { DEFAULT_NETWORK, DEFAULT_REGION, NetworkSource, type SkySource } from '
 import { t } from './strings.ts';
 
 // The flights app: the sky from the community ADS-B networks and OpenSky,
-// read straight from the browser. `?at=lat,lon&place=Name&nm=250` says
-// where the region is, `?network=airplanes.live` which network answers (a
-// URL works too), `?opensky=` where OpenSky is; `?demo` opens a recorded sky.
+// asked through the dev server. `?at=lat,lon&place=Name&nm=250` says where
+// the region is, `?network=adsb.fi` which network answers (a URL works too),
+// `?opensky=` where OpenSky is; `?demo` opens a recorded sky.
 
 const shell = document.querySelector<HTMLElement>('.shell')!;
 const canvas = document.querySelector<HTMLElement>('#canvas')!;
