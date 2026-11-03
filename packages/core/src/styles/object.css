@@ -88,8 +88,11 @@ o-arc.is-failed { --o-stroke: var(--critical); --o-stroke-width: 2; }
 .disc.has-image .face-name, .disc.has-image .face-label { color: rgba(255,255,255,.85); }
 .disc.has-image .face-big { font-size: clamp(16px, 11cqw, 26px); }
 
-/* A radar behind the face: range rings and a dot per thing around the center; the text sits over it. */
-.face-radar { position: absolute; inset: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none; }
+/* A radar (or a globe) behind the face: range rings (or the Earth) and a dot per thing; the text sits over it. */
+.face-radar, .face-globe { position: absolute; inset: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none; }
+.globe-sea { fill: color-mix(in srgb, var(--ink) 4%, transparent); }
+.globe-grid { fill: none; stroke: var(--line); stroke-width: .5; }
+.globe-land { fill: none; stroke: var(--muted); stroke-width: 1; stroke-linejoin: round; opacity: .75; }
 .disc.has-radar { isolation: isolate; }
 .radar-ring { fill: none; stroke: var(--line); stroke-width: 1; }
 .radar-home { fill: var(--muted); }

@@ -107,7 +107,7 @@ export const quakes: Feed = {
   parse: (json, where, now) => {
     const list = ((json as { features?: Quake[] }).features ?? []).filter((f) => f.properties.mag != null)
       .map((f) => ({ mag: f.properties.mag!, place: f.properties.place ?? '', time: f.properties.time, url: f.properties.url, alert: f.properties.alert, tsunami: !!f.properties.tsunami,
-        km: Math.round(distanceKm(where.lat, where.lon, f.geometry.coordinates[1], f.geometry.coordinates[0])), depth: f.geometry.coordinates[2] }));
+        km: Math.round(distanceKm(where.lat, where.lon, f.geometry.coordinates[1], f.geometry.coordinates[0])), depth: f.geometry.coordinates[2], lat: f.geometry.coordinates[1], lon: f.geometry.coordinates[0] }));
     if (!list.length) return { things: [] };
     const byMag = [...list].sort((a, b) => b.mag - a.mag), strongest = byMag[0];
     const near = [...list].sort((a, b) => a.km - b.km)[0];

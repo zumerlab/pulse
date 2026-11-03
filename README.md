@@ -17,7 +17,8 @@ that reads the sun, the earth, the sky and a few status pages from public
 feeds with no server at all, a Signal K app that reads a boat, a fleet app
 that follows the trams of Helsinki from a public MQTT feed, a Prometheus app
 that reads a fleet of hosts with PromQL by configuration, a drones app that
-flies a swarm of ArduPilot vehicles through mavlink2rest, and a demo app
+flies a swarm of ArduPilot vehicles through mavlink2rest, a flights app that
+reads the sky from the community ADS-B networks and OpenSky, and a demo app
 with simulated data. Each app connects its data and actions to the same interface.
 
 Site: [zumerlab.com/pulse](https://zumerlab.com/pulse/) (the pages are in
@@ -89,6 +90,7 @@ so you can try the interface without a Home Assistant instance.
 | [apps/fleet](apps/fleet/README.md) | A fleet over HSL's public MQTT feed: Helsinki's trams as the fleet by dimension and as one object per vehicle |
 | [apps/prometheus](apps/prometheus/README.md) | A fleet of hosts over Prometheus: channels by configuration (PromQL and thresholds), the targets, Alertmanager's alerts with the silence as the action |
 | [apps/drones](apps/drones/README.md) | A swarm of ArduPilot drones through mavlink2rest: the swarm around home as a radar, each drone an object, arm, takeoff, mode and return as the actions |
+| [apps/flights](apps/flights/README.md) | The sky from the community ADS-B networks and OpenSky: emergencies anywhere on a globe, the traffic around a place and its anomalies, the whole sky |
 | `tests/` | Playwright tests |
 | `docs/` | Website, component reference and design documentation |
 
@@ -112,12 +114,13 @@ npm run dev:signalk  # Signal K, http://127.0.0.1:5177; ?server=https://demo.sig
 npm run dev:fleet    # fleet, http://127.0.0.1:5178; live from HSL, ?demo for the recorded trams
 npm run dev:prometheus  # Prometheus, http://127.0.0.1:5179; ?server=http://host:9090, ?demo for the recorded hosts
 npm run dev:drones   # drones, http://127.0.0.1:5181; ?server=http://host:8088 (mavlink2rest), ?demo for the recorded swarm
+npm run dev:flights  # flights, http://127.0.0.1:5182; live from the networks, ?demo for the recorded sky
 ```
 
 ```sh
 npm run typecheck   # TypeScript, whole workspace
 npm run lint        # ESLint
-npm test            # Playwright: the demo app, the Home Assistant app over its demo homes, the homelab, world, Signal K, fleet, Prometheus and drones apps over their demos
+npm test            # Playwright: the demo app, the Home Assistant app over its demo homes, the homelab, world, Signal K, fleet, Prometheus, drones and flights apps over their demos
 npm run build:card  # the Home Assistant card + strategies as one module: apps/home-assistant/dist-card/zumer-pulse.js
                     # install and options: apps/home-assistant/card/README.md; bench without HA: http://127.0.0.1:5174/card.html
 npm run build       # typecheck and build the apps
