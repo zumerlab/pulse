@@ -88,6 +88,17 @@ o-arc.is-failed { --o-stroke: var(--critical); --o-stroke-width: 2; }
 .disc.has-image .face-name, .disc.has-image .face-label { color: rgba(255,255,255,.85); }
 .disc.has-image .face-big { font-size: clamp(16px, 11cqw, 26px); }
 
+/* A radar behind the face: range rings and a dot per thing around the center; the text sits over it. */
+.face-radar { position: absolute; inset: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none; }
+.disc.has-radar { isolation: isolate; }
+.radar-ring { fill: none; stroke: var(--line); stroke-width: 1; }
+.radar-home { fill: var(--muted); }
+.radar-dot { fill: var(--ink); }
+.radar-dot.is-off { fill: var(--dim); }
+.radar-dot.tone-warn { fill: var(--minor); }
+.radar-dot.tone-critical { fill: var(--critical); }
+.disc.has-radar .face-name, .disc.has-radar .face-big, .disc.has-radar .face-label { text-shadow: 0 0 6px var(--bg), 0 0 2px var(--bg); }
+
 /* The open dial: its ends named just outside, a mark where the measurement is. */
 .dial-end { font-size: 10px; color: var(--muted); white-space: nowrap; }
 .now-mark { height: 2px; background: var(--muted); border-radius: 1px; }

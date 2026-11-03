@@ -52,7 +52,8 @@ const strAt = (s: VesselSource, path: string): string | null => { const v = s.va
 const first = (s: VesselSource, prefix: string, leaf: string) => [...s.values.keys()].filter((p) => p.startsWith(prefix) && p.endsWith(leaf)).sort()[0];
 const nameOf = (s: VesselSource, path: string, fallback: string) => s.meta.get(path)?.displayName ?? s.meta.get(path.replace(/\.[^.]+$/, ''))?.displayName ?? fallback;
 const put = (path: string, value: unknown): Act => ({ ids: [path], kind: 'put', path, value });
-const got = (level: 1 | 2, big: string, label: string, why: string): Alert => ({ level, big, label, why, verb: t.gotIt, acts: [] });
+// The alert's key is its label (depth, wind, battery): the value in `big` drifts, the alert stays the same.
+const got = (level: 1 | 2, big: string, label: string, why: string, key = label): Alert => ({ level, big, label, why, key, verb: t.gotIt, acts: [] });
 
 // The server's notification on a path as the channel's alert: alert and warn
 // call softly, alarm and emergency loudly; normal is no alert.
@@ -63,7 +64,7 @@ export const noteAt = (s: VesselSource, path: string): Notification | null => {
 };
 const noteAlert = (s: VesselSource, path: string, big: string, label: string): Alert | undefined => {
   const n = noteAt(s, path), level = n && LEVEL[n.state];
-  return level ? got(level, big, label, n!.message ?? label) : undefined;
+  return level ? got(level, big, label, n!.message ?? label, `note:${path}`) : undefined;
 };
 
 export const navigation: System = { id: 'navigation', title: 'Navigation', channels: [

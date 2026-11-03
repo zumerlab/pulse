@@ -65,7 +65,11 @@
       </div>
 
       <h2>The face</h2>
-      <p><code>face({ glyph, name, big, label, aria, to?, props?, image?, extra? })</code>. The center of the front layer: the glyph, the channel's name, the big value and one line. With <code>to</code> the disc is the Zumly trigger of the detail; without it, the disc is only the face. With <code>image</code> a picture fills the disc and the text sits on a scrim.</p>
+      <p><code>face({ glyph, name, big, label, aria, to?, props?, image?, plots?, extra? })</code>. The center of the front layer: the glyph, the channel's name, the big value and one line. With <code>to</code> the disc is the Zumly trigger of the detail; without it, the disc is only the face. With <code>image</code> a picture fills the disc and the text sits on a scrim. With <code>plots</code> a radar sits behind the text: range rings, the center is here, a dot per thing at its bearing and its range (drones around home, ships around the boat, the day's quakes around you), dim when off, in the alert's color when it calls.</p>
+      <figure class="element">
+        <img src="images/el-face-radar.png" alt="A face reading 5 flying over a radar of six dots, one amber" loading="lazy">
+        <figcaption><strong>Radar</strong> <code>plots: [{ bearing, range, label, on?, tone? }]</code>. A reading's <code>plots</code> become the face's radar; the words stay in front.</figcaption>
+      </figure>
 
       <h2>The keypad</h2>
       <figure class="element">

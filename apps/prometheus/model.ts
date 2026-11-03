@@ -14,7 +14,8 @@ export type Channel = { key: string; name: string; glyph: string; read: (s: Prom
 export type System = { id: string; title: string; channels: Channel[] };
 
 const clamp = (v: number) => Math.min(1, Math.max(0, v));
-const got = (level: 1 | 2, big: string, label: string, why: string): PulseAlert => ({ level, big, label, why, verb: t.gotIt, acts: [] });
+// The alert's key is its label (CPU usage, target): the value in `big` drifts, the alert stays the same.
+const got = (level: 1 | 2, big: string, label: string, why: string): PulseAlert => ({ level, big, label, why, key: label, verb: t.gotIt, acts: [] });
 const silence = (a: Alert): Act => ({ ids: ['alerts', hostId(a.host)], kind: 'silence', alert: a.id, hours: 1 });
 const hostName = (host: string) => host.replace(/:\d+$/, '');
 
@@ -54,8 +55,8 @@ function fleetChannel(sys: SystemConfig, ch: ChannelConfig): Channel {
     return { kind: 's', segs, ids: rows.map((r) => hostId(r.host)), list: segs,
       big: bad.length ? `${bad.length} over` : format(worst.v, ch.unit),
       label: bad.length ? `${what} · ${listOf(bad.slice(0, 3).map((r) => hostName(r.host)))}` : `${what} at most · ${hostName(worst.host)}`,
-      alert: crit.length ? { level: 2, big: `${crit.length} critical`, label: what, fail: bad.map((_, i) => i), why: t.overWhy(crit.length, `${what} over ${format(ch.crit!, ch.unit)}`, listOf(crit.slice(0, 4).map((r) => `${hostName(r.host)} ${format(r.v, ch.unit)}`))), verb: t.gotIt, acts: [] }
-        : bad.length ? { level: 1, big: `${bad.length} warning`, label: what, fail: bad.map((_, i) => i), why: t.overWhy(bad.length, `${what} over ${format(ch.warn!, ch.unit)}`, listOf(bad.slice(0, 4).map((r) => `${hostName(r.host)} ${format(r.v, ch.unit)}`))), verb: t.gotIt, acts: [] } : undefined };
+      alert: crit.length ? { level: 2, big: `${crit.length} critical`, label: what, key: what, fail: bad.map((_, i) => i), why: t.overWhy(crit.length, `${what} over ${format(ch.crit!, ch.unit)}`, listOf(crit.slice(0, 4).map((r) => `${hostName(r.host)} ${format(r.v, ch.unit)}`))), verb: t.gotIt, acts: [] }
+        : bad.length ? { level: 1, big: `${bad.length} warning`, label: what, key: what, fail: bad.map((_, i) => i), why: t.overWhy(bad.length, `${what} over ${format(ch.warn!, ch.unit)}`, listOf(bad.slice(0, 4).map((r) => `${hostName(r.host)} ${format(r.v, ch.unit)}`))), verb: t.gotIt, acts: [] } : undefined };
   } };
 }
 
@@ -67,7 +68,7 @@ export const targets: System = { id: 'targets', title: 'Targets', channels: [
     const segs: Seg[] = all.map((x) => ({ label: `${hostName(x.host)} · ${x.job}${x.up ? '' : ` · ${x.error || 'down'}`}`, on: x.up, id: hostId(x.host) }));
     return { kind: 's', segs, ids: all.map((x) => hostId(x.host)), list: segs, big: down.length ? `${down.length} down` : `${all.length} up`,
       label: down.length ? listOf(down.slice(0, 3).map((x) => hostName(x.host))) : `${new Set(all.map((x) => x.job)).size} jobs`,
-      alert: down.length ? { level: down.length >= 3 ? 2 : 1, big: `${down.length} down`, label: 'targets', fail: down.map((_, i) => i), why: t.targetsDown(down.length, listOf(down.slice(0, 4).map((x) => hostName(x.host)))), verb: t.gotIt, acts: [] } : undefined };
+      alert: down.length ? { level: down.length >= 3 ? 2 : 1, big: `${down.length} down`, label: 'targets', key: `down:${down.map((x) => x.host).join(',')}`, fail: down.map((_, i) => i), why: t.targetsDown(down.length, listOf(down.slice(0, 4).map((x) => hostName(x.host)))), verb: t.gotIt, acts: [] } : undefined };
   } },
 ] };
 
@@ -82,7 +83,7 @@ export const alerts: System = { id: 'alerts', title: 'Alerts', channels: [
     const worst = live[0], level = worst ? alertLevel(worst) : 0;
     return { kind: 's', segs, ids: ['alerts', ...all.map((a) => hostId(a.host))], list: segs, big: live.length ? `${live.length} firing` : `${quiet.length} silenced`,
       label: live.length ? listOf(live.slice(0, 3).map((a) => a.name)) : 'all silenced',
-      alert: worst && level ? { level, big: `${live.length} firing`, label: worst.name, fail: live.map((_, i) => i),
+      alert: worst && level ? { level, big: `${live.length} firing`, label: worst.name, key: `firing:${live.map((a) => a.id).join(',')}`, fail: live.map((_, i) => i),
         why: `${t.alertsWhy(live.length, listOf(live.slice(0, 3).map((a) => `${a.name}${a.host ? ` on ${hostName(a.host)}` : ''}`)))}${worst.summary ? `. ${worst.summary}` : ''}`,
         verb: s.canSilence ? t.silence : t.gotIt, acts: s.canSilence ? [silence(worst)] : [] } : undefined };
   } },

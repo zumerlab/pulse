@@ -25,7 +25,8 @@ const g = {
 };
 
 const clamp = (v: number) => Math.min(1, Math.max(0, v));
-const got = (level: 1 | 2, big: string, label: string, why: string): Alert => ({ level, big, label, why, verb: t.gotIt, acts: [] });
+// The alert's key is its label (late, crowded, GPS): the value in `big` drifts, the alert stays the same.
+const got = (level: 1 | 2, big: string, label: string, why: string): Alert => ({ level, big, label, why, key: label, verb: t.gotIt, acts: [] });
 export const compass = (d: number) => t.compass[Math.round((((d % 360) + 360) % 360) / 22.5) % 16];
 export const kmh = (ms: number) => ms * 3.6;
 // "4:30", for seconds.
@@ -61,9 +62,9 @@ export const service: System = { id: 'service', title: 'Service', channels: [
     const share = late.length / all.length, worst = late[0];
     return { kind: 's', segs, ids: all.map((v) => VEH + v.id), big: `${all.length - late.length} of ${all.length}`, list: segs,
       label: worst ? `on time · worst ${nameOf(worst)} ${t.late(mmss(lateBy(worst)))}` : `${what(all)} on time`,
-      alert: late.length && (share >= 0.25 || very.length >= 3) ? { level: 2, big: `${late.length} late`, label: what(all), fail: late.map((_, i) => i),
+      alert: late.length && (share >= 0.25 || very.length >= 3) ? { level: 2, big: `${late.length} late`, label: what(all), key: 'late', fail: late.map((_, i) => i),
         why: t.fleetLate(late.length, all.length, what(all), listOf(late.slice(0, 3).map((v) => `${nameOf(v)} ${mmss(lateBy(v))}`))), verb: t.gotIt, acts: [] }
-        : late.length && share >= 0.1 ? { level: 1, big: `${late.length} late`, label: what(all), fail: late.map((_, i) => i),
+        : late.length && share >= 0.1 ? { level: 1, big: `${late.length} late`, label: what(all), key: 'late', fail: late.map((_, i) => i),
           why: t.fleetLate(late.length, all.length, what(all), listOf(late.slice(0, 3).map((v) => `${nameOf(v)} ${mmss(lateBy(v))}`))), verb: t.gotIt, acts: [] } : undefined };
   } },
   { key: 'early', name: 'Running early', glyph: g.ahead, read: (vs) => {
@@ -106,7 +107,7 @@ export const load: System = { id: 'load', title: 'Load', channels: [
     const segs = ordered.map((v) => tick(v, (v.occu ?? 0) < CROWDED, `${nameOf(v)} · ${num(v.occu ?? 0, 0)}%`));
     return { kind: 's', segs, ids: all.map((v) => VEH + v.id), big: `${crowded.length} crowded`, list: segs,
       label: crowded.length ? listOf(crowded.slice(0, 3).map(nameOf)) : `fullest ${nameOf(ordered[0])} at ${num(ordered[0].occu ?? 0, 0)}%`,
-      alert: crowded.length >= 3 ? { level: 1, big: `${crowded.length} crowded`, label: what(all), fail: crowded.map((_, i) => i), why: t.fleetCrowded(crowded.length, listOf(crowded.slice(0, 4).map(nameOf))), verb: t.gotIt, acts: [] } : undefined };
+      alert: crowded.length >= 3 ? { level: 1, big: `${crowded.length} crowded`, label: what(all), key: 'crowded', fail: crowded.map((_, i) => i), why: t.fleetCrowded(crowded.length, listOf(crowded.slice(0, 4).map(nameOf))), verb: t.gotIt, acts: [] } : undefined };
   } },
   { key: 'doors', name: 'At a stop', glyph: g.doors, read: (vs) => {
     const all = vehicles(vs).filter((v) => v.drst != null);
@@ -131,7 +132,7 @@ export const fleet: System = { id: 'fleet', title: 'Fleet', channels: [
     const blind = ordered.filter((v) => !hasFix(v));
     const segs = ordered.map((v) => tick(v, hasFix(v), `${nameOf(v)} · ${hasFix(v) ? v.loc : 'no fix'}`));
     return { kind: 's', segs, ids: all.map((v) => VEH + v.id), big: blind.length ? `${blind.length} without GPS` : 'All located', list: segs, label: blind.length ? listOf(blind.slice(0, 3).map(nameOf)) : `${all.length} ${what(all)} with a fix`,
-      alert: blind.length >= 2 ? { level: 1, big: `${blind.length} blind`, label: what(all), fail: blind.map((_, i) => i), why: t.fleetNoFix(blind.length, listOf(blind.slice(0, 4).map(nameOf))), verb: t.gotIt, acts: [] } : undefined };
+      alert: blind.length >= 2 ? { level: 1, big: `${blind.length} blind`, label: what(all), key: 'blind', fail: blind.map((_, i) => i), why: t.fleetNoFix(blind.length, listOf(blind.slice(0, 4).map(nameOf))), verb: t.gotIt, acts: [] } : undefined };
   } },
   { key: 'silent', name: 'Silent', glyph: g.silence, read: (vs) => {
     const all = vehicles(vs);

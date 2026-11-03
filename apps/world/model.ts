@@ -32,7 +32,8 @@ const clamp = (v: number) => Math.min(1, Math.max(0, v));
 const n = (x: unknown) => (typeof x === 'number' ? x : Number(x));
 const isNum = (x: unknown): x is number => typeof x === 'number' && Number.isFinite(x);
 const attr = <T = unknown>(th: Thing, k: string) => th.attrs[k] as T | undefined;
-const got = (level: 1 | 2, big: string, label: string, why: string): Alert => ({ level, big, label, why, verb: t.gotIt, acts: [] });
+// The alert's key is its label: the value in `big` drifts (the solar wind, a temperature), the alert stays the same.
+const got = (level: 1 | 2, big: string, label: string, why: string): Alert => ({ level, big, label, why, key: label, verb: t.gotIt, acts: [] });
 const open = (url: string): Act => ({ ids: [], kind: 'open', url });
 // "3 h ago", "20 min ago", for a moment in the past.
 export const agoText = (at: number, now = Date.now()) => {
@@ -93,7 +94,7 @@ export const earth: System = { id: 'earth', title: 'Earth', channels: [
     const level = q.mag >= 7 || q.alert === 'red' || q.alert === 'orange' ? 2 : q.mag >= 6 || q.alert === 'yellow' ? 1 : 0;
     return { kind: 'p', v: clamp(q.mag / 9), ids: count ? ['earth.strongest', 'earth.count'] : ['earth.strongest'], big: `M ${num(q.mag, 1)}`,
       label: `${q.place} · ${agoText(q.time)}`, list: top.map(quakeSeg),
-      alert: level ? { level, big: `M ${num(q.mag, 1)}`, label: q.place, why: t.quakeWhy(num(q.mag, 1), q.place, agoText(q.time)) + (q.tsunami ? ' · tsunami watch' : ''),
+      alert: level ? { level, big: `M ${num(q.mag, 1)}`, label: q.place, key: `quake:${q.time}`, why: t.quakeWhy(num(q.mag, 1), q.place, agoText(q.time)) + (q.tsunami ? ' · tsunami watch' : ''),
         verb: 'See it on USGS', acts: [open(q.url)] } : undefined };
   } },
   { key: 'near', name: 'Nearest', glyph: g.pin, read: (s) => {
@@ -102,7 +103,7 @@ export const earth: System = { id: 'earth', title: 'Earth', channels: [
     const q = th.attrs as unknown as Quake;
     const level = q.km <= 150 && q.mag >= 5.5 ? 2 : q.km <= 300 && q.mag >= 4.5 ? 1 : 0;
     return { kind: 'p', v: clamp(1 - q.km / 3000), ids: ['earth.near'], big: `${num(q.km, 0)} km`, label: `M ${num(q.mag, 1)} · ${q.place}`,
-      alert: level ? { level, big: `M ${num(q.mag, 1)}`, label: `${num(q.km, 0)} km away`, why: t.nearQuake(num(q.mag, 1), q.km, q.place), verb: 'See it on USGS', acts: [open(q.url)] } : undefined };
+      alert: level ? { level, big: `M ${num(q.mag, 1)}`, label: `${num(q.km, 0)} km away`, key: `quake:${q.time}`, why: t.nearQuake(num(q.mag, 1), q.km, q.place), verb: 'See it on USGS', acts: [open(q.url)] } : undefined };
   } },
   { key: 'activity', name: 'Last 24 hours', glyph: g.globe, read: (s) => {
     const th = s.get('earth.count');
@@ -171,7 +172,7 @@ export const servicesSystem = (services: Service[]): System => ({ id: 'services'
     const why = inc ? `${inc.name}${inc.body ? `: ${inc.body.length > 160 ? `${inc.body.slice(0, 157)}…` : inc.body}` : ''}` : `${bad.map((c) => c.name).join(', ')} ${bad.length === 1 ? 'is' : 'are'} ${bad.length === 1 ? t.componentStatus[bad[0].status] ?? bad[0].status : 'not operational'}`;
     return { kind: 's', segs, ids: [th.id], big: t.indicator[indicator] ?? String(attr(th, 'description') ?? indicator),
       label: inc ? `${inc.name} · ${inc.status}` : `${comps.length} ${comps.length === 1 ? 'component' : 'components'} operational`,
-      alert: level ? { level, big: t.indicator[indicator] ?? 'Degraded', label: inc?.name ?? svc.name, fail: bad.map((c) => ordered.indexOf(c)).filter((i) => i >= 0), why,
+      alert: level ? { level, big: t.indicator[indicator] ?? 'Degraded', label: inc?.name ?? svc.name, key: inc ? `incident:${inc.url}` : `components:${bad.map((c) => c.name).join(',')}`, fail: bad.map((c) => ordered.indexOf(c)).filter((i) => i >= 0), why,
         verb: inc ? t.openIncident : t.gotIt, acts: inc ? [open(inc.url)] : [] } : undefined };
   },
 })) });

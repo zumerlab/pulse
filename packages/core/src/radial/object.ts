@@ -4,6 +4,7 @@
 
 import { t } from '../i18n.ts';
 import { esc, icon } from './markup.ts';
+import { radar, type Plot } from './radar.ts';
 import { GROW, LANE, PHONE } from './sizes.ts';
 
 export type Face = {
@@ -17,6 +18,8 @@ export type Face = {
   extra?: string;                      // more markup inside the disc ("sending…")
   // A picture inside the disc (a camera, a cover, a plan, a map): the text sits over it.
   image?: { src: string; alt: string; key?: string };
+  // Things around a point, as a radar behind the text: the center is here (home, the boat, you).
+  plots?: Plot[];
 };
 
 // The front layer's center: the face in an at-center satellite of orbit-0,
@@ -24,10 +27,11 @@ export type Face = {
 export function face(f: Face) {
   const props = Object.entries(f.props ?? {}).map(([k, v]) => ` data-${k}="${esc(v)}"`).join('');
   const img = f.image ? `<img class="face-image" src="${esc(f.image.src)}" alt="${esc(f.image.alt)}"${f.image.key ? ` data-image="${esc(f.image.key)}"` : ''}>` : '';
+  const plots = f.plots?.length ? radar(f.plots, f.name) : '';
   const opens = f.to ? ` role="button" tabindex="0" data-to="${f.to}"${props} aria-label="${esc(f.aria)}"` : '';
   return `<div class="orbit-0" style="--o-size-ratio:21.2"><div class="satellite at-center">
-    <div class="capsule disc${f.to ? ' zoom-me' : ''}${img ? ' has-image' : ''}"${opens}>
-      ${img}${icon(f.glyph)}<span class="face-name">${esc(f.name)}</span>
+    <div class="capsule disc${f.to ? ' zoom-me' : ''}${img ? ' has-image' : ''}${plots ? ' has-radar' : ''}"${opens}>
+      ${img}${plots}${icon(f.glyph)}<span class="face-name">${esc(f.name)}</span>
       <span class="face-big">${esc(f.big)}</span><span class="face-label">${esc(f.label)}</span>${f.extra ?? ''}</div></div></div>`;
 }
 

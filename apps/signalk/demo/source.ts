@@ -122,8 +122,8 @@ export class DemoSource implements VesselSource {
   }
   stop() { clearInterval(this.timer); this.values.clear(); this.setStatus('signed-out'); }
 
-  // The boat moves: the numbers of a boat under way move. Not the depth: its
-  // alert names the value, and a value that drifts is a new alert each time.
+  // The boat moves: the numbers of a boat under way move, the depth too (its
+  // alert carries a key, so the drifting value does not make it a new one).
   private tick() {
     const now = Date.now(), changed: string[] = [];
     const move = (path: string, step: number, lo: number, hi: number) => {
@@ -137,6 +137,7 @@ export class DemoSource implements VesselSource {
     move('navigation.courseOverGroundTrue', 1.5 * R, 211 * R, 219 * R);
     move('environment.wind.angleApparent', 3 * R, 30 * R, 46 * R);
     move('environment.wind.speedApparent', 0.4, 12 * KN, 17 * KN);
+    move('environment.depth.belowTransducer', 0.1, 2.4, 2.95);
     move('steering.rudderAngle', 1 * R, -4 * R, 4 * R);
     move('electrical.batteries.house.current', 0.6, 12, 16);
     move('electrical.solar.main.panelPower', 6, 60, 110);

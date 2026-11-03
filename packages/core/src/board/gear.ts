@@ -48,6 +48,7 @@ export function settingsPanel(b: Board) {
         <div class="settings-systems">${frame.systems.map((id) =>
           `<label><input type="checkbox" name="systems" value="${id}"> ${sys[id].title}</label>`).join('')}</div></fieldset>
       <fieldset class="settings-groups" hidden><legend>${t.groupsField}</legend>
+        <input type="search" name="groups-filter" class="settings-filter" placeholder="${t.filterGroups}" aria-label="${t.filterGroups}" autocomplete="off" hidden>
         <div class="settings-groups-list"></div>
         <p class="hint">${t.groupsHint}</p></fieldset>
       <fieldset class="settings-channels-field"><legend>${t.channelsField}</legend>
@@ -185,10 +186,11 @@ export function wireGear(b: Board, el: HTMLElement) {
       setTimeout(() => { copy.textContent = t.copy; }, 1200);
     }
   });
-  // Sliders and colors move the board as they are dragged.
+  // Sliders and colors move the board as they are dragged; the filter narrows the groups.
   form.addEventListener('input', (e) => {
     const target = e.target as HTMLInputElement;
-    if (target.name === 'tune') { setTune(target.dataset.key as keyof Tune, Number(target.value)); syncTune(b, form); }
+    if (target.name === 'groups-filter') filterGroups(form.querySelector<HTMLElement>('.settings-groups-list')!, target.value);
+    else if (target.name === 'tune') { setTune(target.dataset.key as keyof Tune, Number(target.value)); syncTune(b, form); }
     else if (target.name === 'dim' || target.name === 'blur' || target.name === 'glow') {
       // Live while dragged: the ground only; kept on release (the change event).
       const v = target.name === 'glow' ? target.value : Number(target.value);
@@ -206,6 +208,7 @@ export function wireGear(b: Board, el: HTMLElement) {
   form.addEventListener('change', (e) => {
     const target = e.target as HTMLInputElement | HTMLSelectElement, field = target.name, data = new FormData(form);
     const local = b.local;
+    if (field === 'groups-filter') return;
     if (field === 'systems') {
       const chosen = data.getAll('systems').map(String);
       // At least one system: unchecking the last one does not stick.
@@ -295,6 +298,22 @@ export function wireGear(b: Board, el: HTMLElement) {
 
 // A list of the panel redrawn only when its markup changes, and the control
 // that had the focus (a select just changed) gets it back.
+// Only the members whose name (or group) has the words typed; a group with none left hides.
+const FILTER_FROM = 24;
+function filterGroups(list: HTMLElement, query: string) {
+  const q = query.trim().toLowerCase();
+  for (const group of list.querySelectorAll<HTMLElement>('.settings-group')) {
+    const title = group.querySelector('.settings-group-title')?.textContent?.toLowerCase() ?? '';
+    let shown = 0;
+    for (const label of group.querySelectorAll<HTMLElement>('label')) {
+      const hit = !q || title.includes(q) || (label.textContent ?? '').toLowerCase().includes(q);
+      label.hidden = !hit;
+      if (hit) shown++;
+    }
+    group.hidden = !shown;
+  }
+}
+
 function rebuild(b: Board, list: HTMLElement, html: string) {
   if (list.dataset.html === html) return;
   const focused = activeElement(b), inside = focused && list.contains(focused) ? focused as HTMLInputElement | HTMLSelectElement : null;
@@ -377,6 +396,10 @@ export function syncSettings(b: Board, form: HTMLFormElement) {
   const groupsHtml = groups.map((g) => `<div class="settings-group">${g.title ? `<span class="settings-group-title">${esc(g.title)}</span>` : ''}${g.items.map((i) =>
     `<label><input type="checkbox" name="groups" value="${esc(i.id)}"> ${esc(i.name)}</label>`).join('')}</div>`).join('');
   rebuild(b, groupsList, groupsHtml);
+  // Past a couple of dozen members (a fleet), a filter over the names.
+  const filter = groupsField.querySelector<HTMLInputElement>('input[name="groups-filter"]')!;
+  filter.hidden = groups.reduce((n, g) => n + g.items.length, 0) <= FILTER_FROM;
+  filterGroups(groupsList, filter.hidden ? '' : filter.value);
   const inGroups = activeGroups(b);
   for (const box of form.querySelectorAll<HTMLInputElement>('input[name="groups"]')) box.checked = !inGroups || inGroups.includes(box.value);
   const chList = form.querySelector<HTMLElement>('.settings-channels')!;

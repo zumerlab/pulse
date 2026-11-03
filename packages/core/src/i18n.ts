@@ -176,6 +176,7 @@ export const t = {
   startHint: 'Where it opens the next time this screen loads.',
   groupsField: 'Groups',
   groupsHint: 'Only what is in the ticked groups.',
+  filterGroups: 'Filter by name',
   channelsField: 'Channels',
   channelsHint: 'What each system shows, and what a channel follows when there is more than one.',
   pickFor: (channel: string) => `What ${channel} follows`,

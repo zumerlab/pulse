@@ -36,7 +36,7 @@ test('the recorded yacht fills six systems, three things calling', async ({ page
   await page.goto(`${SIGNALK}?demo`);
   await expect(page.locator('.tile[data-system]')).toHaveCount(6);
   await expect(page.locator('.board h1')).toContainText('3 things calling');
-  await expect(page.locator('.tile[data-system="navigation"] .tile-big')).toHaveText('2.7 m');
+  await expect(page.locator('.tile[data-system="navigation"] .tile-big')).toHaveText(/^2\.\d m$/);
   await expect(page.locator('.tile[data-system="electrical"] .tile-big')).toHaveText('24%');
   await expect(page.locator('.tile[data-system="tanks"] .tile-big')).toHaveText('86%');
   await expect(page.locator('.tile[data-system="engine"] .tile-big')).toHaveText(/^1,8\d\d rpm$/);
