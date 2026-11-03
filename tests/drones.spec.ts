@@ -70,10 +70,11 @@ test('on the groups axis each drone is an object: its mode is a choice ring that
   await current(page).locator('.strip [data-resolve]').click();
   await expect(current(page).locator('.strip')).toContainText('need 3D fix');
   await expect(current(page).locator('.strip [data-retry]')).toHaveCount(1);
-  // The fix itself waits behind, softly (on the ground).
+  // The fix itself waits behind, softly (on the ground); the refusal stays with the drone, on every channel of it.
   await current(page).locator('[data-pick="link/gps"]').first().dispatchEvent('click');
   await expect(current(page).locator('.layer-front .face-big')).toHaveText('2D fix');
-  await expect(current(page).locator('.strip')).toContainText('Copter 6 has no 3D fix (5 satellites)');
+  await expect(current(page).locator('.layer-front .face-label')).toHaveText('5 satellites');
+  await expect(current(page).locator('.strip [data-retry]')).toHaveCount(1);
   await page.locator('.z-nav-back').click();
   await page.locator('.tile[data-system="drone:1"]').click();
   await current(page).locator('[data-pick="swarm/mode"]').first().dispatchEvent('click');
