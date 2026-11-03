@@ -4,7 +4,7 @@
 // server. Same shape as the WebSocket source.
 
 import type { HistoryRow, Status } from '@zumer/pulse';
-import type { Act, Meta, Notification, Value, VesselSource } from '../source.ts';
+import type { Act, Meta, Notification, Target, Value, VesselSource } from '../source.ts';
 import { t } from '../strings.ts';
 
 const R = Math.PI / 180;                        // degrees to radians
@@ -96,10 +96,21 @@ const META: Record<string, Meta> = {
 };
 
 const jitter = (v: number, step: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v + (Math.random() - 0.5) * 2 * step));
+// The vessels around, from their AIS: a freighter crossing ahead, a fishing boat, a ferry and a sailboat, metres north and east of the yacht.
+const AROUND: (Omit<Target, 'lat' | 'lon' | 'at'> & { n: number; e: number; dn: number; de: number })[] = [
+  { id: 'urn:mrn:imo:mmsi:636019825', name: 'MSC ALICIA', n: 1400, e: 2600, cog: 275 * R, sog: 14 * KN, dn: 0.4, de: -7 },
+  { id: 'urn:mrn:imo:mmsi:701006201', name: 'DON PEDRO', n: -700, e: 900, cog: 40 * R, sog: 5 * KN, dn: 2, de: 1.6 },
+  { id: 'urn:mrn:imo:mmsi:701000733', name: 'BUQUEBUS', n: 5200, e: -4100, cog: 150 * R, sog: 32 * KN, dn: -14, de: 8 },
+  { id: 'urn:mrn:imo:mmsi:701001122', name: 'ALMA', n: -2200, e: -1500, cog: 210 * R, sog: 5.5 * KN, dn: -2.4, de: -1.4 },
+];
+const LAT0 = -38.052, LON0 = -57.413;
+const place = (n: number, e: number) => ({ lat: LAT0 + n / 111_320, lon: LON0 + e / (111_320 * Math.cos((LAT0 * Math.PI) / 180)) });
 
 export class DemoSource implements VesselSource {
   readonly values = new Map<string, Value>();
   readonly meta = new Map<string, Meta>(Object.entries(META));
+  readonly others = new Map<string, Target>();
+  private around = AROUND.map((a) => ({ ...a }));
   readonly name = 'Tehuelche';
   status: Status = 'signed-out';
   error = '';
@@ -116,11 +127,13 @@ export class DemoSource implements VesselSource {
     const now = Date.now();
     this.values.clear();
     for (const [path, value] of Object.entries(YACHT)) this.values.set(path, { value, at: path.startsWith('notifications.') ? now - 25 * 60_000 : now });
+    this.others.clear();
+    for (const a of this.around) this.others.set(a.id, { id: a.id, name: a.name, cog: a.cog, sog: a.sog, ...place(a.n, a.e), at: now });
     this.setStatus('live');
     this.listeners.forEach((fn) => fn([...this.values.keys()]));
     this.timer = window.setInterval(() => this.tick(), 2000);
   }
-  stop() { clearInterval(this.timer); this.values.clear(); this.setStatus('signed-out'); }
+  stop() { clearInterval(this.timer); this.values.clear(); this.others.clear(); this.setStatus('signed-out'); }
 
   // The boat moves: the numbers of a boat under way move, the depth too (its
   // alert carries a key, so the drifting value does not make it a new one).
@@ -144,6 +157,9 @@ export class DemoSource implements VesselSource {
     move('propulsion.port.revolutions', 10 / 60, 1820 / 60, 1880 / 60);
     const p = this.values.get('environment.outside.pressure')?.value;
     if (typeof p === 'number') { this.values.set('environment.outside.pressure', { value: p - 1, at: now }); changed.push('environment.outside.pressure'); }
+    // The traffic moves along its course.
+    for (const a of this.around) { a.n += a.dn; a.e += a.de; this.others.set(a.id, { id: a.id, name: a.name, cog: a.cog, sog: a.sog, ...place(a.n, a.e), at: now }); }
+    changed.push('traffic');
     this.listeners.forEach((fn) => fn(changed));
   }
 

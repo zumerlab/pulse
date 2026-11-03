@@ -58,7 +58,7 @@ export const service: System = { id: 'service', title: 'Service', channels: [
     // The late ones first, the latest of them in front, so the painted ticks sit together.
     const ordered = [...all].sort((a, b) => lateBy(b) - lateBy(a) || byLine(a, b));
     const late = ordered.filter((v) => lateBy(v) >= LATE), very = late.filter((v) => lateBy(v) >= VERY_LATE);
-    const segs = ordered.map((v) => tick(v, lateBy(v) < LATE, `${nameOf(v)}${lateBy(v) ? ` · ${t.late(mmss(lateBy(v)))}` : lateBy(v) === 0 && earlyBy(v) ? ` · ${t.early(mmss(earlyBy(v)))}` : ''}`));
+    const segs = ordered.map((v) => tick(v, lateBy(v) < LATE, `${lineOf(v)} · ${v.veh}${lateBy(v) >= 60 ? ` · +${mmss(lateBy(v))}` : earlyBy(v) >= 60 ? ` · −${mmss(earlyBy(v))}` : ''}`));
     const share = late.length / all.length, worst = late[0];
     return { kind: 's', segs, ids: all.map((v) => VEH + v.id), big: `${all.length - late.length} of ${all.length}`, list: segs,
       label: worst ? `on time · worst ${nameOf(worst)} ${t.late(mmss(lateBy(worst)))}` : `${what(all)} on time`,
@@ -73,7 +73,7 @@ export const service: System = { id: 'service', title: 'Service', channels: [
     const early = all.filter((v) => earlyBy(v) >= EARLY).sort((a, b) => earlyBy(b) - earlyBy(a));
     return { kind: 'p', v: clamp(early.length / Math.max(1, all.length) * 4), ids: early.map((v) => VEH + v.id).concat(early.length ? [] : [VEH + all[0].id]), big: `${early.length}`,
       label: early.length ? `ahead of the timetable · ${nameOf(early[0])} ${t.early(mmss(earlyBy(early[0])))}` : 'ahead of the timetable',
-      list: early.map((v) => tick(v, true, `${nameOf(v)} · ${t.early(mmss(earlyBy(v)))}`)) };
+      list: early.map((v) => tick(v, true, `${lineOf(v)} · ${v.veh} · −${mmss(earlyBy(v))}`)) };
   } },
 ] };
 
@@ -88,7 +88,7 @@ export const lines: System = { id: 'lines', title: 'Lines', channels: [
     const ordered = [...bad, ...routes.filter((r) => !bad.includes(r))];
     const segs: Seg[] = ordered.map(([line, list]) => { const late = list.filter((v) => lateBy(v) >= LATE).length; return { label: `${line} · ${list.length}${late ? ` · ${late} late` : ''}`, on: !late, id: `line:${line}` }; });
     return { kind: 's', segs, ids: all.map((v) => VEH + v.id), big: `${routes.length - bad.length} of ${routes.length}`, label: `lines on time · ${all.length} ${what(all)} out`, list: segs,
-      alert: bad.length >= Math.max(2, routes.length / 2) ? got(1, `${bad.length} lines`, 'running late', `${listOf(bad.map(([line]) => line))} ${bad.length === 1 ? 'has' : 'have'} ${what(all)} more than 3 minutes late`) : undefined };
+      alert: bad.length >= Math.max(2, routes.length / 2) ? got(1, `${bad.length} lines late`, 'of ' + routes.length, `${listOf(bad.map(([line]) => line))} ${bad.length === 1 ? 'has' : 'have'} ${what(all)} more than 3 minutes late`) : undefined };
   } },
   { key: 'headways', name: 'Out on the lines', glyph: g.tram, read: (vs) => {
     const all = vehicles(vs);
@@ -104,7 +104,7 @@ export const load: System = { id: 'load', title: 'Load', channels: [
     if (!all.length) return null;
     const ordered = [...all].sort((a, b) => (b.occu ?? 0) - (a.occu ?? 0) || byLine(a, b));
     const crowded = ordered.filter((v) => (v.occu ?? 0) >= CROWDED);
-    const segs = ordered.map((v) => tick(v, (v.occu ?? 0) < CROWDED, `${nameOf(v)} · ${num(v.occu ?? 0, 0)}%`));
+    const segs = ordered.map((v) => tick(v, (v.occu ?? 0) < CROWDED, `${lineOf(v)} · ${v.veh} · ${num(v.occu ?? 0, 0)}%`));
     return { kind: 's', segs, ids: all.map((v) => VEH + v.id), big: `${crowded.length} crowded`, list: segs,
       label: crowded.length ? listOf(crowded.slice(0, 3).map(nameOf)) : `fullest ${nameOf(ordered[0])} at ${num(ordered[0].occu ?? 0, 0)}%`,
       alert: crowded.length >= 3 ? { level: 1, big: `${crowded.length} crowded`, label: what(all), key: 'crowded', fail: crowded.map((_, i) => i), why: t.fleetCrowded(crowded.length, listOf(crowded.slice(0, 4).map(nameOf))), verb: t.gotIt, acts: [] } : undefined };
@@ -130,7 +130,7 @@ export const fleet: System = { id: 'fleet', title: 'Fleet', channels: [
     if (!all.length) return null;
     const ordered = [...all].sort((a, b) => Number(hasFix(a)) - Number(hasFix(b)) || byLine(a, b));
     const blind = ordered.filter((v) => !hasFix(v));
-    const segs = ordered.map((v) => tick(v, hasFix(v), `${nameOf(v)} · ${hasFix(v) ? v.loc : 'no fix'}`));
+    const segs = ordered.map((v) => tick(v, hasFix(v), `${lineOf(v)} · ${v.veh} · ${hasFix(v) ? v.loc : 'no fix'}`));
     return { kind: 's', segs, ids: all.map((v) => VEH + v.id), big: blind.length ? `${blind.length} without GPS` : 'All located', list: segs, label: blind.length ? listOf(blind.slice(0, 3).map(nameOf)) : `${all.length} ${what(all)} with a fix`,
       alert: blind.length >= 2 ? { level: 1, big: `${blind.length} blind`, label: what(all), key: 'blind', fail: blind.map((_, i) => i), why: t.fleetNoFix(blind.length, listOf(blind.slice(0, 4).map(nameOf))), verb: t.gotIt, acts: [] } : undefined };
   } },
@@ -162,8 +162,10 @@ const vehicleChannels: { key: string; name: string; glyph: string; read: (v: Veh
   { key: 'service/delay', name: 'Timetable', glyph: g.clock, read: (v) => {
     if (v.dl == null) return null;
     const late = lateBy(v), early = earlyBy(v), id = VEH + v.id;
-    const big = late ? `+${mmss(late)}` : early ? `−${mmss(early)}` : t.onTime;
-    return { kind: 'p', v: clamp(late / 600), ids: [id], big, label: `to ${toOf(v)}${v.stop ? ` · stop ${v.stop}` : ''}`,
+    // Under a minute either way is on time: the seconds only in the line under.
+    const big = late >= 60 ? `+${mmss(late)}` : early >= 60 ? `−${mmss(early)}` : t.onTime;
+    const fine = late < 60 && early < 60;
+    return { kind: 'p', v: clamp(late / 600), ids: [id], big, label: fine && (late || early) ? `${late ? `${late} s behind` : `${early} s ahead`} · to ${toOf(v)}` : `to ${toOf(v)}${v.stop ? ` · stop ${v.stop}` : ''}`,
       alert: late >= VERY_LATE ? got(2, big, 'late', t.lateWhy(nameOf(v), toOf(v), mmss(late))) : late >= LATE ? got(1, big, 'late', t.lateWhy(nameOf(v), toOf(v), mmss(late)))
         : early >= EARLY ? got(1, big, 'early', t.earlyWhy(nameOf(v), toOf(v), mmss(early))) : undefined };
   } },

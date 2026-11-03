@@ -3,7 +3,7 @@
 // and the words for a path (its name, its value in a skipper's units).
 
 import { changesOf, hourly, num, type Action, type Changed, type PulseHost, type System } from '@zumer/pulse';
-import { bar, celsius, deg, hpa, kn, litres, lph, rpm, systems } from './model.ts';
+import { AIS, bar, celsius, compass, deg, fromBoat, hpa, kn, litres, lph, NM, rpm, systems } from './model.ts';
 import type { Act, VesselSource } from './source.ts';
 
 // A path's leaf as a name: "stateOfCharge" → "state of charge", with its parent when that tells it apart.
@@ -50,13 +50,19 @@ export function hostOf(src: VesselSource): PulseHost {
     onChange: (fn: (changed: Changed[]) => void) => src.onChange((paths) => fn(paths.map((p) => ({ id: p, logged: p.startsWith('notifications.') || typeof src.values.get(p)?.value === 'string' })))),
     onStatus: (fn) => src.onStatus(fn),
     act: (a: Action) => src.act(a as Act),
-    nameOf: (id) => src.meta.get(id)?.displayName ?? humanize(id),
+    nameOf: (id) => id.startsWith(AIS) ? src.others.get(id.slice(AIS.length))?.name ?? id.slice(AIS.length) : src.meta.get(id)?.displayName ?? humanize(id),
     stateOf: (id) => {
+      if (id.startsWith(AIS)) {
+        const o = src.others.get(id.slice(AIS.length)), pos = src.values.get('navigation.position')?.value as { latitude?: number; longitude?: number } | undefined;
+        if (!o || typeof pos?.latitude !== 'number' || typeof pos?.longitude !== 'number') return '';
+        const at = fromBoat({ latitude: pos.latitude, longitude: pos.longitude }, o);
+        return `${num(at.m / NM, 1)} nm ${compass(at.bearing)}${o.sog != null ? ` · ${num(kn(o.sog), 0)} kn` : ''}`;
+      }
       const v = src.values.get(id)?.value;
       if (id.startsWith('notifications.') && v && typeof v === 'object') { const n = v as { state?: string; message?: string }; return n.message ? `${n.state}: ${n.message}` : n.state ?? ''; }
       return textOf(v, units(id));
     },
-    changedAt: (id) => src.values.get(id)?.at,
+    changedAt: (id) => id.startsWith(AIS) ? src.others.get(id.slice(AIS.length))?.at : src.values.get(id)?.at,
     unitOf: (id) => unitOf(units(id)),
     url: (path) => path,
     history: async (id, hours) => hourly(((await src.history([id], hours))[id] ?? []).map((r) => ({ s: String(convert(Number(r.s), units(id))), lu: r.lu })), hours),

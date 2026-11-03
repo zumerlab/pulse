@@ -37,6 +37,8 @@ const board = mountBoard(canvas, {
   axis: query.get('axis') === 'groups' ? 'groups' : undefined,
   start: query.get('start') ?? undefined,
   settings: 'pulse-fleet-settings',
+  // A transit operator's wall: the night theme's blue-grey, a faint glow in HSL's blue, glass faces.
+  look: { ground: 'glow', glow: '#0a4f9a', faces: 'glass', ends: 'rounded' },
   status,
   strings: { connecting: t.connecting, things: t.things, hostError: t.hostError, noGroup: t.noGroup },
   onAction: (action) => { if (action === 'leave') leaveDemo(); },

@@ -10,7 +10,7 @@ const current = (page: Page) => page.locator('.z-view.is-current-view');
 
 test.beforeEach(async ({ page }) => {
   // The calm systems open on the board (the suite looks at every tile), as the other suites do.
-  await page.addInitScript(() => { if (!localStorage.getItem('pulse-world-settings')) localStorage.setItem('pulse-world-settings', '{"calm":"open"}'); });
+  await page.addInitScript(() => { if (!localStorage.getItem('pulse-world-settings')) localStorage.setItem('pulse-world-settings', '{"calm":"open","mode":"grid"}'); });
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
   page.on('console', (m) => { if (m.type() === 'error' && !/ERR_FAILED|ERR_CONNECTION|Failed to load resource/.test(m.text())) errors.push(m.text()); });

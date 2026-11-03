@@ -39,7 +39,7 @@ test('the recorded fleet fills four systems; the late trams are the painted tick
   await expect(page.locator('.tile[data-system="service"] .tile-big')).toHaveText('10 late');
   await expect(page.locator('.tile[data-system="load"] .tile-big')).toHaveText('3 crowded');
   await expect(page.locator('.tile[data-system="fleet"] .tile-big')).toHaveText('2 blind');
-  await expect(page.locator('.tile[data-system="lines"] .tile-big')).toHaveText('7 lines');
+  await expect(page.locator('.tile[data-system="lines"] .tile-big')).toHaveText('7 lines late');
   // The tile's mini ring is a swarm too: one SVG, eighty-four ticks.
   await expect(page.locator('.tile[data-system="service"] .swarm-ring')).toHaveAttribute('data-count', '84');
   await page.locator('.tile[data-system="service"]').click();
@@ -52,7 +52,7 @@ test('the recorded fleet fills four systems; the late trams are the painted tick
   // The detail lists the members, the latest first.
   await front.locator('.disc').click();
   await expect(current(page).locator('.detail h1')).toContainText('On time');
-  await expect(current(page).locator('.scroll-list')).toContainText('Tram 9 · 1060 · 10:12 late');
+  await expect(current(page).locator('.scroll-list')).toContainText('9 · 1060 · +10:12');
 });
 
 test('on the groups axis each tram is an object: its timetable in front when late, its heading as a bearing', async ({ page }) => {

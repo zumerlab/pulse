@@ -1,5 +1,5 @@
-import { num, type Alert, type Reading, type Seg } from '@zumer/pulse';
-import type { Act, Notification, VesselSource } from './source.ts';
+import { num, type Alert, type Plot, type Reading, type Seg } from '@zumer/pulse';
+import type { Act, Notification, Target, VesselSource } from './source.ts';
 import { t } from './strings.ts';
 
 // Every channel is read from the vessel's paths: there are no hand-written
@@ -30,6 +30,7 @@ const g = {
   wheel: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10z M12 3v4 M12 17v4 M3 12h4 M17 12h4 M5.6 5.6l2.9 2.9 M15.5 15.5l2.9 2.9 M5.6 18.4l2.9-2.9 M15.5 8.5l2.9-2.9',
   target: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z M12 3v3 M12 18v3 M3 12h3 M18 12h3',
   rudder: 'M12 3v12 M8 15h8l-2 6h-4z M12 3l4 4 M12 3L8 7',
+  radar: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z M12 12l6-6',
   anchor: 'M12 3a2 2 0 1 0 0 4 2 2 0 0 0 0-4z M12 7v14 M5 13a7 7 0 0 0 14 0 M3 13h4 M17 13h4',
 };
 
@@ -67,6 +68,14 @@ const noteAlert = (s: VesselSource, path: string, big: string, label: string): A
   return level ? got(level, big, label, n!.message ?? label, `note:${path}`) : undefined;
 };
 
+// Where a target is from the boat: metres and degrees from the north.
+export const NM = 1852, TRAFFIC_RANGE = 5 * NM;
+export function fromBoat(pos: { latitude: number; longitude: number }, o: Target) {
+  const r = Math.PI / 180, dLat = (o.lat - pos.latitude) * r, dLon = (o.lon - pos.longitude) * r * Math.cos(pos.latitude * r);
+  return { m: Math.hypot(dLat, dLon) * 6_371_000, bearing: ((Math.atan2(dLon, dLat) * 180) / Math.PI + 360) % 360 };
+}
+export const AIS = 'ais:';
+
 export const navigation: System = { id: 'navigation', title: 'Navigation', channels: [
   { key: 'speed', name: 'Speed', glyph: g.speed, read: (s) => {
     const sog = numAt(s, 'navigation.speedOverGround');
@@ -75,7 +84,7 @@ export const navigation: System = { id: 'navigation', title: 'Navigation', chann
     return { kind: 'p', v: clamp(kn(sog) / 15), ids: cog != null ? ['navigation.speedOverGround', 'navigation.courseOverGroundTrue'] : ['navigation.speedOverGround'],
       big: `${num(kn(sog), 1)} kn`, bearing: cog != null ? deg(cog) : undefined, history: 'navigation.speedOverGround',
       label: `${cog != null ? `course ${num(deg(cog), 0)}°` : 'over ground'}${stw != null ? ` · ${num(kn(stw), 1)} kn through water` : ''}`,
-      alert: noteAlert(s, 'navigation.speedOverGround', `${num(kn(sog), 1)} kn`, 'speed') };
+      alert: noteAlert(s, 'navigation.speedOverGround', `${num(kn(sog), 1)} kn`, 'speed limit') };
   } },
   { key: 'heading', name: 'Heading', glyph: g.compass, read: (s) => {
     const mag = numAt(s, 'navigation.headingMagnetic'), tru = numAt(s, 'navigation.headingTrue');
@@ -85,13 +94,27 @@ export const navigation: System = { id: 'navigation', title: 'Navigation', chann
     return { kind: 'p', v: 0, ids: [mag != null ? 'navigation.headingMagnetic' : 'navigation.headingTrue'], big: `${num(deg(h), 0)}°`, bearing: deg(h),
       label: `${mag != null ? 'magnetic' : 'true'}${cog != null ? ` · course ${num(deg(cog), 0)}°` : ''}` };
   } },
+  // The vessels around, from their AIS: a radar in the face, the boat in the center, five miles to the rim.
+  { key: 'traffic', name: 'Traffic', glyph: g.radar, read: (s) => {
+    const pos = s.values.get('navigation.position')?.value as { latitude?: number; longitude?: number } | undefined;
+    if (!pos || typeof pos.latitude !== 'number' || typeof pos.longitude !== 'number' || !s.others.size) return null;
+    const here = { latitude: pos.latitude, longitude: pos.longitude };
+    const targets = [...s.others.values()].map((o) => ({ ...o, ...fromBoat(here, o) })).filter((o) => o.m <= TRAFFIC_RANGE).sort((a, b) => a.m - b.m);
+    if (!targets.length) return null;
+    const close = targets.filter((o) => o.m < NM / 2), nearest = targets[0];
+    const plots: Plot[] = targets.map((o) => ({ bearing: o.bearing, range: o.m / TRAFFIC_RANGE, label: `${o.name} · ${num(o.m / NM, 1)} nm ${compass(o.bearing)}${o.sog != null ? ` · ${num(kn(o.sog), 0)} kn` : ''}`, id: AIS + o.id, tone: o.m < NM / 2 ? 'warn' : undefined }));
+    const line = (o: typeof nearest) => `${o.name} · ${num(o.m / NM, 1)} nm ${compass(o.bearing)}${o.sog != null ? ` · ${num(kn(o.sog), 0)} kn${o.cog != null ? ` ${num(deg(o.cog), 0)}°` : ''}` : ''}`;
+    return { kind: 'p', v: clamp(1 - nearest.m / TRAFFIC_RANGE), ids: targets.map((o) => AIS + o.id), big: `${num(nearest.m / NM, 1)} nm`, label: `${nearest.name} · ${compass(nearest.bearing)} · ${targets.length} in 5 nm`, plots,
+      list: targets.map((o) => ({ label: line(o), on: o.m >= NM / 2, id: AIS + o.id })),
+      alert: close.length ? got(1, `${num(close[0].m / NM, 1)} nm`, 'close', `${close[0].name} is ${num(close[0].m / NM, 1)} nm to the ${compass(close[0].bearing)}${close[0].sog != null ? `, making ${num(kn(close[0].sog), 0)} kn` : ''}`, 'traffic') : undefined };
+  } },
   { key: 'depth', name: 'Depth', glyph: g.depth, read: (s) => {
     const path = ['environment.depth.belowTransducer', 'environment.depth.belowKeel', 'environment.depth.belowSurface'].find((p) => numAt(s, p) != null);
     if (!path) return null;
     const d = numAt(s, path)!;
     const where = path.endsWith('Keel') ? 'below the keel' : path.endsWith('Surface') ? 'below the surface' : 'below the transducer';
     return { kind: 'p', v: clamp(d / 20), ids: [path], big: `${num(d, 1)} m`, label: where, history: path,
-      alert: noteAlert(s, path, `${num(d, 1)} m`, 'depth') ?? (d <= 1.5 ? got(2, `${num(d, 1)} m`, 'shallow', t.shallow(num(d, 1))) : d <= 3 ? got(1, `${num(d, 1)} m`, 'shallow', t.shallow(num(d, 1))) : undefined) };
+      alert: noteAlert(s, path, `${num(d, 1)} m`, 'shallow') ?? (d <= 1.5 ? got(2, `${num(d, 1)} m`, 'shallow', t.shallow(num(d, 1))) : d <= 3 ? got(1, `${num(d, 1)} m`, 'shallow', t.shallow(num(d, 1))) : undefined) };
   } },
 ] };
 
@@ -103,7 +126,7 @@ export const wind: System = { id: 'wind', title: 'Wind', channels: [
     return { kind: 'p', v: clamp(k / 40), ids: angle != null ? ['environment.wind.speedApparent', 'environment.wind.angleApparent'] : ['environment.wind.speedApparent'],
       big: `${num(k, 1)} kn`, bearing: a ?? undefined, history: 'environment.wind.speedApparent',
       label: a != null ? `${num(Math.abs(a), 0)}° ${a < 0 ? t.port : t.starboard}` : 'apparent',
-      alert: noteAlert(s, 'environment.wind.speedApparent', `${num(k, 0)} kn`, 'wind') ?? (k >= 40 ? got(2, `${num(k, 0)} kn`, 'wind', t.strongWind(num(k, 0))) : k >= 30 ? got(1, `${num(k, 0)} kn`, 'wind', t.strongWind(num(k, 0))) : undefined) };
+      alert: noteAlert(s, 'environment.wind.speedApparent', `${num(k, 0)} kn`, 'strong wind') ?? (k >= 40 ? got(2, `${num(k, 0)} kn`, 'wind', t.strongWind(num(k, 0))) : k >= 30 ? got(1, `${num(k, 0)} kn`, 'wind', t.strongWind(num(k, 0))) : undefined) };
   } },
   { key: 'true', name: 'True wind', glyph: g.wind, read: (s) => {
     const speed = numAt(s, 'environment.wind.speedTrue') ?? numAt(s, 'environment.wind.speedOverGround');
@@ -117,7 +140,7 @@ export const wind: System = { id: 'wind', title: 'Wind', channels: [
     const p = numAt(s, 'environment.outside.pressure');
     if (p == null) return null;
     return { kind: 'p', v: clamp((hpa(p) - 950) / 100), ids: ['environment.outside.pressure'], big: `${num(hpa(p), 0)} hPa`, label: 'outside', history: 'environment.outside.pressure',
-      alert: noteAlert(s, 'environment.outside.pressure', `${num(hpa(p), 0)} hPa`, 'barometer') };
+      alert: noteAlert(s, 'environment.outside.pressure', `${num(hpa(p), 0)} hPa`, 'pressure falling') };
   } },
   { key: 'temperature', name: 'Temperature', glyph: g.thermo, read: (s) => {
     const water = numAt(s, 'environment.water.temperature'), air = numAt(s, 'environment.outside.temperature');
@@ -137,14 +160,14 @@ export const electrical: System = { id: 'electrical', title: 'Electrical', chann
     return { kind: 'p', v: clamp(soc), ids: [`${base}.capacity.stateOfCharge`, v != null ? `${base}.voltage` : '', a != null ? `${base}.current` : ''].filter(Boolean), big: `${num(pct, 0)}%`, history: `${base}.capacity.stateOfCharge`,
       name: nameOf(s, `${base}.capacity.stateOfCharge`, 'House battery'),
       label: `${v != null ? `${num(v, 1)} V` : ''}${a != null ? ` · ${num(Math.abs(a), 1)} A ${charging ? 'charging' : 'draining'}` : ''}${!charging && left != null ? ` · ${num(left / 3600, 1)} h left` : ''}`.replace(/^ · /, ''),
-      alert: noteAlert(s, `${base}.capacity.stateOfCharge`, `${num(pct, 0)}%`, 'battery') ?? (pct <= 15 ? got(2, `${num(pct, 0)}%`, 'battery', t.batteryLow(num(pct, 0))) : pct <= 30 ? got(1, `${num(pct, 0)}%`, 'battery', t.batteryLow(num(pct, 0))) : undefined) };
+      alert: noteAlert(s, `${base}.capacity.stateOfCharge`, `${num(pct, 0)}%`, 'low battery') ?? (pct <= 15 ? got(2, `${num(pct, 0)}%`, 'battery', t.batteryLow(num(pct, 0))) : pct <= 30 ? got(1, `${num(pct, 0)}%`, 'battery', t.batteryLow(num(pct, 0))) : undefined) };
   } },
   { key: 'start', name: 'Engine battery', glyph: g.bolt, read: (s) => {
     const base = ['electrical.batteries.start', 'electrical.batteries.engine'].find((b) => numAt(s, `${b}.voltage`) != null);
     if (!base) return null;
     const v = numAt(s, `${base}.voltage`)!, a = numAt(s, `${base}.current`);
     return { kind: 'p', v: clamp((v - 11) / 3.5), ids: [`${base}.voltage`], big: `${num(v, 1)} V`, label: a != null ? `${num(a, 1)} A` : 'engine battery', history: `${base}.voltage`,
-      alert: noteAlert(s, `${base}.voltage`, `${num(v, 1)} V`, 'engine battery') ?? (v < 12 ? got(1, `${num(v, 1)} V`, 'engine battery', t.batteryWeak(num(v, 1))) : undefined) };
+      alert: noteAlert(s, `${base}.voltage`, `${num(v, 1)} V`, 'low voltage') ?? (v < 12 ? got(1, `${num(v, 1)} V`, 'engine battery', t.batteryWeak(num(v, 1))) : undefined) };
   } },
   { key: 'solar', name: 'Solar', glyph: g.sun, read: (s) => {
     const paths = [...s.values.keys()].filter((p) => /^electrical\.solar\.[^.]+\.panelPower$/.test(p));
@@ -159,7 +182,7 @@ const tank = (key: string, type: string, name: string, glyph: string, full: bool
   if (!level) return null;
   const base = level.replace(/\.currentLevel$/, ''), ratio = numAt(s, level)!, cap = numAt(s, `${base}.capacity`);
   const pct = ratio * 100, label = nameOf(s, level, name);
-  const alert = noteAlert(s, level, `${num(pct, 0)}%`, label.toLowerCase())
+  const alert = noteAlert(s, level, `${num(pct, 0)}%`, full ? 'nearly full' : 'running low')
     ?? (full ? (pct >= 95 ? got(2, `${num(pct, 0)}%`, 'full', t.tankFull(label, num(pct, 0))) : pct >= 80 ? got(1, `${num(pct, 0)}%`, 'nearly full', t.tankFull(label, num(pct, 0))) : undefined)
       : (pct <= 10 ? got(2, `${num(pct, 0)}%`, 'low', t.tankLow(label, num(pct, 0))) : pct <= 20 ? got(1, `${num(pct, 0)}%`, 'low', t.tankLow(label, num(pct, 0))) : undefined));
   return { kind: 'p', v: clamp(ratio), ids: [level], big: `${num(pct, 0)}%`, name: label, history: level,
@@ -183,14 +206,14 @@ export const engine: System = { id: 'engine', title: 'Engine', channels: [
     if (!base || temp == null) return null;
     const c = celsius(temp), running = rpm(numAt(s, `${base}.revolutions`) ?? 0) > 0;
     return { kind: 'p', v: clamp(c / 120), ids: [`${base}.temperature`], big: `${num(c, 0)}°C`, label: running ? 'coolant' : 'coolant, engine off', history: `${base}.temperature`,
-      alert: noteAlert(s, `${base}.temperature`, `${num(c, 0)}°C`, 'coolant') ?? (c >= 100 ? got(2, `${num(c, 0)}°C`, 'overheating', t.engineHot(num(c, 0))) : c >= 92 ? got(1, `${num(c, 0)}°C`, 'hot', t.engineHot(num(c, 0))) : undefined) };
+      alert: noteAlert(s, `${base}.temperature`, `${num(c, 0)}°C`, 'hot') ?? (c >= 100 ? got(2, `${num(c, 0)}°C`, 'overheating', t.engineHot(num(c, 0))) : c >= 92 ? got(1, `${num(c, 0)}°C`, 'hot', t.engineHot(num(c, 0))) : undefined) };
   } },
   { key: 'oil', name: 'Oil pressure', glyph: g.oil, read: (s) => {
     const base = engineBase(s), p = base ? numAt(s, `${base}.oilPressure`) : null;
     if (!base || p == null) return null;
     const b = bar(p), running = rpm(numAt(s, `${base}.revolutions`) ?? 0) > 0;
     return { kind: 'p', v: clamp(b / 6), ids: [`${base}.oilPressure`], big: `${num(b, 1)} bar`, label: running ? 'oil' : 'oil, engine off',
-      alert: noteAlert(s, `${base}.oilPressure`, `${num(b, 1)} bar`, 'oil') ?? (running && b < 1 ? got(2, `${num(b, 1)} bar`, 'oil pressure', t.oilLow(num(b, 1))) : undefined) };
+      alert: noteAlert(s, `${base}.oilPressure`, `${num(b, 1)} bar`, 'oil pressure') ?? (running && b < 1 ? got(2, `${num(b, 1)} bar`, 'oil pressure', t.oilLow(num(b, 1))) : undefined) };
   } },
 ] };
 
@@ -222,7 +245,7 @@ export const steering: System = { id: 'steering', title: 'Steering', channels: [
     const cur = numAt(s, 'navigation.anchor.currentRadius'), max = numAt(s, 'navigation.anchor.maxRadius');
     if (cur == null || max == null) return null;
     return { kind: 'p', v: clamp(cur / max), ids: ['navigation.anchor.currentRadius', 'navigation.anchor.maxRadius'], big: `${num(cur, 0)} m`, label: `of ${num(max, 0)} m allowed`,
-      alert: noteAlert(s, 'navigation.anchor', `${num(cur, 0)} m`, 'anchor') ?? (cur > max ? got(2, `${num(cur, 0)} m`, 'dragging', t.dragging(num(cur, 0), num(max, 0))) : undefined) };
+      alert: noteAlert(s, 'navigation.anchor', `${num(cur, 0)} m`, 'dragging') ?? (cur > max ? got(2, `${num(cur, 0)} m`, 'dragging', t.dragging(num(cur, 0), num(max, 0))) : undefined) };
   } },
 ] };
 

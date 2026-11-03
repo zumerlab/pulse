@@ -46,9 +46,11 @@ const modeParam = query.get('mode') as BoardMode | null;
 const board = mountBoard(canvas, {
   host: hostOf(source),
   systems: listParam('systems'),
-  mode: modeParam && BOARD_MODES.includes(modeParam) ? modeParam : undefined,
+  mode: modeParam && BOARD_MODES.includes(modeParam) ? modeParam : 'orbit',
   start: query.get('start') ?? undefined,
   settings: 'pulse-world-settings',
+  // The world reads best as an orbit under a night sky: a deep glow, glass faces, the clock in the center while all is calm.
+  look: { ground: 'glow', glow: '#2a3f8f', faces: 'glass', time: 'both' },
   status,
   strings: { connecting: t.connecting, things: t.things, hostError: t.hostError },
   onAction: (action) => { if (action === 'leave') leaveDemo(); else if (action === 'here') useHere(); },

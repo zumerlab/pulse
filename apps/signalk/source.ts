@@ -15,10 +15,13 @@ export type Meta = { units?: string; displayName?: string; shortName?: string; d
 export type Notification = { state: 'normal' | 'nominal' | 'alert' | 'warn' | 'alarm' | 'emergency'; message?: string; method?: string[] };
 // An action for the server: the core's Action (`ids`: the paths it touches) and a PUT of a value to a path.
 export type Act = Action & { kind: 'put'; path: string; value: unknown };
+// Another vessel on the stream (its AIS): where it is and where it goes.
+export type Target = { id: string; name: string; lat: number; lon: number; cog?: number; sog?: number; at: number };
 
 export interface VesselSource {
   readonly values: Map<string, Value>;
   readonly meta: Map<string, Meta>;
+  readonly others: Map<string, Target>;     // the vessels around, by context
   readonly name: string;            // the vessel's name, when known
   readonly status: Status;
   readonly error: string;
@@ -60,6 +63,7 @@ type Hello = { self?: string; name?: string; version?: string };
 export class WebSocketSource implements VesselSource {
   readonly values = new Map<string, Value>();
   readonly meta = new Map<string, Meta>();
+  readonly others = new Map<string, Target>();
   name = '';
   status: Status = 'signed-out';
   error = '';
@@ -127,7 +131,8 @@ export class WebSocketSource implements VesselSource {
       if (!this.values.size) { this.setStatus('error', t.errNoServer(this.url, error instanceof Error ? error.message : String(error))); this.later(); return; }
     }
     if (this.stopped) return;
-    this.connect(`${wsUrl}?subscribe=self${this.token ? `&token=${encodeURIComponent(this.token)}` : ''}`);
+    // Every vessel: the boat's own paths, and the others' positions for the traffic radar.
+    this.connect(`${wsUrl}?subscribe=all${this.token ? `&token=${encodeURIComponent(this.token)}` : ''}`);
   }
 
   private connect(url: string) {
@@ -154,7 +159,7 @@ export class WebSocketSource implements VesselSource {
   private receive(msg: Delta & Hello) {
     if (msg.self) { this.self = msg.self; this.setStatus('live'); return; }
     if (!msg.updates) return;
-    if (msg.context && msg.context !== this.self && msg.context !== 'vessels.self') return;
+    if (msg.context && msg.context !== this.self && msg.context !== 'vessels.self') { this.other(msg.context, msg.updates); return; }
     const changed: string[] = [];
     for (const u of msg.updates) {
       const at = Date.parse(u.timestamp ?? '') || Date.now();
@@ -173,6 +178,29 @@ export class WebSocketSource implements VesselSource {
     }
     if (this.status !== 'live') this.setStatus('live');
     if (changed.length) this.listeners.forEach((fn) => fn(changed));
+  }
+
+  // Another vessel's delta: its position, course, speed and name; forgotten after ten minutes of silence.
+  private other(context: string, updates: NonNullable<Delta['updates']>) {
+    if (!context.startsWith('vessels.')) return;
+    const now = Date.now();
+    let o = this.others.get(context);
+    let changed = false;
+    for (const u of updates) {
+      for (const { path, value } of u.values ?? []) {
+        if (path === 'navigation.position' && value && typeof value === 'object') {
+          const p = value as { latitude?: number; longitude?: number };
+          if (typeof p.latitude !== 'number' || typeof p.longitude !== 'number') continue;
+          o = { ...(o ?? { id: context, name: context.replace(/^vessels\.(urn:mrn:imo:mmsi:)?/, '') }), lat: p.latitude, lon: p.longitude, at: now };
+          changed = true;
+        } else if (o && path === 'navigation.courseOverGroundTrue' && typeof value === 'number') o = { ...o, cog: value, at: now };
+        else if (o && path === 'navigation.speedOverGround' && typeof value === 'number') o = { ...o, sog: value, at: now };
+        else if (o && (path === 'name' || (path === '' && value && typeof value === 'object' && typeof (value as { name?: unknown }).name === 'string'))) o = { ...o, name: path === 'name' ? String(value) : (value as { name: string }).name };
+      }
+    }
+    if (o) this.others.set(context, o);
+    for (const [id, t] of this.others) if (now - t.at > 600_000) { this.others.delete(id); changed = true; }
+    if (changed) this.listeners.forEach((fn) => fn(['traffic']));
   }
 
   // A value to a path: Signal K's PUT, answered by whatever plugin owns the path.

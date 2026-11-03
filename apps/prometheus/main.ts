@@ -40,6 +40,8 @@ const board = mountBoard(canvas, {
   axis: query.get('axis') === 'groups' ? 'groups' : undefined,
   start: query.get('start') ?? undefined,
   settings: 'pulse-prometheus-settings',
+  // An operator's screen: the deep theme on a flat ground, hour marks on the day rings.
+  look: { theme: 'deep', day: 'marks' },
   status,
   strings: { connecting: t.connecting, things: t.things, hostError: t.hostError, noGroup: t.noGroup },
   onAction: (action) => { if (action === 'disconnect') disconnect(); },

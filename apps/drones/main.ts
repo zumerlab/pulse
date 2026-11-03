@@ -36,6 +36,8 @@ const board = mountBoard(canvas, {
   axis: query.get('axis') === 'groups' ? 'groups' : undefined,
   start: query.get('start') ?? undefined,
   settings: 'pulse-drones-settings',
+  // A field at dusk: a green glow, glass faces, open dials with rounded ends.
+  look: { ground: 'glow', glow: '#2f5a2e', faces: 'glass', dial: 'open', ends: 'rounded' },
   status,
   strings: { connecting: t.connecting, things: t.things, hostError: t.hostError, noGroup: t.noGroup },
   onAction: (action) => { if (action === 'disconnect') disconnect(); },

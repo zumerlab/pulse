@@ -72,12 +72,12 @@ export const swarm: System = { id: 'swarm', title: 'Swarm', channels: [
       list: list.map((d) => { const at = fromHome(d); return tick(d, d.flying, `${nameOf(d)} · ${at ? `${num(at.m, 0)} m ${compass(at.bearing)}` : 'no position'} · ${t.modes[d.mode] ?? d.mode}`); }),
       alert: out.length ? got(1, `${out.length} far`, 'range', listOf(out.map((d) => t.farWhy(nameOf(d), Math.round(fromHome(d)!.m)))), out.map(rtl), t.bringAllHome) : undefined };
   } },
-  { key: 'modes', name: 'Modes', glyph: g.mode, read: (ds) => {
+  { key: 'modes', name: 'In the air', glyph: g.mode, read: (ds) => {
     const list = all(ds);
     if (!list.length) return null;
-    const segs = list.map((d) => tick(d, d.flying, `${nameOf(d)} · ${t.modes[d.mode] ?? d.mode}${d.armed ? '' : ' · disarmed'}`));
-    const modes = [...new Set(list.map((d) => t.modes[d.mode] ?? d.mode))];
-    return { kind: 's', segs, ids: list.map(droneId), list: segs, big: modes.length === 1 ? modes[0] : `${modes.length} modes`, label: listOf(modes.slice(0, 4)) };
+    const segs = list.map((d) => tick(d, d.flying, `${nameOf(d)} · ${t.modes[d.mode] ?? d.mode}${d.flying ? '' : d.armed ? ' · armed, on the ground' : ' · on the ground'}`));
+    const flying = list.filter((d) => d.flying), modes = [...new Set(flying.map((d) => t.modes[d.mode] ?? d.mode))];
+    return { kind: 's', segs, ids: list.map(droneId), list: segs, big: `${flying.length} of ${list.length}`, label: modes.length ? `in ${listOf(modes.slice(0, 3))}` : 'all on the ground' };
   } },
 ] };
 

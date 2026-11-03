@@ -37,6 +37,8 @@ const board = mountBoard(canvas, {
   mode: modeParam && BOARD_MODES.includes(modeParam) ? modeParam : undefined,
   start: query.get('start') ?? undefined,
   settings: 'pulse-signalk-settings',
+  // A helm at night: the deep theme over a sea-blue glow, glass faces, instruments as open dials with rounded ends.
+  look: { theme: 'deep', ground: 'glow', glow: '#0f4c6e', faces: 'glass', dial: 'open', ends: 'rounded' },
   status,
   strings: { connecting: t.connecting, things: t.things, hostError: t.hostError },
   onAction: (action) => { if (action === 'disconnect') disconnect(); },
