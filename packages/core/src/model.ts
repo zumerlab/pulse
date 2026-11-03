@@ -6,8 +6,8 @@
 // uses it to mark what was sent and not confirmed, to log changes and to ask
 // the host for names, states and a day of history.
 
-import type { Plot, Tone } from './radial/index.ts';
-export type { Plot } from './radial/index.ts';
+import type { GlobeSpec, Plot, Tone } from './radial/index.ts';
+export type { GeoPlot, GlobeSpec, Plot } from './radial/index.ts';
 
 export type Level = 1 | 2;
 
@@ -65,6 +65,7 @@ export type Reading = {
   month?: string;                   // a meter (kWh) worth this month's calendar in the detail (the host's `statistics`)
   bearing?: number;                 // a direction, degrees clockwise from the top (a heading, where the wind comes from): a mark on the ring
   plots?: Plot[];                   // things around a point (drones around home, ships around the boat, quakes around you): a radar in the face
+  globe?: GlobeSpec;                // things on the Earth (flights, ships, quakes), by latitude and longitude: the disc as a globe, turned to a center
   choice?: string;                  // a channel that follows one thing: the one it follows…
   choices?: string[];               // …and the others it could (the gear offers them)
 };

@@ -94,7 +94,7 @@ export function systemView(b: Board, ctx: ViewContext, id: string) {
       // The alerts that wait are their layers behind, in their color and named; the strip counts them.
       layer.innerHTML = ring(b, key, r, strokeAt(d) / grow / LANE, i === 0, false, i === 0 && !!r.alert && !seen, ch.name) + (i === 0
         ? face({ glyph: ch.glyph, name: ch.name, big: shown.big, label: shown.label, to: detailAdds(r) ? 'detail' : undefined,
-          props: { system: id, channel: key }, aria: t.details(ch.name), image: imageOf(b, r), plots: r.plots,
+          props: { system: id, channel: key }, aria: t.details(ch.name), image: imageOf(b, r), plots: r.plots, globe: r.globe,
           extra: (isPending(b, r) ? `<span class="face-wait">${t.sending}</span>` : '') + visualFor(id, key) })
         : backLayer({ text: `${ch.name} · ${shown.big}`, at: labelAt(i), grow, stroke: strokeAt(d), hit: 12,
           pick: { attr: 'data-pick', value: key, aria: t.bringToFront(ch.name) } }));

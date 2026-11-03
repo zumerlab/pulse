@@ -111,7 +111,8 @@ export function weatherJson(now: number) {
     latitude: -34.625, longitude: -58.375, generationtime_ms: 0.4, utc_offset_seconds: offset, timezone: 'America/Argentina/Buenos_Aires', timezone_abbreviation: 'GMT-3', elevation: 25,
     current_units: { time: 'iso8601', interval: 'seconds', temperature_2m: '°C', relative_humidity_2m: '%', apparent_temperature: '°C', precipitation: 'mm', weather_code: 'wmo code', wind_speed_10m: 'km/h', wind_direction_10m: '°', wind_gusts_10m: 'km/h', uv_index: '' },
     current: { time: local(floorTo(now, 15 * MIN)), interval: 900, temperature_2m: Math.round(tempAt(now) * 10) / 10, relative_humidity_2m: 71, apparent_temperature: Math.round((tempAt(now) + 2.4) * 10) / 10, precipitation: 0, weather_code: 3,
-      wind_speed_10m: 38.2, wind_direction_10m: 152, wind_gusts_10m: 64.1, uv_index: Math.round(uvAt(now) * 10) / 10 },
+      // The UV now is fixed (not the hour's), so the recorded day calls the same at any time of day.
+      wind_speed_10m: 38.2, wind_direction_10m: 152, wind_gusts_10m: 64.1, uv_index: 2.7 },
     hourly_units: { time: 'iso8601', temperature_2m: '°C', precipitation_probability: '%', precipitation: 'mm', uv_index: '' },
     hourly: { time: hours.map(local), temperature_2m: hours.map((at) => Math.round(tempAt(at) * 10) / 10), precipitation_probability: hours.map(probAt), precipitation: hours.map(mmAt), uv_index: hours.map((at) => Math.round(uvAt(at) * 100) / 100) },
     daily_units: { time: 'iso8601', uv_index_max: '', temperature_2m_min: '°C', temperature_2m_max: '°C' },
