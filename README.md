@@ -14,7 +14,8 @@ attention while keeping the other readings and controls within reach.
 Home Assistant is the most complete integration so far. There is also a homelab
 app that reads a Mac or Linux machine through a small collector, a world app
 that reads the sun, the earth, the sky and a few status pages from public
-feeds with no server at all, a Signal K app that reads a boat, and a demo app
+feeds with no server at all, a Signal K app that reads a boat, a fleet app
+that follows the trams of Helsinki from a public MQTT feed, and a demo app
 with simulated data. Each app connects its data and actions to the same interface.
 
 Site: [zumerlab.com/pulse](https://zumerlab.com/pulse/) (the pages are in
@@ -83,6 +84,7 @@ so you can try the interface without a Home Assistant instance.
 | [apps/homelab](apps/homelab/README.md) | Machine monitoring app and a Node.js collector for Mac and Linux |
 | [apps/world](apps/world/README.md) | The world outside from public feeds (NOAA, USGS, Open-Meteo, Statuspage): live in the browser, no server |
 | [apps/signalk](apps/signalk/README.md) | A boat over a Signal K server: navigation, wind, batteries, tanks, engine, autopilot |
+| [apps/fleet](apps/fleet/README.md) | A fleet over HSL's public MQTT feed: Helsinki's trams as the fleet by dimension and as one object per vehicle |
 | `tests/` | Playwright tests |
 | `docs/` | Website, component reference and design documentation |
 
@@ -103,12 +105,13 @@ npm run collect    # the homelab collector, on the machine to watch: http://127.
 npm run dev:homelab  # homelab, http://127.0.0.1:5175; ?demo for the demo machine
 npm run dev:world    # world, http://127.0.0.1:5176; live from the feeds, ?demo for a recorded stormy day
 npm run dev:signalk  # Signal K, http://127.0.0.1:5177; ?server=https://demo.signalk.org, ?demo for the recorded yacht
+npm run dev:fleet    # fleet, http://127.0.0.1:5178; live from HSL, ?demo for the recorded trams
 ```
 
 ```sh
 npm run typecheck   # TypeScript, whole workspace
 npm run lint        # ESLint
-npm test            # Playwright: the demo app, the Home Assistant app over its demo homes, the homelab, world and Signal K apps over their demos
+npm test            # Playwright: the demo app, the Home Assistant app over its demo homes, the homelab, world, Signal K and fleet apps over their demos
 npm run build:card  # the Home Assistant card + strategies as one module: apps/home-assistant/dist-card/zumer-pulse.js
                     # install and options: apps/home-assistant/card/README.md; bench without HA: http://127.0.0.1:5174/card.html
 npm run build       # typecheck and build the apps
@@ -123,8 +126,9 @@ names for the data. The `PulseHost` interface is defined in
 A system has channels. Each channel returns a ring, a value and a label, with
 optional alerts and detail content. The homelab app provides a small working
 adapter; the world app one over polled public feeds; the Signal K app one over
-a WebSocket stream of a vessel's paths; the Home Assistant app adds
-registries, rooms and richer history.
+a WebSocket stream of a vessel's paths; the fleet app one over MQTT, with the
+vehicles as the board's second axis; the Home Assistant app adds registries,
+rooms and richer history.
 
 Start with [Your own source](docs/sources.html) for the data model and
 [In your project](docs/adapt.html) for setup. The component gallery at

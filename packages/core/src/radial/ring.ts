@@ -4,6 +4,7 @@
 
 import { num, t } from '../i18n.ts';
 import { esc, levelColor } from './markup.ts';
+import { SWARM_FROM, swarmRing } from './swarm.ts';
 
 export type RingSeg = { label: string; on: boolean; act?: unknown; id?: string };
 export type RingDial = { min: number; max: number; step: number; unit: string; label: string; value: number };
@@ -84,6 +85,10 @@ export function ring(key: string, r: RingReading, lanes: number, o: RingOptions 
         aria-valuemin="${dial.min}" aria-valuemax="${dial.max}" aria-valuenow="${dial.value}"
         aria-valuetext="${num(dial.value)}${dial.unit}" style="--o-fill:${fill}; --o-back-fill:var(--line)"></o-progress>
       <div class="satellite knob at-value" style="--o-size-ratio:1.4"></div></div>${openMarks(r, o)}${bearingMark(r, o)}`;
+  }
+  // Many switches (a fleet, a hundred sensors) are a swarm: a tick per member, one SVG.
+  if (r.kind === 's' && (r.segs?.length ?? 0) > SWARM_FROM) {
+    return swarmRing(r.segs!.map((s) => ({ on: s.on, label: s.label })), lanes, { name: o.name, on, fill, fail: r.alert?.fail, call: o.call, muted: o.muted }) + bearingMark(r, o);
   }
   // A choice is a radio group: the one that is on has no action, the others switch to themselves.
   const role = r.kind === 'c' ? 'radio' : 'switch';

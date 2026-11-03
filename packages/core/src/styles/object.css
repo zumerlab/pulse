@@ -100,6 +100,15 @@ o-arc.is-failed { --o-stroke: var(--critical); --o-stroke-width: 2; }
 .layer.is-alert[data-level="2"] .bearing-mark { background: var(--critical); }
 .layer:not(.layer-front) .bearing-orbit { display: none; }
 
+/* A swarm: a tick per member around the ring, one SVG over the universe; the failing ones pulse while the alert calls. */
+.swarm-orbit .satellite { pointer-events: none; background: none; border: 0; box-shadow: none; }
+.swarm-ring { display: block; width: 100%; height: 100%; overflow: visible; }
+.swarm-tick { fill: none; stroke-linecap: butt; }
+.swarm-tick.is-calling { animation: swarm-call 1.6s ease-in-out infinite; }
+.layer[data-level="2"] .swarm-tick.is-calling { animation-duration: .9s; }
+@keyframes swarm-call { 50% { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) { .swarm-tick.is-calling { animation: none; } }
+
 /* The names of a choice, along the inside of the ring. */
 .choice-label { --o-fill: transparent; --o-color: var(--muted); font-size: 12px; }
 .choice-label.is-on { --o-color: var(--ink); }

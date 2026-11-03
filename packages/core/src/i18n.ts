@@ -52,6 +52,7 @@ export const t = {
   hueSat: (h: number, s: number) => `hue ${h}°, saturation ${s}%`,
   hueOf: (name: string) => `Hue of ${name}`,
   bearingOf: (deg: number) => `bearing ${deg}°`,
+  swarmOf: (on: number, n: number, failing: number) => `${on} of ${n} on${failing ? `, ${failing} failing` : ''}`,
   saturationOf: (name: string) => `Saturation of ${name}`,
   nOptions: (n: number) => count(n, 'option'),
   scrollbarOf: (name: string) => `Scroll ${name}`,

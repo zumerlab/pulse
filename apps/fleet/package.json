@@ -1,0 +1,15 @@
+{
+  "name": "pulse-fleet",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Pulse over a fleet: the trams and buses of Helsinki as they move, from HSL's public MQTT feed, the fleet as one object per dimension and one object per vehicle.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@zumer/pulse": "*"
+  }
+}

@@ -5,6 +5,7 @@
 export * from './sizes.ts';
 export * from './markup.ts';
 export * from './ring.ts';
+export * from './swarm.ts';
 export * from './object.ts';
 export * from './keypad.ts';
 export * from './time.ts';
