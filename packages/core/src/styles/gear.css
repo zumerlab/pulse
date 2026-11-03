@@ -44,6 +44,8 @@
 .settings-group + .settings-group { margin-top: 8px; }
 .settings-group-title { font-size: 12px; color: var(--muted); margin: 4px 0 0; }
 .settings-groups-list .settings-group { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 0 12px; }
+.settings-filter { min-height: 36px; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--dim); background: rgba(255,255,255,.04); color: var(--ink); font: inherit; font-size: 13px; }
+.settings-filter:focus { border-color: var(--muted); outline: none; }
 .settings-groups-list .settings-group-title { grid-column: 1 / -1; }
 .settings-channel { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
 .settings-channel select { min-width: 0; max-width: 100%; flex: 1 1 160px; padding: 5px 8px; font-size: 13px; }

@@ -88,10 +88,37 @@ o-arc.is-failed { --o-stroke: var(--critical); --o-stroke-width: 2; }
 .disc.has-image .face-name, .disc.has-image .face-label { color: rgba(255,255,255,.85); }
 .disc.has-image .face-big { font-size: clamp(16px, 11cqw, 26px); }
 
+/* A radar behind the face: range rings and a dot per thing around the center; the text sits over it. */
+.face-radar { position: absolute; inset: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none; }
+.disc.has-radar { isolation: isolate; }
+.radar-ring { fill: none; stroke: var(--line); stroke-width: 1; }
+.radar-home { fill: var(--muted); }
+.radar-dot { fill: var(--ink); }
+.radar-dot.is-off { fill: var(--dim); }
+.radar-dot.tone-warn { fill: var(--minor); }
+.radar-dot.tone-critical { fill: var(--critical); }
+.disc.has-radar .face-name, .disc.has-radar .face-big, .disc.has-radar .face-label { text-shadow: 0 0 6px var(--bg), 0 0 2px var(--bg); }
+
 /* The open dial: its ends named just outside, a mark where the measurement is. */
 .dial-end { font-size: 10px; color: var(--muted); white-space: nowrap; }
 .now-mark { height: 2px; background: var(--muted); border-radius: 1px; }
 .layer:not(.layer-front) .dial-ends, .layer:not(.layer-front) .now-orbit { display: none; }
+
+/* A bearing: an arrow on the ring, its point inward at the direction, in the ring's color. */
+.bearing-mark { height: 8px; background: var(--ink); clip-path: polygon(100% 0, 0 50%, 100% 100%); }
+.bearing-mark.is-muted { background: var(--muted); }
+.layer.is-alert[data-level="1"] .bearing-mark { background: var(--minor); }
+.layer.is-alert[data-level="2"] .bearing-mark { background: var(--critical); }
+.layer:not(.layer-front) .bearing-orbit { display: none; }
+
+/* A swarm: a tick per member around the ring, one SVG over the universe; the failing ones pulse while the alert calls. */
+.swarm-orbit .satellite { pointer-events: none; background: none; border: 0; box-shadow: none; }
+.swarm-ring { display: block; width: 100%; height: 100%; overflow: visible; }
+.swarm-tick { fill: none; stroke-linecap: butt; }
+.swarm-tick.is-calling { animation: swarm-call 1.6s ease-in-out infinite; }
+.layer[data-level="2"] .swarm-tick.is-calling { animation-duration: .9s; }
+@keyframes swarm-call { 50% { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) { .swarm-tick.is-calling { animation: none; } }
 
 /* The names of a choice, along the inside of the ring. */
 .choice-label { --o-fill: transparent; --o-color: var(--muted); font-size: 12px; }

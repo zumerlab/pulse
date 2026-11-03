@@ -1,0 +1,15 @@
+{
+  "name": "pulse-world",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Pulse over the world outside: the sun, the earth, the sky over you and the services you depend on, from public feeds, with no server and no sign-in.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@zumer/pulse": "*"
+  }
+}

@@ -21,6 +21,10 @@ const switches: RingReading = { kind: 's', segs: ['Living room', 'Kitchen', 'Bed
 const failing: RingReading = { ...switches, alert: { level: 1, fail: [4] } };
 const choice: RingReading = { kind: 'c', segs: ['Heat', 'Cool', 'Auto', 'Off'].map((label, i) => ({ label, on: i === 0, act: true })) };
 const tinted: RingReading = { kind: 'p', v: 0.8, tint: 'hsl(28 100% 62%)', dial: { min: 0, max: 100, step: 1, unit: '%', label: 'brightness', value: 80 } };
+const bearing: RingReading = { kind: 'p', v: 0.36, bearing: 152 };
+const plots = [{ bearing: 318, range: 0.29 }, { bearing: 307, range: 0.2 }, { bearing: 270, range: 0.16 }, { bearing: 233, range: 0.2 }, { bearing: 37, range: 0.53, tone: 'warn' as const }, { bearing: 32, range: 0.02, on: false }]
+  .map((p, i) => ({ ...p, label: `Copter ${i + 1}` }));
+const swarm: RingReading = { kind: 's', segs: Array.from({ length: 84 }, (_, i) => ({ label: `Tram ${i + 1}`, on: i % 9 !== 4 })), alert: { level: 1, fail: [4, 13, 22, 31, 40, 49, 58, 67, 76] } };
 
 const universe = (inner: string, w = 200) => `<div class="bigbang" style="width:${w}px"><div class="gravity-spot">${inner}</div></div>`;
 const center = (big: string, label: string) => ringCenter(big, label, 18);
@@ -87,6 +91,9 @@ const samples: [string, string][] = [
   ['ring-choice', universe(ring('c', choice, lanes, { controls: true, name: 'Mode' }) + center('Heat', 'mode'))],
   ['ring-tint', universe(ring('k', tinted, lanes, { controls: true, name: 'Brightness', ends: 'rounded' }) + center('80%', 'warm white'))],
   ['ring-rounded', universe(ring('q', switches, lanes, { controls: true, name: 'Lights', ends: 'rounded' }) + center('4 of 5', 'lights'))],
+  ['ring-bearing', universe(ring('w', bearing, lanes, { controls: true, name: 'Wind' }) + center('29 km/h', 'from the SSE'))],
+  ['ring-swarm', universe(ring('v', swarm, lanes, { controls: true, call: true, name: 'Trams' }) + center('75 of 84', 'on time'))],
+  ['face-radar', universe(ring('h', { kind: 'p', v: 0.83 }, lanes) + face({ glyph: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z M12 12l6-6', name: 'Around home', big: '5 flying', label: 'of 6 · farthest 263 m', aria: 'Around home', plots }), 240)],
   ['ring-mini', `<span class="bigbang mini-ring"><span class="gravity-spot">${ring('m', failing, MINI_LANES, { call: true })}</span></span>`],
   ['object-flat', object(true)],
   ['object-3d', object(false)],

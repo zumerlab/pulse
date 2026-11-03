@@ -40,7 +40,9 @@ function headline(b: Board) {
     .sort((x, y) => y.a.level - x.a.level);
   if (!calling.length) return t.allCalm;
   if (calling.length === 1) return `${calling[0].a.why}.`;
-  return `${t.thingsCalling(calling.length, calling[0].a.why.toLowerCase())}.`;
+  // The reason continues the sentence: its first letter lowered, unless the word is a name or an acronym (CPU, GitHub, M 7.1).
+  const why = calling[0].a.why, lowered = /^[A-Z][a-z]/.test(why) && !/^[A-Z][a-z]+ \d/.test(why) ? why[0].toLowerCase() + why.slice(1) : why;
+  return `${t.thingsCalling(calling.length, lowered)}.`;
 }
 
 export function boardView(b: Board, ctx: ViewContext) {

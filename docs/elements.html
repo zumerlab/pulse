@@ -51,13 +51,25 @@
           <figcaption><strong>Tint and rounded ends</strong> <code>tint</code> colors what is on when nothing is wrong: a light's color. <code>ends: 'rounded'</code> rounds the band's ends and each segment's.</figcaption>
         </figure>
         <figure class="element">
+          <img src="images/el-ring-bearing.png" alt="A band with an arrow on the ring at the south-southeast" loading="lazy">
+          <figcaption><strong>Bearing</strong> <code>bearing: 152</code>. An arrow on the ring, its point inward, at a direction in degrees clockwise from the top: north, or the bow. Where the wind comes from over its speed, a boat's course over its speed, a heading on an empty ring. It reads on a tile too.</figcaption>
+        </figure>
+        <figure class="element">
+          <img src="images/el-ring-swarm.png" alt="A ring of 84 ticks, nine of them amber" loading="lazy">
+          <figcaption><strong>Swarm</strong>. Switches past twelve members draw as a tick per member around the ring, one SVG: a fleet of trams, a hundred containers, a thousand sensors. The failing ones are painted and pulse while the alert calls; a member is picked in the detail's list, not on the ring.</figcaption>
+        </figure>
+        <figure class="element">
           <img src="images/el-ring-mini.png" alt="A small ring with one amber segment" loading="lazy">
           <figcaption><strong>Mini</strong>. The same ring in a tile, a dot or a list item: fewer lanes, no controls. With <code>muted</code> it is gray even in an alert.</figcaption>
         </figure>
       </div>
 
       <h2>The face</h2>
-      <p><code>face({ glyph, name, big, label, aria, to?, props?, image?, extra? })</code>. The center of the front layer: the glyph, the channel's name, the big value and one line. With <code>to</code> the disc is the Zumly trigger of the detail; without it, the disc is only the face. With <code>image</code> a picture fills the disc and the text sits on a scrim.</p>
+      <p><code>face({ glyph, name, big, label, aria, to?, props?, image?, plots?, extra? })</code>. The center of the front layer: the glyph, the channel's name, the big value and one line. With <code>to</code> the disc is the Zumly trigger of the detail; without it, the disc is only the face. With <code>image</code> a picture fills the disc and the text sits on a scrim. With <code>plots</code> a radar sits behind the text: range rings, the center is here, a dot per thing at its bearing and its range (drones around home, ships around the boat, the day's quakes around you), dim when off, in the alert's color when it calls.</p>
+      <figure class="element">
+        <img src="images/el-face-radar.png" alt="A face reading 5 flying over a radar of six dots, one amber" loading="lazy">
+        <figcaption><strong>Radar</strong> <code>plots: [{ bearing, range, label, on?, tone? }]</code>. A reading's <code>plots</code> become the face's radar; the words stay in front.</figcaption>
+      </figure>
 
       <h2>The keypad</h2>
       <figure class="element">

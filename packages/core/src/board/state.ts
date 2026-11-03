@@ -17,7 +17,9 @@ export const uiOf = (b: Board, id: string): Ui => {
   return u;
 };
 
-const sig = (a: Alert) => `${a.level}|${a.big}|${a.why}`;
+// What makes an alert the same alert: its key when the host gives one (a value
+// that drifts is still the same alert), otherwise its words.
+const sig = (a: Alert) => `${a.level}|${a.key ?? `${a.big}|${a.why}`}`;
 
 // Reads every channel of the systems shown, applies what the viewer is
 // moving, and keeps when each alert appeared. Returns the alerts that are new.
