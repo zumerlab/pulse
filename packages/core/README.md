@@ -125,3 +125,7 @@ individual components, run `npm run dev` and open
 
 For design decisions, see [Why](../../docs/principles.html). For component
 examples and parameters, see [Elements](../../docs/elements.html).
+
+## Data
+
+The globe's coasts (`src/radial/land.ts`) are Natural Earth's land at 1:110,000,000, public domain, taken from the [world-atlas](https://github.com/topojson/world-atlas) package and decimated by `scripts/land.mjs`. The map face loads tiles from [OpenStreetMap](https://www.openstreetmap.org/copyright) by default (© OpenStreetMap contributors), whose tile policy asks for light use; a host passes its own `tiles` template for anything heavier.

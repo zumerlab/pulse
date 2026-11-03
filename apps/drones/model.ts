@@ -1,4 +1,4 @@
-import { listOf, num, type Alert, type Group, type Plot, type Reading, type Seg } from '@zumer/pulse';
+import { listOf, num, type Alert, type GeoPlot, type Group, type Plot, type Reading, type Seg } from '@zumer/pulse';
 import { type Act, type Drone, type Drones, PICKABLE } from './source.ts';
 import { t } from './strings.ts';
 
@@ -68,7 +68,11 @@ export const swarm: System = { id: 'swarm', title: 'Swarm', channels: [
     const flying = list.filter((d) => d.flying), plots = list.map(plotOf).filter((p): p is Plot => !!p);
     const far = list.map((d) => fromHome(d)?.m ?? 0), spread = Math.max(0, ...far);
     const out = list.filter((d) => (fromHome(d)?.m ?? 0) > RADAR_M);
+    // Over the field on a map, home in the center; without a home, the radar.
+    const home = list.find((d) => d.home)?.home;
+    const geo: GeoPlot[] = list.filter((d) => d.lat != null && d.lon != null).map((d) => { const p = plotOf(d); return { lat: d.lat!, lon: d.lon!, label: p?.label ?? nameOf(d), id: droneId(d), on: d.flying, tone: p?.tone }; });
     return { kind: 'p', v: clamp(flying.length / list.length), ids: list.map(droneId), big: `${flying.length} flying`, label: `of ${list.length} · farthest ${num(spread, 0)} m`, plots,
+      map: home ? { center: home, zoom: 15, plots: geo } : undefined,
       list: list.map((d) => { const at = fromHome(d); return tick(d, d.flying, `${nameOf(d)} · ${at ? `${num(at.m, 0)} m ${compass(at.bearing)}` : 'no position'} · ${t.modes[d.mode] ?? d.mode}`); }),
       alert: out.length ? got(1, `${out.length} far`, 'range', listOf(out.map((d) => t.farWhy(nameOf(d), Math.round(fromHome(d)!.m)))), out.map(rtl), t.bringAllHome) : undefined };
   } },

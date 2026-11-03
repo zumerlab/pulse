@@ -96,6 +96,8 @@ const samples: [string, string][] = [
   ['ring-bearing', universe(ring('w', bearing, lanes, { controls: true, name: 'Wind' }) + center('29 km/h', 'from the SSE'))],
   ['ring-swarm', universe(ring('v', swarm, lanes, { controls: true, call: true, name: 'Trams' }) + center('75 of 84', 'on time'))],
   ['face-globe', universe(ring('e', { kind: 'p', v: 0.79 }, lanes) + face({ glyph: 'M3 12h3l2-6 3 12 3-9 2 5 2-2h3', name: 'Strongest', big: 'M 7.1', label: 'Kermadec Islands · 3 h ago', aria: 'Strongest', globe: { center: { lat: -20, lon: -140 }, plots: quakes } }), 240)],
+  ['face-map', universe(ring('m', { kind: 'p', v: 0.7 }, lanes) + face({ glyph: 'M6 4h12v12H6z M6 10h12 M9 16v3 M15 16v3 M7 20h10 M9 7h2 M13 7h2 M9 13h.01 M15 13h.01', name: 'On the map', big: '84 trams', label: 'Helsinki · 10 late', aria: 'On the map',
+    map: { center: { lat: 60.17, lon: 24.94 }, zoom: 12, plots: Array.from({ length: 24 }, (_, i) => ({ lat: 60.17 + Math.sin(i * 1.7) * 0.012, lon: 24.94 + Math.cos(i * 2.3) * 0.03, label: `Tram ${i + 1}`, on: i % 5 !== 2, tone: i % 7 === 3 ? 'warn' as const : undefined })) } }), 240)],
   ['face-radar', universe(ring('h', { kind: 'p', v: 0.83 }, lanes) + face({ glyph: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z M12 12l6-6', name: 'Around home', big: '5 flying', label: 'of 6 · farthest 263 m', aria: 'Around home', plots }), 240)],
   ['ring-mini', `<span class="bigbang mini-ring"><span class="gravity-spot">${ring('m', failing, MINI_LANES, { call: true })}</span></span>`],
   ['object-flat', object(true)],

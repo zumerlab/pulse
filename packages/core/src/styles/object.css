@@ -88,8 +88,17 @@ o-arc.is-failed { --o-stroke: var(--critical); --o-stroke-width: 2; }
 .disc.has-image .face-name, .disc.has-image .face-label { color: rgba(255,255,255,.85); }
 .disc.has-image .face-big { font-size: clamp(16px, 11cqw, 26px); }
 
-/* A radar (or a globe) behind the face: range rings (or the Earth) and a dot per thing; the text sits over it. */
-.face-radar, .face-globe { position: absolute; inset: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none; }
+/* A radar, a globe or a map behind the face: range rings, the Earth or the tiles, and a dot per thing; the text sits over it. */
+.face-radar, .face-globe, .face-map { position: absolute; inset: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none; }
+/* The map's tiles are a photo of sorts: the scrim of a picture over them, the text in white with a shadow, the credit at the bottom. */
+.disc.has-map { overflow: hidden; isolation: isolate; }
+.disc.has-map::before { content: ""; position: absolute; inset: 0; border-radius: 50%; z-index: -1; background: radial-gradient(circle at 50% 55%, rgba(0,0,0,.62) 0, rgba(0,0,0,.4) 45%, rgba(0,0,0,.12) 78%); }
+.disc.has-map .face-big, .disc.has-map .face-name, .disc.has-map .face-label, .disc.has-map .glyph { text-shadow: 0 1px 3px rgba(0,0,0,.7); }
+.disc.has-map .face-name, .disc.has-map .face-label { color: rgba(255,255,255,.85); }
+.disc.has-map .face-big { color: #fff; }
+.map-tile { filter: saturate(.75); }
+.map-dot { stroke: rgba(0,0,0,.55); stroke-width: 1; }
+.map-credit { font-size: 5.5px; fill: rgba(255,255,255,.75); paint-order: stroke; stroke: rgba(0,0,0,.6); stroke-width: 1.5px; }
 .globe-sea { fill: color-mix(in srgb, var(--ink) 4%, transparent); }
 .globe-grid { fill: none; stroke: var(--line); stroke-width: .5; }
 .globe-land { fill: none; stroke: var(--muted); stroke-width: 1; stroke-linejoin: round; opacity: .75; }

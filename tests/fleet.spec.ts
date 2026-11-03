@@ -39,6 +39,13 @@ test('the recorded fleet fills four systems; the late trams are the painted tick
   await expect(page.locator('.tile[data-system="service"] .tile-big')).toHaveText('10 late');
   await expect(page.locator('.tile[data-system="load"] .tile-big')).toHaveText('3 crowded');
   await expect(page.locator('.tile[data-system="fleet"] .tile-big')).toHaveText('2 blind');
+  // The fleet on the map of Helsinki: a tile window at a city's zoom, a dot per tram.
+  await page.locator('.tile[data-system="fleet"]').click();
+  await current(page).locator('[data-pick="map"]').first().dispatchEvent('click');
+  await expect(current(page).locator('.layer-front .face-name')).toHaveText('On the map');
+  await expect(current(page).locator('.layer-front .face-map')).toHaveAttribute('data-zoom', '10');
+  await expect(current(page).locator('.layer-front .face-map .radar-dot')).toHaveCount(84);
+  await page.locator('.z-nav-back').click();
   await expect(page.locator('.tile[data-system="lines"] .tile-big')).toHaveText('7 lines late');
   // The tile's mini ring is a swarm too: one SVG, eighty-four ticks.
   await expect(page.locator('.tile[data-system="service"] .swarm-ring')).toHaveAttribute('data-count', '84');
