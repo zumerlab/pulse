@@ -77,6 +77,18 @@
 .detail-image img { width: min(100%, 320px); aspect-ratio: 1; object-fit: cover; border-radius: 50%; border: 1px solid var(--line); background: #000; transition: border-radius .4s, width .4s; }
 .detail-image.is-square img { width: 100%; aspect-ratio: auto; border-radius: 10px; }
 .detail-image figcaption { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+/* The map big in a detail, live, as tall as the screen allows: it keeps the
+   pinch and the wheel (one finger still scrolls the detail), a plus and a
+   minus on its right edge as on any map; the way out below. */
+.detail-map { position: relative; justify-self: center; width: min(100%, 352px, 52svh); margin: 0; }
+.map-frame { width: 100%; aspect-ratio: 1; border-radius: 50%; overflow: hidden; border: 1px solid var(--line); touch-action: pan-y; }
+.map-frame:focus-visible { outline: 2px solid var(--ink); outline-offset: 4px; }
+.map-big { display: block; width: 100%; height: 100%; }
+.map-big .map-credit { font-size: 10px; }
+.detail-map figcaption { position: absolute; right: 14px; top: 50%; translate: 0 -50%; display: flex; flex-direction: column; gap: 8px; }
+.map-zoom { width: 40px; height: 40px; border-radius: 50%; border: 1px solid rgba(255,255,255,.35); background: rgba(0,0,0,.55); color: #fff; font-size: 20px; line-height: 1; cursor: pointer; }
+.map-zoom:hover { background: rgba(0,0,0,.7); }
+.detail-link { margin: 0; text-align: center; }
 .history { display: grid; gap: 6px; justify-items: center; min-height: 200px; padding: 6px 0; container-type: inline-size; }
 .history .hint { font-size: 13px; }
 .ranges { display: grid; gap: 10px; }

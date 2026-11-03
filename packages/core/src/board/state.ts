@@ -30,7 +30,8 @@ export function compute(b: Board) {
   const ctx = { groups: activeGroups(b) ?? null, picks: b.local.picks ?? {} };
   // On the groups axis the systems chosen are read too, only to list their channels in the gear.
   const listed = b.axis === 'groups' ? b.chosen.filter((id) => !b.ids.includes(id)) : [];
-  for (const sys of [...b.ids, ...listed].map((id) => b.sys[id])) {
+  const objects = b.objects.filter((id) => !b.ids.includes(id) && !listed.includes(id));
+  for (const sys of [...b.ids, ...listed, ...objects].map((id) => b.sys[id])) {
     const map = new Map<string, Item>(), u = uiOf(b, sys.id), hidden = hiddenChannels(b, sys.id);
     b.channels[sys.id] = [];
     for (const ch of sys.channels) {
@@ -114,6 +115,22 @@ export const worst = (b: Board, id: string) => Math.max(0, ...live(b, id).map((k
 
 // Things some channel shows: only those enter the change log.
 export const watched = (b: Board) => new Set(b.ids.flatMap((id) => [...b.readings[id].values()].flatMap((x) => x.r.ids)));
+
+// A segment or a row that names a thing with an object of its own (Seg.to):
+// the host makes its system, the board reads it with the rest (the last few
+// opened) and zooms into it from where it was tapped. False when the host has
+// no object for it.
+export function openObject(b: Board, to: string, from: HTMLElement) {
+  const sys = b.host.objectOf?.(to);
+  if (!sys) return false;
+  b.sys[sys.id] = sys;
+  b.views[`sys-${sys.id}`] ??= b.systemView(sys.id);
+  b.objects = [sys.id, ...b.objects.filter((x) => x !== sys.id)].slice(0, 8);
+  compute(b);
+  from.dataset.to = `sys-${sys.id}`;
+  void b.app.zoomIn(from);
+  return true;
+}
 
 // ─── Actions to the host ───
 

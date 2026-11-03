@@ -56,7 +56,11 @@ has nothing to show. Readings describe one of three ring types:
 
 Readings also include the main value, a label and the entity ids they depend
 on. They can add alerts and detail content such as history, an image, a color
-control or a longer list.
+control or a longer list. A reading with a `map` opens a detail where the map
+is big, follows the reading live and zooms with the wheel, a pinch or its
+buttons; a `link` adds a button out to the thing elsewhere. A segment or a row
+can name a thing with its own object (`to`): with `objectOf(id)` the host
+makes it, and tapping the row zooms into it.
 
 Actions belong to the host. The board sends them through `act`, tracks the
 ids they affect and waits for reported changes. An action that requires a

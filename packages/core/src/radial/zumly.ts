@@ -59,7 +59,8 @@ export async function startInside(app: Zumly, systemId: string, root: ParentNode
 export function zoomOutGestures(app: Zumly, canvas: HTMLElement) {
   let acc = 0, cooldown = false;
   const onWheel = (e: WheelEvent) => {
-    if (!e.ctrlKey) return;
+    // A map that zooms itself (a detail's, `data-zooms`) keeps the pinch.
+    if (!e.ctrlKey || (e.target as Element | null)?.closest?.('[data-zooms]')) return;
     e.preventDefault();     // never the browser's zoom over the object
     e.stopPropagation();    // nor the dial's or the list's own wheel
     if (e.deltaY <= 0) { acc = 0; return; }

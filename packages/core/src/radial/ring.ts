@@ -6,7 +6,7 @@ import { num, t } from '../i18n.ts';
 import { esc, levelColor } from './markup.ts';
 import { SWARM_FROM, swarmRing } from './swarm.ts';
 
-export type RingSeg = { label: string; on: boolean; act?: unknown; id?: string };
+export type RingSeg = { label: string; on: boolean; act?: unknown; to?: string; id?: string };
 export type RingDial = { min: number; max: number; step: number; unit: string; label: string; value: number };
 // The primitives of the object. 'p' a band that fills (a dial when it can be
 // dragged); 's' segments that switch on and off; 'c' a choice: segments of
@@ -99,7 +99,7 @@ export function ring(key: string, r: RingReading, lanes: number, o: RingOptions 
     const cls = (isPending(s.id) ? ' is-pending' : '') + (isFailed(s.id) ? ' is-failed' : '') + (o.call && fail ? ' ripple' : '');
     // The option that is chosen is a radio too, just not one that does anything.
     if (r.kind === 'c' && o.controls && s.on && !s.act) return `<o-arc class="${cls.trim()}"${shapeOf(o)} style="--o-fill:${f}" role="radio" aria-checked="true" aria-label="${esc(s.label)}"></o-arc>`;
-    if (!(o.controls && s.act)) return `<o-arc class="${cls.trim()}"${shapeOf(o)} style="--o-fill:${f}"></o-arc>`;
+    if (!(o.controls && (s.act || s.to))) return `<o-arc class="${cls.trim()}"${shapeOf(o)} style="--o-fill:${f}"></o-arc>`;
     return `<o-arc style="--o-fill:${f}"${shapeOf(o)} class="toggle${cls}" data-seg="${i}" interactive hit-width="10"
       role="${role}" tabindex="0" aria-checked="${s.on}" aria-label="${esc(s.label)}"></o-arc>`;
   }).join('');

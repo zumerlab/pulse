@@ -45,6 +45,32 @@ test('the emergencies sit on a globe in the face, the 7700 calling loudly with t
   await expect(front.locator('.face-globe .radar-dot.tone-critical')).toHaveCount(1);
   await expect(current(page).locator('.strip')).toContainText('IBE6845 (A333) is squawking general emergency, 37,000 ft, 36.4°N 28.9°W · 1 more');
   await expect(current(page).locator('.strip [data-resolve]')).toHaveText('See it on the map');
+  // A segment of the ring is an aircraft: it opens its own object, over the Atlantic at cruise.
+  await front.locator('o-arc[data-seg]').first().dispatchEvent('click');
+  await expect(current(page)).toHaveAttribute('data-title', 'IBE6845 · A333');
+  await expect(current(page).locator('.layer-front .face-name')).toHaveText('Flight');
+  await expect(current(page).locator('.layer-front .face-map')).toHaveAttribute('data-zoom', '8');
+});
+
+test('an aircraft tapped in a list zooms into its own object: on the street map, the network one tap further', async ({ page }) => {
+  await page.goto(`${FLIGHTS}?demo`);
+  await page.locator('.tile[data-system="region"]').click();
+  await current(page).locator('.layer-front .disc').click();
+  const row = current(page).locator('.scroll-item').nth(2), flight = (await row.innerText()).split(' · ')[0];
+  await row.click();
+  await expect(current(page)).toHaveAttribute('data-title', new RegExp(`^${flight} · `));
+  const front = current(page).locator('.layer-front');
+  await expect(front.locator('.face-name')).toHaveText('Flight');
+  await expect(front.locator('.face-map .map-tile').first()).toHaveAttribute('href', /tile\.openstreetmap\.org/);
+  await expect(front.locator(`.face-map [data-plot^="ac:"]`)).toHaveAttribute('cx', '0.0');
+  // Its detail is the map big and live, zoomed with the buttons, and the way out to the network's own map.
+  await front.locator('.disc').click();
+  const map = current(page).locator('.map-big');
+  await expect(map).toHaveAttribute('data-zoom', /^\d+$/);
+  const zoom = Number(await map.getAttribute('data-zoom'));
+  await current(page).locator('[data-map-zoom="1"]').click();
+  await expect(map).toHaveAttribute('data-zoom', String(zoom + 1));
+  await expect(current(page).locator('[data-link]')).toHaveText('See it on adsb.lol ↗');
 });
 
 test('the region is a radar of its traffic; the anomalies name the fast descent, the lost signal and the Cessna', async ({ page }) => {
@@ -85,4 +111,7 @@ test('the sky is a globe of five-degree cells, and on the groups axis an aircraf
   await expect(current(page).locator('.layer-front .face-name')).toHaveText('Flight');
   await expect(current(page).locator('.layer-front .bearing-orbit')).toHaveAttribute('aria-label', 'bearing 215°');
   await expect(current(page).locator('.layer-front .face-label')).toContainText('B738 LV-FUC · descending 1,500 ft/min');
+  // The flight on the street map at the scale of its last three minutes (240 kn: zoom 9), itself at the center.
+  await expect(current(page).locator('.layer-front .face-map')).toHaveAttribute('data-zoom', '9');
+  await expect(current(page).locator('.layer-front .face-map [data-plot="ac:e0a1b2"]')).toHaveAttribute('cx', '0.0');
 });

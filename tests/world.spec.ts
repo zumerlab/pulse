@@ -77,9 +77,27 @@ test("the day's earthquakes list in the Earth's detail, the strongest first", as
   await expect(front.locator('.face-name')).toHaveText('Strongest');
   await expect(front.locator('.face-big')).toHaveText('M 7.1');
   await expect(current(page).locator('.strip')).toContainText('tsunami watch');
+  // The strongest on the street map around its epicenter, the day's two other Kermadec quakes with it.
+  await expect(front.locator('.face-map')).toHaveAttribute('data-zoom', '5');
+  await expect(front.locator('.face-map .map-dot')).toHaveCount(3);
   await front.locator('.disc').click();
   await expect(current(page).locator('.detail h1')).toContainText('Strongest');
   await expect(current(page).locator('.scroll-list')).toContainText('M 7.1 · 98 km NE of Raoul Island');
+  // Each quake of the list is an object of its own: where it struck, how deep, how far from you, when.
+  await current(page).locator('.scroll-item', { hasText: 'Sand Point' }).click();
+  await expect(current(page)).toHaveAttribute('data-title', 'M 5.6 · 120 km SE of Sand Point, Alaska');
+  await expect(current(page).locator('.layer-index .layer-item')).toHaveText([/Epicenter/, /Depth/, /From you/, /When/]);
+  await expect(current(page).locator('.layer-front .face-map')).toHaveAttribute('data-zoom', '6');
+  // The nearest on a map with Buenos Aires, both in the disc.
+  await page.locator('.z-nav-back').click();
+  await expect(current(page).locator('.detail h1')).toContainText('Strongest');
+  await expect(page.locator('.z-nav-back .z-nav-title')).toHaveText('Earth');
+  await page.locator('.z-nav-back').click();
+  await expect(current(page).locator('.layer-front .face-name')).toHaveText('Strongest');
+  await current(page).locator('[data-pick="near"]').first().dispatchEvent('click');
+  await expect(current(page).locator('.layer-front .face-name')).toHaveText('Nearest');
+  await expect(current(page).locator('.layer-front .face-map')).toHaveAttribute('data-zoom', '4');
+  await expect(current(page).locator('.layer-front .face-map .map-dot')).toHaveCount(2);
 });
 
 test("the Kp index draws its day in the Sun's detail", async ({ page }) => {

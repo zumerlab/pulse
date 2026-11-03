@@ -7,20 +7,22 @@ import type { ViewContext } from 'zumly';
 import { localeOf, num } from '../../i18n.ts';
 import { spansOf } from '../../history.ts';
 import {
-  MAX_TRACKS, SCROLL_VISIBLE, colorArcs, dialControls, esc, hsCss, icon, monthRing, ringCenter, satColor, scrollControls, scrollList,
-  timeRing, timeWindow, timeline,
+  MAP_ZOOM_MAX, MAP_ZOOM_MIN, MAX_TRACKS, SCROLL_VISIBLE, colorArcs, dialControls, esc, hsCss, icon, mapControls, mapDetail, monthRing,
+  ringCenter, satColor, scrollControls, scrollList, timeRing, timeWindow, timeline, turnMap, type MapSpec,
 } from '../../radial/index.ts';
 import type { Board } from '../context.ts';
 import { dialBinding } from '../dials.ts';
 import { activeElement, imageOf, ring, scrollState } from '../draw.ts';
 import { look } from '../settings.ts';
-import { PENDING_MS, failuresOf, repaint, retry, retryCard, send, uiOf, whenCurrent } from '../state.ts';
+import { PENDING_MS, failuresOf, openObject, repaint, retry, retryCard, send, uiOf, whenCurrent } from '../state.ts';
 import { MONTH_MS, ROLLING_DAYS, loadMonth, monthKey } from '../time.ts';
 
 // The detail's ring: about 11 px of stroke on its 260 px universe.
 const DETAIL_LANES = 1;
 // A day of a thing (or of a set of things) is asked once per visit, and again after this long.
 const HISTORY_MS = 5 * 60_000;
+// The detail's map: 176 px of the map from its center to its edge, about a tile's pixel to a screen's.
+const MAP_RADIUS = 176;
 
 export function detailView(b: Board, ctx: ViewContext) {
   const { t, hold } = b;
@@ -29,6 +31,10 @@ export function detailView(b: Board, ctx: ViewContext) {
   el.dataset.title = b.readings[id]?.get(key)?.ch.name ?? key;
   let last = '';
   let square = false, live = false, dragging = false;
+  // The map stays the same element across paints (only its tiles and dots
+  // move, `turnMap`), at the reading's zoom until the viewer chooses one.
+  let mapEl: HTMLElement | null = null, mapZoom: number | null = null;
+  const mapAt = (m: MapSpec) => ({ radius: MAP_RADIUS, zoom: mapZoom ?? m.zoom });
   const paint = () => {
     if (dragging) return;              // repainting would cut the drag
     const { host } = b;
@@ -62,7 +68,7 @@ export function detailView(b: Board, ctx: ViewContext) {
       // A long choice: its options scrolled in a circle; the list opens at the one that is on.
       const sk = `${id}/${key}`, st = scrollState(b, sk), on = r.list.findIndex((x) => x.on);
       if (!b.scrollOpened.has(sk) && on >= 0) { st.focus = on; st.offset = Math.max(0, Math.min(r.list.length - SCROLL_VISIBLE, on - 3)); b.scrollOpened.add(sk); }
-      control = scrollList(r.list.map((x) => ({ label: x.label, on: x.on, act: !!x.act })), st, { key: sk, name: r.name ?? ch.name });
+      control = scrollList(r.list.map((x) => ({ label: x.label, on: x.on, act: !!(x.act || x.to) })), st, { key: sk, name: r.name ?? ch.name });
       if (r.ids.some((e) => b.pending.has(e))) control = control.replace('class="bigbang detail-ring scroll-list"', 'class="bigbang detail-ring scroll-list is-pending"');
     } else if (r.segs) {
       // Switches, or the options of a choice (radios: the one that is on has no action).
@@ -81,7 +87,9 @@ export function detailView(b: Board, ctx: ViewContext) {
         <img src="${esc(live && stream ? stream : img.src)}" alt="${esc(img.alt)}"${img.key && !live ? ` data-image="${esc(img.key)}"` : ''}>
         <figcaption><button class="plain" data-shape>${square ? t.showRound : t.showSquare}</button>
           ${stream ? `<button class="plain" data-live aria-pressed="${live}">${live ? t.snapshot : t.live}</button>` : ''}</figcaption></figure>`;
-    }
+    } else if (r.map) figure = mapEl ? '<div class="detail-map-slot"></div>' : mapDetail(r.map, ch.name, mapAt(r.map));
+    if (!r.map || r.image) mapEl = null;
+    if (r.link) figure += `<p class="detail-link"><button class="plain" data-link>${esc(r.link.label)} ↗</button></p>`;
     // The last 24 hours: a ring per thing (what was on, when), with what is
     // now in the center, or a numeric thing's values as one ring.
     let day = '';
@@ -142,6 +150,10 @@ export function detailView(b: Board, ctx: ViewContext) {
       ${r.ids.length ? `<details class="things"><summary>${t.things}</summary><ul>${r.ids.map((e) =>
         `<li><code>${esc(e)}</code> <span>${esc(host.nameOf(e))}</span> <strong>${esc(host.stateOf(e))}</strong></li>`).join('')}</ul></details>` : ''}
     </div>`;
+    // The map that was there goes back in its place and follows the reading.
+    const slot = el.querySelector('.detail-map-slot');
+    if (slot && mapEl && r.map) { slot.replaceWith(mapEl); turnMap(mapEl.querySelector('svg')!, r.map, mapAt(r.map)); }
+    else mapEl = el.querySelector<HTMLElement>('.detail-map');
     if (focusSel) el.querySelector<HTMLElement>(focusSel)?.focus({ preventScroll: true });
   };
   const loadChanges = (setKey: string, ids: string[]) => {
@@ -222,10 +234,23 @@ export function detailView(b: Board, ctx: ViewContext) {
     onInput: (k) => { if (isColor(k)) { clearTimeout(colorTimer); colorTimer = window.setTimeout(sendColor, 500); } else d.commitSoon(k); },
   }));
 
+  // The map zooms in place: a step in or out from where it is.
+  ctx.onCleanup(mapControls(el, (by) => {
+    const m = b.readings[id]?.get(key)?.r.map, svg = mapEl?.querySelector('svg');
+    if (!m || !svg) return;
+    mapZoom = Math.max(MAP_ZOOM_MIN, Math.min(MAP_ZOOM_MAX, Math.round(mapZoom ?? m.zoom) + by));
+    turnMap(svg, m, mapAt(m));
+  }));
+
   ctx.onCleanup(scrollControls(el, {
     state: (k) => scrollState(b, k),
     count: () => b.readings[id].get(key)?.r.list?.length ?? 0,
-    pick: (_, i) => { const x = b.readings[id].get(key)?.r.list?.[i]; if (x?.act && !b.pending.has(x.id)) void send(b, [x.act]); },
+    // A row with an object of its own zooms into it; the rest do what they say.
+    pick: (_, i) => {
+      const x = b.readings[id].get(key)?.r.list?.[i], row = el.querySelector<HTMLElement>(`.scroll-item[data-opt="${i}"]`);
+      if (x?.to && row && openObject(b, x.to, row)) return;
+      if (x?.act && !b.pending.has(x.id)) void send(b, [x.act]);
+    },
   }));
 
   el.addEventListener('change', (e) => {
@@ -244,6 +269,11 @@ export function detailView(b: Board, ctx: ViewContext) {
     if (track) {
       const x = b.readings[id].get(key)?.r.tracks?.find((y) => y.id === track);
       if (x?.act && !b.pending.has(track)) void send(b, [x.act]);
+      return;
+    }
+    if (target.closest('[data-link]')) {
+      const l = b.readings[id].get(key)?.r.link;
+      if (l?.act) void send(b, [l.act]);
       return;
     }
     if (!target.closest('[data-resolve]')) return;

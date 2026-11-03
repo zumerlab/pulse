@@ -36,7 +36,7 @@ export function mountBoard(canvas: HTMLElement, options: BoardOptions): BoardHan
     app: undefined as unknown as Zumly,   // made below, before any view runs
     host,
     local: loadSettings(store),
-    ids: [], chosen: [], mode: 'grid', axis: 'systems',
+    ids: [], chosen: [], objects: [], mode: 'grid', axis: 'systems',
     ui: {}, readings: {}, channels: {},
     pending: new Map(), failed: new Map(), hold: new Map(), log: [], toast: '', loaded: false, rerender: new Set(),
     boardPick: null, listFocus: null, hubAt: 0, tab: loadTab(store), scrolls: new Map(), scrollOpened: new Set(),
@@ -124,6 +124,7 @@ export function mountBoard(canvas: HTMLElement, options: BoardOptions): BoardHan
     for (const s of h.systems) if (all.includes(s.id)) b.sys[s.id] = s;
     b.loaded = false;
     b.log.length = 0;
+    b.objects = [];
     b.pending.clear();
     b.hold.clear();
     setLocale(h.language);

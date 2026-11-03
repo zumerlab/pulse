@@ -19,7 +19,10 @@ export type Level = 1 | 2;
 export type CodeFormat = 'number' | 'text';
 export type Action = { ids: string[]; asks?: CodeFormat; code?: string } & Record<string, unknown>;
 
-export type Seg = { label: string; on: boolean; id: string; act?: Action };
+// A segment of a ring, or a row of a list. `act` is what tapping it does; `to`
+// names a thing with an object of its own (`PulseHost.objectOf`: an aircraft,
+// a quake), and tapping it zooms into that object instead.
+export type Seg = { label: string; on: boolean; id: string; act?: Action; to?: string };
 export type Dial = {
   min: number; max: number; step: number; unit: string; label: string;
   value: number; id: string; set: (value: number) => Action;
@@ -66,7 +69,8 @@ export type Reading = {
   bearing?: number;                 // a direction, degrees clockwise from the top (a heading, where the wind comes from): a mark on the ring
   plots?: Plot[];                   // things around a point (drones around home, ships around the boat, quakes around you): a radar in the face
   globe?: GlobeSpec;                // things on the Earth (flights, ships, quakes), by latitude and longitude: the disc as a globe, turned to a center
-  map?: MapSpec;                    // things on a city or a field, by latitude and longitude: the disc as a window on a tiled map at a zoom
+  map?: MapSpec;                    // things on a city or a field, by latitude and longitude: the disc as a window on a tiled map at a zoom; its detail, the map big, live, to zoom
+  link?: Seg;                       // a way out to the thing elsewhere (the network's map, USGS): a button in the detail
   choice?: string;                  // a channel that follows one thing: the one it follows…
   choices?: string[];               // …and the others it could (the gear offers them)
 };
@@ -122,6 +126,10 @@ export interface PulseHost {
   // `hidden` says which channels the viewer took out of a system; `noGroup`
   // names the object of what is in no group. Without it, the gear offers no axis.
   byGroup?(chosen: string[], hidden: (system: string, channel: string) => boolean, noGroup: string): System[];
+  // The object of one thing a segment or a row names (`Seg.to`), as a system:
+  // the board zooms into it from there and reads it with the rest while it is
+  // open. Null when the thing is gone.
+  objectOf?(id: string): System | null;
   // A total-increasing thing (energy, kWh) as one value per day of this month,
   // the first day first, up to today; with `days`, the last `days` days instead.
   statistics?(id: string, days?: number): Promise<(number | null)[]>;

@@ -1,9 +1,10 @@
 // A SkySource as the PulseHost the board reads: the sky's systems bound to
-// the source, every aircraft as a thing, the categories as the gear's groups
-// and the region's aircraft as the board's other axis, a link as the action.
+// the source, every aircraft as a thing and as an object of its own (opened
+// from a list), the categories as the gear's groups and the region's aircraft
+// as the board's other axis, a link as the action.
 
 import type { Action, Changed, PulseHost, System } from '@zumer/pulse';
-import { AC, aircraftSystems, groupsOf, systemsOf } from './model.ts';
+import { AC, aircraftObject, aircraftSystems, groupsOf, systemsOf } from './model.ts';
 import type { Act, SkySource } from './source.ts';
 
 export function hostOf(src: SkySource): PulseHost {
@@ -35,5 +36,7 @@ export function hostOf(src: SkySource): PulseHost {
     url: (path) => path,
     groups: () => groupsOf(src),
     byGroup: (chosen, hidden) => aircraftSystems(src, chosen, hidden).map(bind),
+    // An aircraft tapped in a list or on a ring: its own object, the same as on the groups axis.
+    objectOf: (id) => { const sys = aircraftObject(src, id); return sys ? bind(sys) : null; },
   };
 }

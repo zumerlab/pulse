@@ -12,7 +12,7 @@ import type { Board, Item } from '../context.ts';
 import { dialBinding } from '../dials.ts';
 import { activeElement, detailAdds, imageOf, ring, setHTML, startVisuals, visualFor } from '../draw.ts';
 import { stackShown } from '../settings.ts';
-import { askCode, failuresOf, isPending, live, order, repaint, retry, retryCard, sendCode, uiOf, whenCurrent, worst } from '../state.ts';
+import { askCode, failuresOf, isPending, live, openObject, order, repaint, retry, retryCard, sendCode, uiOf, whenCurrent, worst } from '../state.ts';
 
 export function systemView(b: Board, ctx: ViewContext, id: string) {
   const { t } = b;
@@ -116,8 +116,9 @@ export function systemView(b: Board, ctx: ViewContext, id: string) {
     if (!front) { strip.textContent = t.noEntities; return; }
     const hidden = ord.slice(SZ.length).map((k) => ({ key: k, name: map.get(k)!.ch.name }));
     const fa = front.r.alert && !u.seen.has(ord[0]) ? front.r.alert : null;
+    // An object opened from a row has no neighbours to swipe to: no dots.
     if (dotsEl) {
-      dotsEl.innerHTML = dots(b.ids.filter((other) => order(b, other).length).map((other) => {
+      dotsEl.innerHTML = !b.ids.includes(id) ? '' : dots(b.ids.filter((other) => order(b, other).length).map((other) => {
         const k = order(b, other)[0];
         return { id: other, title: b.sys[other].title, level: worst(b, other), ring: ring(b, k, b.readings[other].get(k)!.r, DOT_LANES) };
       }), id);
@@ -200,6 +201,7 @@ export function systemView(b: Board, ctx: ViewContext, id: string) {
     if (seg && !locked) {
       const key = seg.closest<HTMLElement>('.layer')!.dataset.ch!;
       const { r } = b.readings[id].get(key)!, s = r.segs![Number(seg.dataset.seg)];
+      if (s.to && openObject(b, s.to, seg)) return;
       if (s.act && !b.pending.has(s.id)) askCode(b, id, key, [s.act], s.label, s.label, r.alert?.level);
       return;
     }

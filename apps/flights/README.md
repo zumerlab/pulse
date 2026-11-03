@@ -11,13 +11,20 @@ sky on a globe. The page asks the dev server, which asks the networks for it.
 | Anomalies | Fast descents (over 4,000 ft/min below 10,000 ft), lost signal (quiet for over a minute in the air), low and slow (under 1,500 ft and 120 kn, over 15 nm from any airport) | The region's aircraft and a short trail per aircraft | A fast descent calls loudly, the others softly; each opens on the map |
 | The sky | In the air (OpenSky's count, a dot per 5° cell on the globe), registered in | OpenSky `states/all`, every 15 minutes | None |
 
-On the groups axis, one object per aircraft of the region, by category:
-flight (altitude as the band, the track as a bearing, its anomaly as the
-alert), speed, from here (a radar of itself), squawk.
+Every aircraft is an object of its own: tap it in any list or on a ring
+(Traffic, Arriving, Squawking, the anomalies) and the board zooms into it. Its
+channels: flight (on the street map with its trail, altitude as the band, the
+track as a bearing, its anomaly as the alert), speed, from here (a radar of
+itself), squawk. The flight's map is at the scale of its last three minutes:
+an airliner at cruise sees about a hundred kilometres, one taxiing the apron.
+Tap the map and it opens big and live, following the aircraft: the wheel, a
+pinch, or + and − zoom it, and a button opens it on the network's own map. On
+the groups axis, the region's aircraft are the board, one object each, by
+category.
 
 The globe is the core's `globe`: the disc as the Earth, turned to a center,
 with the coasts and a dot per thing at its latitude and longitude. The radar
-is the core's `plots`.
+is the core's `plots`, the street map its `map` (OpenStreetMap's tiles).
 
 ## Run locally
 

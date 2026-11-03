@@ -38,10 +38,11 @@ export function imageOf(b: Board, r: Reading) {
 
 // Principle: the disc opens a detail only when the detail adds something the
 // face does not have: a day of changes, a history, a long list, a picture,
-// color, the month, or several things to name. A control of one thing that
+// color, the month, a map to zoom (live), a way out to the thing elsewhere,
+// or several things to name. A control of one thing that
 // is resolved on the face (a volume, a fan, a thermostat with no history)
 // has no detail: it would repeat the face.
-export const detailAdds = (r: Reading) => !!(r.tracks?.length || r.history || r.list || r.image || r.color || r.month) || r.ids.length > 1;
+export const detailAdds = (r: Reading) => !!(r.tracks?.length || r.history || r.list || r.image || r.color || r.month || r.map || r.link) || r.ids.length > 1;
 
 // Replaces the content only if it changed: new o-arc take a moment to draw (and
 // to receive taps), and a host sends changes every few seconds.

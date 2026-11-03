@@ -114,7 +114,7 @@ export const quakes: Feed = {
     const latest = list.reduce((a, q) => q.time > a ? q.time : a, 0);
     return { things: [
       { id: 'earth.strongest', name: 'Strongest earthquake', state: strongest.mag, unit: 'M', attrs: { ...strongest }, changed: strongest.time },
-      { id: 'earth.near', name: 'Nearest earthquake', state: near.km, unit: 'km', attrs: { ...near }, changed: near.time },
+      { id: 'earth.near', name: 'Nearest earthquake', state: near.km, unit: 'km', attrs: { ...near, from: where }, changed: near.time },
       { id: 'earth.count', name: 'Earthquakes in 24 hours', state: list.length, unit: '', attrs: { strong: list.filter((q) => q.mag >= 5).length, top: byMag.slice(0, 12), latest }, changed: Math.min(now, latest) },
     ] };
   },

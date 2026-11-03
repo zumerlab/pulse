@@ -52,6 +52,7 @@ export type Board = {
   local: BoardSettings;                // the viewer's choices, as kept
   ids: string[];                       // the systems on the board (or the groups, on that axis)
   chosen: string[];                    // the systems chosen; on the groups axis, what each group is made of
+  objects: string[];                   // the objects opened from a segment or a row (Seg.to), the latest first: read with the rest
   mode: BoardMode;
   axis: Axis;
 

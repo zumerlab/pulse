@@ -1,4 +1,4 @@
-import { listOf, num, type Alert, type GeoPlot, type Group, type Plot, type Reading, type Seg } from '@zumer/pulse';
+import { listOf, num, type Alert, type GeoPlot, type Group, type MapSpec, type Plot, type Reading, type Seg } from '@zumer/pulse';
 import type { Act, Aircraft, Fleet, SkySource } from './source.ts';
 import { t } from './strings.ts';
 
@@ -72,7 +72,17 @@ export const holding = (a: Aircraft) => {
 const oddness = (a: Aircraft): Plot['tone'] => (a.emergency || ['7700', '7500'].includes(a.squawk) ? 'critical' : fastDescent(a) || lostSignal(a) || lowSlow(a) || a.squawk === '7600' ? 'warn' : undefined);
 const regional = (s: SkySource) => [...s.aircraft.values()].filter((a) => a.dst != null).sort((a, b) => a.dst! - b.dst!);
 const line = (a: Aircraft) => `${a.flight}${a.type ? ` · ${a.type}` : ''} · ${ft(a)}${a.gs != null ? ` · ${num(a.gs, 0)} kn` : ''}`;
-const seg = (s: SkySource, a: Aircraft, on: boolean, label = line(a)): Seg => ({ label, on, id: acId(a), act: open(s, a) });
+// An aircraft in a list or on a ring: tapping it opens its own object.
+const seg = (s: SkySource, a: Aircraft, on: boolean, label = line(a)): Seg => ({ label, on, id: acId(a), act: open(s, a), to: acId(a) });
+// The network whose map an aircraft opens on: "adsb.lol", "airplanes.live".
+const site = (s: SkySource, a: Aircraft) => new URL(s.mapUrl(a.hex)).hostname.replace(/^globe\./, '');
+// The aircraft on the street map with its trail, at the scale of its last three minutes: an airliner at cruise sees about a hundred kilometres, one taxiing sees the apron.
+const mapOf = (a: Aircraft): MapSpec | undefined => {
+  if (a.lat == null || a.lon == null) return undefined;
+  const zoom = Math.max(7, Math.min(14, Math.round(Math.log2((135_000 * Math.cos((a.lat * Math.PI) / 180)) / Math.max(10, a.gs ?? 0)))));
+  const trail = a.trail.map((p): GeoPlot => ({ lat: p.lat, lon: p.lon, label: `${a.flight} · ${p.alt != null ? `${num(p.alt, 0)} ft` : 'on the ground'}`, on: false, size: 0 }));
+  return { center: { lat: a.lat, lon: a.lon }, zoom, plots: [...trail, { lat: a.lat, lon: a.lon, label: line(a), id: acId(a), size: 1, tone: oddness(a) }] };
+};
 
 export const emergencies: System = { id: 'emergencies', title: 'Emergencies', channels: [
   { key: 'squawks', name: 'Squawking', glyph: g.squawk, read: (s) => {
@@ -175,7 +185,8 @@ export function groupsOf(s: SkySource): Group[] {
 const acChannels: { key: string; name: string; glyph: string; read: (s: SkySource, a: Aircraft) => Reading | null }[] = [
   { key: 'region/flight', name: 'Flight', glyph: g.plane, read: (s, a) => {
     const id = acId(a), odd = a.emergency || ['7700', '7600', '7500'].includes(a.squawk);
-    return { kind: 'p', v: clamp((a.alt ?? 0) / 45_000), ids: [id], big: ft(a), bearing: a.track ?? undefined,
+    return { kind: 'p', v: clamp((a.alt ?? 0) / 45_000), ids: [id], big: ft(a), bearing: a.track ?? undefined, map: mapOf(a),
+      link: { label: t.seeOn(site(s, a)), on: true, id, act: open(s, a) },
       label: `${a.type || a.category || 'aircraft'}${a.reg ? ` ${a.reg}` : ''} · ${a.rate != null && Math.abs(a.rate) > 300 ? `${a.rate > 0 ? 'climbing' : 'descending'} ${num(Math.abs(a.rate), 0)} ft/min` : 'level'}`,
       alert: odd ? { level: a.squawk === '7600' ? 1 : 2, big: a.squawk || a.emergency, label: t.squawk[a.squawk] ?? t.emergencies[a.emergency] ?? 'emergency', key: `squawk:${a.hex}`, why: t.squawkWhy(a.flight, a.type, t.squawk[a.squawk] ?? t.emergencies[a.emergency] ?? a.squawk, ft(a), where(a)), verb: t.seeOnMap, acts: [open(s, a)] }
         : fastDescent(a) ? got(2, fpm(a.rate!), 'fast descent', t.descentWhy(a.flight, Math.abs(Math.round(a.rate!)), Math.round(a.alt!)), [open(s, a)], t.seeOnMap)
@@ -198,11 +209,17 @@ const acChannels: { key: string; name: string; glyph: string; read: (s: SkySourc
   } },
 ];
 
+// One aircraft as an object: these channels, each read again from the source by its hex.
+const aircraftSystem = (a: Aircraft, channels = acChannels): System => ({
+  id: acId(a), title: `${a.flight}${a.type ? ` · ${a.type}` : ''}`,
+  channels: channels.map((ch) => ({ key: ch.key, name: ch.name, glyph: ch.glyph, read: (src: SkySource) => { const now = src.aircraft.get(a.hex); return now ? ch.read(src, now) : null; } })),
+});
 export function aircraftSystems(s: SkySource, chosen: string[], hidden: (system: string, channel: string) => boolean): System[] {
-  return regional(s).map((a) => ({
-    id: acId(a), title: `${a.flight}${a.type ? ` · ${a.type}` : ''}`,
-    channels: acChannels.filter((ch) => { const [sys, key] = ch.key.split('/'); return chosen.includes(sys) && !hidden(sys, key); })
-      .map((ch) => ({ key: ch.key, name: ch.name, glyph: ch.glyph, read: (src: SkySource) => { const now = src.aircraft.get(a.hex); return now ? ch.read(src, now) : null; } })),
-  }));
+  return regional(s).map((a) => aircraftSystem(a, acChannels.filter((ch) => { const [sys, key] = ch.key.split('/'); return chosen.includes(sys) && !hidden(sys, key); })));
 }
+// The object of one aircraft a list names, every channel it has: the region's, and the ones squawking far away too.
+export const aircraftObject = (s: SkySource, id: string): System | null => {
+  const a = id.startsWith(AC) ? s.aircraft.get(id.slice(AC.length)) : undefined;
+  return a ? aircraftSystem(a) : null;
+};
 export type { Fleet };

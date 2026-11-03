@@ -13,9 +13,13 @@ wherever it is served.
 
 The wind ring carries a bearing: the arrow on the ring points where the wind
 comes from, north at the top. Temperature, Kp and the solar wind have a day
-ring in the detail, from the feed's own past. The Earth's face is a globe
-turned to the day's strongest quake, the others as dots sized by magnitude;
-the detail lists them, and each opens on USGS.
+ring in the detail, from the feed's own past. The strongest quake's face is
+a street map around its epicenter (wider for a bigger one), the day's other
+quakes nearby as dots sized by magnitude; the nearest's is a map with you and
+it; the last 24 hours, a globe turned to the strongest with all of them. A
+map opens big, live and zoomable in its detail. The detail lists the quakes,
+and each is an object of its own: its epicenter on the map, its depth, how far
+from you, when; the epicenter's detail opens it on USGS.
 
 Nothing out there takes a command: an alert is marked seen, or opens the
 incident.

@@ -25,6 +25,7 @@ export const t = {
   // Readings
   gotIt: 'Got it',
   seeOnMap: 'See it on the map',
+  seeOn: (site: string) => `See it on ${site}`,
   squawk: { '7700': 'general emergency', '7600': 'radio failure', '7500': 'unlawful interference' } as Record<string, string>,
   emergencies: { general: 'general emergency', lifeguard: 'medical', minfuel: 'minimum fuel', nordo: 'no radio', unlawful: 'unlawful interference', downed: 'downed' } as Record<string, string>,
   squawkWhy: (flight: string, type: string, what: string, alt: string, where: string) => `${flight}${type ? ` (${type})` : ''} is squawking ${what}, ${alt}, ${where}`,

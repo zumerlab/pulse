@@ -1,5 +1,5 @@
-import { num, type Alert, type GeoPlot, type Reading, type Seg } from '@zumer/pulse';
-import type { Component, Incident, Service, Thing, Things } from './feeds.ts';
+import { num, type Alert, type GeoPlot, type MapSpec, type Reading, type Seg } from '@zumer/pulse';
+import type { Component, Incident, Service, Thing, Things, Where } from './feeds.ts';
 import type { Act } from './source.ts';
 import { t } from './strings.ts';
 
@@ -19,6 +19,8 @@ const g = {
   radiation: 'M12 12m-2 0a2 2 0 1 0 4 0a2 2 0 1 0-4 0 M12 3a9 9 0 0 1 7.8 4.5l-4.3 2.5 M4.2 7.5A9 9 0 0 1 12 3v5 M12 21a9 9 0 0 1-7.8-4.5l4.3-2.5 M19.8 16.5A9 9 0 0 1 12 21v-5',
   quake: 'M3 12h3l2-6 3 12 3-9 2 5 2-2h3',
   pin: 'M12 21s-6-5.5-6-11a6 6 0 0 1 12 0c0 5.5-6 11-6 11z M12 10m-2 0a2 2 0 1 0 4 0a2 2 0 1 0-4 0',
+  depth: 'M3 7h18 M12 7v12 M12 19l-4-4 M12 19l4-4',
+  clock: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z M12 7v5l3 2',
   globe: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z M3 12h18 M12 3c3 3 3 15 0 18 M12 3c-3 3-3 15 0 18',
   thermo: 'M14 14.8V5a2 2 0 0 0-4 0v9.8a4 4 0 1 0 4 0z',
   compass: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z M15.5 8.5l-2 5-5 2 2-5z',
@@ -84,10 +86,21 @@ export const sun: System = { id: 'sun', title: 'Sun', channels: [
 ] };
 
 type Quake = { mag: number; place: string; time: number; url: string; alert: string | null; tsunami: boolean; km: number; depth: number; lat: number; lon: number };
-const quakeSeg = (q: Quake): Seg => ({ label: `M ${num(q.mag, 1)} · ${q.place} · ${agoText(q.time)}`, on: q.mag >= 5, id: `quake:${q.time}`, act: open(q.url) });
-// The day's quakes on the globe, sized by magnitude, the big ones in the alert's color; turned to the strongest.
-const quakeGlobe = (top: Quake[], center: Quake) => ({ center: { lat: center.lat, lon: center.lon },
-  plots: top.map((q): GeoPlot => ({ lat: q.lat, lon: q.lon, label: `M ${num(q.mag, 1)} · ${q.place}`, id: `quake:${q.time}`, size: Math.max(0, (q.mag - 2.5) / 5), tone: q.mag >= 7 ? 'critical' : q.mag >= 6 ? 'warn' : undefined })) });
+// A quake in a list: tapping it opens its own object.
+const quakeSeg = (q: Quake): Seg => ({ label: `M ${num(q.mag, 1)} · ${q.place} · ${agoText(q.time)}`, on: q.mag >= 5, id: `quake:${q.time}`, act: open(q.url), to: `quake:${q.time}` });
+// A quake as a dot, sized by magnitude, the big ones in the alert's color.
+const quakePlot = (q: Quake): GeoPlot => ({ lat: q.lat, lon: q.lon, label: `M ${num(q.mag, 1)} · ${q.place}`, id: `quake:${q.time}`, size: Math.max(0, (q.mag - 2.5) / 5), tone: q.mag >= 7 ? 'critical' : q.mag >= 6 ? 'warn' : undefined });
+// The day's quakes on the globe, turned to the strongest.
+const quakeGlobe = (top: Quake[], center: Quake) => ({ center: { lat: center.lat, lon: center.lon }, plots: top.map(quakePlot) });
+// A quake on the street map around its epicenter, the day's others nearby too; a bigger one reaches farther, so the map shows more around it.
+const quakeMap = (q: Quake, others: Quake[]): MapSpec => ({ center: { lat: q.lat, lon: q.lon }, zoom: q.mag >= 6 ? 5 : 6, plots: [...others.filter((o) => o.time !== q.time), q].map(quakePlot) });
+// The nearest quake and you on one map: centered between the two, at the closest zoom that holds them both.
+const nearMap = (q: Quake, from: Where): MapSpec => {
+  const lon = Math.abs(q.lon - from.lon) > 180 ? q.lon - Math.sign(q.lon - from.lon) * 360 : q.lon;
+  const center = { lat: (q.lat + from.lat) / 2, lon: ((((from.lon + lon) / 2) + 540) % 360) - 180 };
+  const zoom = Math.max(1, Math.min(10, Math.floor(Math.log2((140 * 156_543 * Math.cos((center.lat * Math.PI) / 180)) / Math.max(1_000, q.km * 1_000)))));
+  return { center, zoom, plots: [{ lat: from.lat, lon: from.lon, label: from.place, size: 0.2 }, quakePlot(q)] };
+};
 
 export const earth: System = { id: 'earth', title: 'Earth', channels: [
   { key: 'strongest', name: 'Strongest', glyph: g.quake, read: (s) => {
@@ -96,16 +109,16 @@ export const earth: System = { id: 'earth', title: 'Earth', channels: [
     const q = th.attrs as unknown as Quake, top = (count ? attr<Quake[]>(count, 'top') : undefined) ?? [];
     const level = q.mag >= 7 || q.alert === 'red' || q.alert === 'orange' ? 2 : q.mag >= 6 || q.alert === 'yellow' ? 1 : 0;
     return { kind: 'p', v: clamp(q.mag / 9), ids: count ? ['earth.strongest', 'earth.count'] : ['earth.strongest'], big: `M ${num(q.mag, 1)}`,
-      label: `${q.place} · ${agoText(q.time)}`, list: top.map(quakeSeg), globe: quakeGlobe(top.length ? top : [q], q),
+      label: `${q.place} · ${agoText(q.time)}`, list: top.map(quakeSeg), map: quakeMap(q, top),
       alert: level ? { level, big: `M ${num(q.mag, 1)}`, label: q.place, key: `quake:${q.time}`, why: t.quakeWhy(num(q.mag, 1), q.place, agoText(q.time)) + (q.tsunami ? ' · tsunami watch' : ''),
         verb: 'See it on USGS', acts: [open(q.url)] } : undefined };
   } },
   { key: 'near', name: 'Nearest', glyph: g.pin, read: (s) => {
     const th = s.get('earth.near');
     if (!th || !isNum(th.state)) return null;
-    const q = th.attrs as unknown as Quake;
+    const q = th.attrs as unknown as Quake, from = attr<Where>(th, 'from');
     const level = q.km <= 150 && q.mag >= 5.5 ? 2 : q.km <= 300 && q.mag >= 4.5 ? 1 : 0;
-    return { kind: 'p', v: clamp(1 - q.km / 3000), ids: ['earth.near'], big: `${num(q.km, 0)} km`, label: `M ${num(q.mag, 1)} · ${q.place}`,
+    return { kind: 'p', v: clamp(1 - q.km / 3000), ids: ['earth.near'], big: `${num(q.km, 0)} km`, label: `M ${num(q.mag, 1)} · ${q.place}`, map: from ? nearMap(q, from) : quakeMap(q, []),
       alert: level ? { level, big: `M ${num(q.mag, 1)}`, label: `${num(q.km, 0)} km away`, key: `quake:${q.time}`, why: t.nearQuake(num(q.mag, 1), q.km, q.place), verb: 'See it on USGS', acts: [open(q.url)] } : undefined };
   } },
   { key: 'activity', name: 'Last 24 hours', glyph: g.globe, read: (s) => {
@@ -115,6 +128,31 @@ export const earth: System = { id: 'earth', title: 'Earth', channels: [
     return { kind: 'p', v: clamp(th.state / 150), ids: ['earth.count'], big: `${th.state}`, label: `of M 2.5+ · ${strong} of M 5+`, list: top.map(quakeSeg), globe: top.length ? quakeGlobe(top, top[0]) : undefined };
   } },
 ] };
+
+// ─── One quake as an object of its own, opened from a list ───
+
+export const QUAKE = 'quake:';
+// The quakes the feed keeps at hand: the day's strongest dozen, the strongest and the nearest.
+const quakesIn = (s: Things): Quake[] => {
+  const count = s.get('earth.count'), one = (id: string) => s.get(id)?.attrs as unknown as Quake | undefined;
+  return [...((count && attr<Quake[]>(count, 'top')) ?? []), one('earth.strongest'), one('earth.near')].filter((q): q is Quake => !!q);
+};
+export const quakeIn = (s: Things, id: string) => (id.startsWith(QUAKE) ? quakesIn(s).find((q) => `${QUAKE}${q.time}` === id) ?? null : null);
+const depthOf = (km: number) => (km < 70 ? 'shallow' : km < 300 ? 'intermediate depth' : 'deep');
+
+// Where it struck on the street map, how deep, how far from you, when; the epicenter's detail opens it on USGS.
+export function quakeObject(s: Things, id: string, from: Where): System | null {
+  const q = quakeIn(s, id);
+  if (!q) return null;
+  const read = (fn: (q: Quake, s: Things) => Reading) => (s: Things) => { const now = quakeIn(s, id); return now ? fn(now, s) : null; };
+  return { id, title: `M ${num(q.mag, 1)} · ${q.place}`, channels: [
+    { key: 'epicenter', name: 'Epicenter', glyph: g.quake, read: read((q, s) => ({ kind: 'p', v: clamp(q.mag / 9), ids: [id], big: `M ${num(q.mag, 1)}`,
+      label: `${q.place}${q.tsunami ? ' · tsunami watch' : ''}`, map: quakeMap(q, quakesIn(s)), link: { label: 'See it on USGS', on: true, id, act: open(q.url) } })) },
+    { key: 'depth', name: 'Depth', glyph: g.depth, read: read((q) => ({ kind: 'p', v: clamp(q.depth / 700), ids: [id], big: `${num(q.depth, 0)} km`, label: depthOf(q.depth) })) },
+    { key: 'from', name: 'From you', glyph: g.pin, read: read((q) => ({ kind: 'p', v: clamp(1 - q.km / 3000), ids: [id], big: `${num(q.km, 0)} km`, label: `from ${from.place}`, map: nearMap(q, from) })) },
+    { key: 'when', name: 'When', glyph: g.clock, read: read((q) => ({ kind: 'p', v: clamp(1 - (Date.now() - q.time) / 86_400_000), ids: [id], big: agoText(q.time), label: `at ${hour(q.time)}` })) },
+  ] };
+}
 
 export const sky: System = { id: 'sky', title: 'Sky', channels: [
   { key: 'temp', name: 'Temperature', glyph: g.thermo, read: (s) => {

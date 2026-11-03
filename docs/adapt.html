@@ -64,6 +64,7 @@ import { mountBoard, type PulseHost, type Reading } from '@zumer/pulse';</code><
         <tr><td><code>history(id, hours)</code>, <code>changes(ids, hours)</code></td><td>Optional: hourly means for the day ring; state changes for the timeline</td></tr>
         <tr><td><code>stream(id)</code>, <code>url(path)</code>, <code>statistics(id, days)</code></td><td>Optional: a live picture, where a picture lives, a value per day for the month</td></tr>
         <tr><td><code>groups()</code>, <code>byGroup(…)</code></td><td>Optional: groups the gear can filter by, and the board's second axis, one object per group</td></tr>
+        <tr><td><code>objectOf(id)</code></td><td>Optional: the object of one thing a row names (<code>to</code> on a segment), zoomed into from the row: an aircraft, a quake</td></tr>
         <tr><td><code>language</code></td><td>Optional: the viewer's language, for numbers and times</td></tr>
       </table>
       <p>The homelab host is forty lines: it binds the channels to the collector's things and answers the rest from them.</p>
