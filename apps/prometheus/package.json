@@ -1,0 +1,15 @@
+{
+  "name": "pulse-prometheus",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Pulse over Prometheus: a fleet of hosts read with PromQL by configuration, the targets, and Alertmanager's alerts with the silence as the action.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@zumer/pulse": "*"
+  }
+}
