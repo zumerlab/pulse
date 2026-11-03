@@ -34,7 +34,7 @@ test('the emergencies sit on a globe in the face, the 7700 calling loudly with t
   await page.goto(`${FLIGHTS}?demo`);
   await expect(page.locator('.tile[data-system]')).toHaveCount(4);
   await expect(page.locator('.tile[data-system="emergencies"] .tile-big')).toHaveText('7700');
-  await expect(page.locator('.tile[data-system="anomalies"] .tile-big')).toHaveText('-5,200 ft/min');
+  await expect(page.locator('.tile[data-system="anomalies"] .tile-big')).toHaveText('−5,200 ft/min');
   await expect(page.locator('.tile[data-system="region"] .tile-big')).toHaveText(/^\d+$/);
   await expect(page.locator('.tile[data-system="sky"] .tile-big')).toHaveText('9,400');
   await page.locator('.tile[data-system="emergencies"]').click();
@@ -80,7 +80,7 @@ test('the sky is a globe of five-degree cells, and on the groups axis an aircraf
   await page.addInitScript(() => { localStorage.setItem('pulse-flights-settings', '{"calm":"open","axis":"groups","groups":["e0a1b2","e0a1b9"]}'); });
   await page.reload();
   await expect(page.locator('.tile[data-system]')).toHaveCount(2);
-  await expect(page.locator('.tile[data-system="ac:e0a1b9"] .tile-big')).toHaveText('-5,200 ft/min');
+  await expect(page.locator('.tile[data-system="ac:e0a1b9"] .tile-big')).toHaveText('−5,200 ft/min');
   await page.locator('.tile[data-system="ac:e0a1b2"]').click();
   await expect(current(page).locator('.layer-front .face-name')).toHaveText('Flight');
   await expect(current(page).locator('.layer-front .bearing-orbit')).toHaveAttribute('aria-label', 'bearing 215°');

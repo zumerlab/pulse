@@ -31,8 +31,9 @@ let source: SkySource = query.has('demo') ? demo : new NetworkSource(regionOf(),
 
 function status() {
   const failing = source.failed.length && source.status === 'live' ? ` · <span class="conn-failing">${esc(source.failed.join(', '))} not answering</span>` : '';
+  const here = source === demo || !('geolocation' in navigator) ? '' : `<button class="plain" data-action="here">${t.useLocation}</button>`;
   return `<span class="conn conn-${source.status}"><span class="conn-dot"></span>${esc(source.label)} · ${t.status[source.status]}${failing}
-    ${source === demo ? `<button class="plain" data-action="leave">${t.leaveDemo}</button>` : ''}</span>`;
+    ${source === demo ? `<button class="plain" data-action="leave">${t.leaveDemo}</button>` : here}</span>`;
 }
 
 const modeParam = query.get('mode') as BoardMode | null;
@@ -47,7 +48,7 @@ const board = mountBoard(canvas, {
   look: { theme: 'deep', ground: 'glow', glow: '#1b3f73', faces: 'glass', dial: 'open', ends: 'rounded' },
   status,
   strings: { connecting: t.connecting, things: t.things, hostError: t.hostError, noGroup: t.noGroup },
-  onAction: (action) => { if (action === 'leave') leaveDemo(); },
+  onAction: (action) => { if (action === 'leave') leaveDemo(); else if (action === 'here') useHere(); },
   onStatus: (s) => {
     const out = s === 'signed-out' || (s === 'error' && !source.aircraft.size && !source.sky);
     shell.classList.toggle('disconnected', out);
@@ -59,6 +60,15 @@ const board = mountBoard(canvas, {
 function use(src: SkySource) {
   if (src !== source) { source.stop(); source = src; board.setHost(hostOf(src)); }
   src.start();
+}
+// The region recentered on the browser's position.
+function useHere() {
+  navigator.geolocation.getCurrentPosition((pos) => {
+    query.set('at', `${pos.coords.latitude.toFixed(4)},${pos.coords.longitude.toFixed(4)}`);
+    query.set('place', t.here);
+    history.replaceState(null, '', `${location.pathname}?${query}`);
+    use(new NetworkSource(regionOf(), query.get('network') ?? DEFAULT_NETWORK, query.get('opensky') ?? undefined));
+  });
 }
 function leaveDemo() {
   query.delete('demo');

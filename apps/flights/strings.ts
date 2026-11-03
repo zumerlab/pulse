@@ -10,6 +10,8 @@ export const t = {
   hostError: (message: string) => `The networks: ${message}`,
   status: { 'signed-out': 'not connected', connecting: 'reading', live: 'live', offline: 'offline, retrying', error: 'error' } as Record<string, string>,
   leaveDemo: 'Leave the demo',
+  useLocation: 'Use my location',
+  here: 'here',
   demoLabel: 'Demo · a recorded sky',
   liveLabel: (region: string, n: number, global: number | null) => `${n} aircraft around ${region}${global != null ? ` · ${global.toLocaleString()} in the air worldwide` : ''}`,
 

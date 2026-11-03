@@ -36,6 +36,8 @@ export const acId = (a: Aircraft) => AC + a.hex;
 const got = (level: 1 | 2, big: string, label: string, why: string, acts: Act[] = [], verb = t.gotIt, key = label): Alert => ({ level, big, label, why, key, verb, acts });
 const open = (s: SkySource, a: Aircraft): Act => ({ ids: [], kind: 'open', url: s.mapUrl(a.hex) });
 const ft = (a: Aircraft) => (a.ground ? 'on the ground' : a.alt != null ? `${num(a.alt, 0)} ft` : 'altitude unknown');
+// A rate with a real minus sign: "−5,200 ft/min".
+const fpm = (rate: number) => `${rate < 0 ? '−' : '+'}${num(Math.abs(rate), 0)} ft/min`;
 const where = (a: Aircraft) => (a.lat != null && a.lon != null ? `${num(Math.abs(a.lat), 1)}°${a.lat >= 0 ? 'N' : 'S'} ${num(Math.abs(a.lon), 1)}°${a.lon >= 0 ? 'E' : 'W'}` : 'position unknown');
 const silent = (a: Aircraft, now = Date.now()) => (now - a.at) / 1000;
 const airborne = (a: Aircraft) => !a.ground && a.alt != null && a.alt > 500;
@@ -77,7 +79,7 @@ export const emergencies: System = { id: 'emergencies', title: 'Emergencies', ch
     const list = [...s.emergencies].map((hex) => s.aircraft.get(hex)).filter((a): a is Aircraft => !!a)
       .sort((a, b) => (a.squawk === '7700' || a.squawk === '7500' ? 0 : 1) - (b.squawk === '7700' || b.squawk === '7500' ? 0 : 1));
     const plots: GeoPlot[] = list.filter((a) => a.lat != null && a.lon != null).map((a) => ({ lat: a.lat!, lon: a.lon!, label: `${a.flight} · ${a.squawk}`, id: acId(a), size: 1, tone: a.squawk === '7600' ? 'warn' : 'critical' }));
-    if (!list.length) return { kind: 'p', v: 0, ids: ['emergencies'], big: 'None', label: 'squawking 7700, 7600 or 7500 anywhere', globe: s.sky ? { plots: [] } : undefined };
+    if (!list.length) return { kind: 'p', v: 0, ids: ['emergencies'], big: 'None', label: 'squawking 7700, 7600 or 7500 anywhere', globe: { center: { lat: s.region.lat, lon: s.region.lon }, plots: [] } };
     const worst = list[0], what = t.squawk[worst.squawk] ?? t.emergencies[worst.emergency] ?? worst.squawk;
     const segs = list.map((a) => seg(s, a, false, `${a.flight} · ${a.squawk} ${t.squawk[a.squawk] ?? ''} · ${ft(a)}`));
     return { kind: 's', segs, ids: ['emergencies', ...list.map(acId)], list: segs, big: `${list.length} squawking`, label: listOf(list.slice(0, 3).map((a) => `${a.flight} ${a.squawk}`)),
@@ -87,7 +89,7 @@ export const emergencies: System = { id: 'emergencies', title: 'Emergencies', ch
   } },
 ] };
 
-export const around = (s: SkySource): System => ({ id: 'region', title: `Around ${s.region.name}`, channels: [
+export const around = (s: SkySource): System => ({ id: 'region', title: s.region.name, channels: [
   { key: 'traffic', name: 'Traffic', glyph: g.radar, read: (src) => {
     const list = regional(src);
     if (!list.length) return null;
@@ -121,9 +123,9 @@ export const anomalies: System = { id: 'anomalies', title: 'Anomalies', channels
     const all = regional(s);
     if (!all.length) return null;
     const list = all.filter(fastDescent).sort((a, b) => a.rate! - b.rate!);
-    const segs = list.map((a) => seg(s, a, false, `${a.flight} · ${num(a.rate!, 0)} ft/min at ${num(a.alt!, 0)} ft`));
+    const segs = list.map((a) => seg(s, a, false, `${a.flight} · ${fpm(a.rate!)} at ${num(a.alt!, 0)} ft`));
     return { kind: 's', segs, ids: list.length ? list.map(acId) : [acId(all[0])], list: segs, big: list.length ? `${list.length}` : 'None', label: 'over 4,000 ft/min below 10,000 ft',
-      alert: list.length ? got(2, `${num(list[0].rate!, 0)} ft/min`, 'fast descent', t.descentWhy(list[0].flight, Math.abs(Math.round(list[0].rate!)), Math.round(list[0].alt!)), [open(s, list[0])], t.seeOnMap, `descent:${list[0].hex}`) : undefined };
+      alert: list.length ? got(2, fpm(list[0].rate!), 'fast descent', t.descentWhy(list[0].flight, Math.abs(Math.round(list[0].rate!)), Math.round(list[0].alt!)), [open(s, list[0])], t.seeOnMap, `descent:${list[0].hex}`) : undefined };
   } },
   { key: 'lost', name: 'Lost signal', glyph: g.lost, read: (s) => {
     const all = regional(s);
@@ -176,7 +178,7 @@ const acChannels: { key: string; name: string; glyph: string; read: (s: SkySourc
     return { kind: 'p', v: clamp((a.alt ?? 0) / 45_000), ids: [id], big: ft(a), bearing: a.track ?? undefined,
       label: `${a.type || a.category || 'aircraft'}${a.reg ? ` ${a.reg}` : ''} · ${a.rate != null && Math.abs(a.rate) > 300 ? `${a.rate > 0 ? 'climbing' : 'descending'} ${num(Math.abs(a.rate), 0)} ft/min` : 'level'}`,
       alert: odd ? { level: a.squawk === '7600' ? 1 : 2, big: a.squawk || a.emergency, label: t.squawk[a.squawk] ?? t.emergencies[a.emergency] ?? 'emergency', key: `squawk:${a.hex}`, why: t.squawkWhy(a.flight, a.type, t.squawk[a.squawk] ?? t.emergencies[a.emergency] ?? a.squawk, ft(a), where(a)), verb: t.seeOnMap, acts: [open(s, a)] }
-        : fastDescent(a) ? got(2, `${num(a.rate!, 0)} ft/min`, 'fast descent', t.descentWhy(a.flight, Math.abs(Math.round(a.rate!)), Math.round(a.alt!)), [open(s, a)], t.seeOnMap)
+        : fastDescent(a) ? got(2, fpm(a.rate!), 'fast descent', t.descentWhy(a.flight, Math.abs(Math.round(a.rate!)), Math.round(a.alt!)), [open(s, a)], t.seeOnMap)
         : lostSignal(a) ? got(1, `${num(silent(a), 0)} s`, 'lost signal', t.lostWhy(a.flight, Math.round(silent(a)), Math.round(a.alt!)), [open(s, a)], t.seeOnMap)
         : lowSlow(a) ? got(1, `${num(a.alt!, 0)} ft`, 'low and slow', t.lowSlowWhy(a.flight, Math.round(a.alt!), Math.round(a.gs!), Math.round(nearestAirportNm(a) ?? 0)), [open(s, a)], t.seeOnMap) : undefined };
   } },

@@ -38,7 +38,7 @@ descent, a lost signal, a Cessna low and slow.
 
 | Parameter | What it does |
 |---|---|
-| `?at=-34.6,-58.4&place=Buenos Aires&nm=250` | The region: its center and its radius (250 nm at most, the networks' limit) |
+| `?at=-34.6,-58.4&place=Buenos Aires&nm=250` | The region: its center and its radius (250 nm at most, the networks' limit). "Use my location" in the status line asks the browser |
 | `?network=adsb.lol` | Which network answers: `adsb.lol` (default), `airplanes.live`, `adsb.fi`, or any API with the same v2 shape |
 | `?opensky=https://opensky-network.org/api` | Where OpenSky is (a proxy, if its CORS does not allow the page) |
 | `?axis=groups` | Open on the aircraft, one object each |
