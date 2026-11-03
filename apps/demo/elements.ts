@@ -21,6 +21,7 @@ const switches: RingReading = { kind: 's', segs: ['Living room', 'Kitchen', 'Bed
 const failing: RingReading = { ...switches, alert: { level: 1, fail: [4] } };
 const choice: RingReading = { kind: 'c', segs: ['Heat', 'Cool', 'Auto', 'Off'].map((label, i) => ({ label, on: i === 0, act: true })) };
 const tinted: RingReading = { kind: 'p', v: 0.8, tint: 'hsl(28 100% 62%)', dial: { min: 0, max: 100, step: 1, unit: '%', label: 'brightness', value: 80 } };
+const bearing: RingReading = { kind: 'p', v: 0.36, bearing: 152 };
 
 const universe = (inner: string, w = 200) => `<div class="bigbang" style="width:${w}px"><div class="gravity-spot">${inner}</div></div>`;
 const center = (big: string, label: string) => ringCenter(big, label, 18);
@@ -87,6 +88,7 @@ const samples: [string, string][] = [
   ['ring-choice', universe(ring('c', choice, lanes, { controls: true, name: 'Mode' }) + center('Heat', 'mode'))],
   ['ring-tint', universe(ring('k', tinted, lanes, { controls: true, name: 'Brightness', ends: 'rounded' }) + center('80%', 'warm white'))],
   ['ring-rounded', universe(ring('q', switches, lanes, { controls: true, name: 'Lights', ends: 'rounded' }) + center('4 of 5', 'lights'))],
+  ['ring-bearing', universe(ring('w', bearing, lanes, { controls: true, name: 'Wind' }) + center('29 km/h', 'from the SSE'))],
   ['ring-mini', `<span class="bigbang mini-ring"><span class="gravity-spot">${ring('m', failing, MINI_LANES, { call: true })}</span></span>`],
   ['object-flat', object(true)],
   ['object-3d', object(false)],

@@ -18,6 +18,7 @@ export type RingReading = {
   range?: { lo: number; hi: number };   // a 'p' with two handles: the band goes from lo to hi (fractions 0..1)
   now?: number;                     // where the measurement sits (fraction 0..1) when the band is a target: a mark on the open dial
   tint?: string;                    // CSS color of what is on, when nothing is wrong (a light's color)
+  bearing?: number;                 // a direction: an arrow on the ring, degrees clockwise from the top (north, or the bow)
   alert?: { level: 1 | 2; fail?: number[] };
 };
 
@@ -49,6 +50,16 @@ function openMarks(r: RingReading, o: RingOptions) {
   return ends + now;
 }
 
+// A direction on the ring: an arrow seated at the bearing, pointing in, 0 at
+// the top (north, or the bow) and clockwise. It reads on every ring, a tile's
+// too: the wind on the board, the course on the system. Gray while muted.
+function bearingMark(r: RingReading, o: RingOptions) {
+  if (r.bearing == null || !Number.isFinite(r.bearing)) return '';
+  const deg = ((r.bearing % 360) + 360) % 360;
+  return `<div class="orbit-12 bearing-orbit" style="--o-range:0deg; --o-from:${deg.toFixed(1)}deg" aria-label="${esc(t.bearingOf(Math.round(deg)))}">
+      <div class="vector bearing-mark${o.muted ? ' is-muted' : ''}" style="--o-size-ratio:2.4"></div></div>`;
+}
+
 // A channel's ring on orbit-12, which touches the edge of the universe (.bigbang).
 // Thickness is in lanes: `lanes` = px / lane. With `controls`, the dial is
 // dragged (role="slider") and each segment with an action is a switch. The
@@ -59,20 +70,20 @@ export function ring(key: string, r: RingReading, lanes: number, o: RingOptions 
   const fill = o.muted ? 'var(--muted)' : r.alert ? levelColor(r.alert.level) : on;
   const size = `--o-size-ratio:${lanes.toFixed(3)}`;
   const isPending = o.pending ?? (() => false), isFailed = o.failed ?? (() => false);
-  if (r.kind === 'p' && r.range) return rangeRing(key, r, fill, size, isPending(undefined), o);
+  if (r.kind === 'p' && r.range) return rangeRing(key, r, fill, size, isPending(undefined), o) + bearingMark(r, o);
   if (r.kind === 'p') {
     const pct = ((r.v ?? 0) * 100).toFixed(1);
     const busy = (r.segs?.some((s) => isPending(s.id)) || isPending(undefined) ? ' is-pending' : '') + (isFailed(undefined) ? ' is-failed' : '');
     const dial = o.controls && r.dial;
     if (!dial) {
       return `<div class="orbit-12${busy}" style="${size}${openStyle(o)}"><o-progress value="${pct}"${shapeOf(o)}
-        style="--o-fill:${fill}; --o-back-fill:var(--line)"></o-progress></div>${openMarks(r, o)}`;
+        style="--o-fill:${fill}; --o-back-fill:var(--line)"></o-progress></div>${openMarks(r, o)}${bearingMark(r, o)}`;
     }
     return `<div class="orbit-12${busy}" style="${size}${openStyle(o)}"><o-progress value="${pct}" class="dial" data-dial="${key}"${shapeOf(o)}
         interactive hit-width="12" role="slider" tabindex="0" aria-label="${esc(o.name ? t.dialOf(dial.label, o.name) : dial.label)}"
         aria-valuemin="${dial.min}" aria-valuemax="${dial.max}" aria-valuenow="${dial.value}"
         aria-valuetext="${num(dial.value)}${dial.unit}" style="--o-fill:${fill}; --o-back-fill:var(--line)"></o-progress>
-      <div class="satellite knob at-value" style="--o-size-ratio:1.4"></div></div>${openMarks(r, o)}`;
+      <div class="satellite knob at-value" style="--o-size-ratio:1.4"></div></div>${openMarks(r, o)}${bearingMark(r, o)}`;
   }
   // A choice is a radio group: the one that is on has no action, the others switch to themselves.
   const role = r.kind === 'c' ? 'radio' : 'switch';
@@ -93,7 +104,7 @@ export function ring(key: string, r: RingReading, lanes: number, o: RingOptions 
   // segment; the ones in the lower half are flipped so they read upright.
   const labels = r.kind === 'c' && o.controls ? `<div class="orbit-10 choice-labels" style="--o-gap:${gap}">${
     (r.segs ?? []).map((s, i) => { const mid = (i + 0.5) * 360 / n; return `<o-arc text-anchor="middle"${mid > 90 && mid < 270 ? ' flip' : ''} class="choice-label${s.on ? ' is-on' : ''}" data-label="${esc(s.label)}">${esc(s.label)}</o-arc>`; }).join('')}</div>` : '';
-  return `<div class="orbit-12" style="${size}; --o-gap:${gap}"${group}>${segs}</div>${labels}`;
+  return `<div class="orbit-12" style="${size}; --o-gap:${gap}"${group}>${segs}</div>${labels}${bearingMark(r, o)}`;
 }
 
 // A band from lo to hi over a faint track, with a knob at each end. With

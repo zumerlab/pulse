@@ -14,6 +14,8 @@
     "dev": "npm run dev -w pulse-demo -- --port 5173",
     "dev:ha": "npm run dev -w pulse-home-assistant -- --port 5174",
     "dev:homelab": "npm run dev -w pulse-homelab -- --port 5175",
+    "dev:world": "npm run dev -w pulse-world -- --port 5176",
+    "dev:signalk": "npm run dev -w pulse-signalk -- --port 5177",
     "collect": "node apps/homelab/collector/collector.mjs",
     "build": "tsc --noEmit && npm run build --workspaces --if-present",
     "build:card": "npm run build:card -w pulse-home-assistant",

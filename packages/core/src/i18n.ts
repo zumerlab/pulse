@@ -51,6 +51,7 @@ export const t = {
   sinceTime: (at: string) => `since ${at}`,
   hueSat: (h: number, s: number) => `hue ${h}°, saturation ${s}%`,
   hueOf: (name: string) => `Hue of ${name}`,
+  bearingOf: (deg: number) => `bearing ${deg}°`,
   saturationOf: (name: string) => `Saturation of ${name}`,
   nOptions: (n: number) => count(n, 'option'),
   scrollbarOf: (name: string) => `Scroll ${name}`,

@@ -93,6 +93,13 @@ o-arc.is-failed { --o-stroke: var(--critical); --o-stroke-width: 2; }
 .now-mark { height: 2px; background: var(--muted); border-radius: 1px; }
 .layer:not(.layer-front) .dial-ends, .layer:not(.layer-front) .now-orbit { display: none; }
 
+/* A bearing: an arrow on the ring, its point inward at the direction, in the ring's color. */
+.bearing-mark { height: 8px; background: var(--ink); clip-path: polygon(100% 0, 0 50%, 100% 100%); }
+.bearing-mark.is-muted { background: var(--muted); }
+.layer.is-alert[data-level="1"] .bearing-mark { background: var(--minor); }
+.layer.is-alert[data-level="2"] .bearing-mark { background: var(--critical); }
+.layer:not(.layer-front) .bearing-orbit { display: none; }
+
 /* The names of a choice, along the inside of the ring. */
 .choice-label { --o-fill: transparent; --o-color: var(--muted); font-size: 12px; }
 .choice-label.is-on { --o-color: var(--ink); }

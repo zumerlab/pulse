@@ -16,7 +16,7 @@
     <article class="prose">
       <p class="eyebrow">In use</p>
       <h1>Your own source</h1>
-      <p class="lede">You can connect Pulse to other sources through a host adapter. The homelab app reads a Mac or Linux machine through a small collector. The demo app uses simulated readings for a home, a car, a pet and a server. Each uses the same rings, layers and controls.</p>
+      <p class="lede">You can connect Pulse to other sources through a host adapter. The homelab app reads a Mac or Linux machine through a small collector. The world app reads the sun, the earth, the sky over you and a few status pages from public feeds, with no server at all. The Signal K app reads a boat. The demo app uses simulated readings for a home, a car, a pet and a server. Each uses the same rings, layers and controls.</p>
 
       <figure class="shot">
         <img src="images/demo-car.png" alt="A car as a Pulse object: the battery in front, the tires behind" loading="lazy">
@@ -36,7 +36,7 @@
       <p>Two to four channels that compete for attention, ordered front to back, make a good system. More than that is usually two systems.</p>
 
       <h2>What a host is</h2>
-      <p>A host hands the board its systems, tells it when a thing changes, runs the actions the board hands back, and names the things. In the core it is one interface, <code>PulseHost</code>. The Home Assistant app makes one out of a source with three implementations (the WebSocket, the card's <code>hass</code> object, the demo homes); the homelab app makes one out of its collector.</p>
+      <p>A host hands the board its systems, tells it when a thing changes, runs the actions the board hands back, and names the things. In the core it is one interface, <code>PulseHost</code>. The Home Assistant app makes one out of a source with three implementations (the WebSocket, the card's <code>hass</code> object, the demo homes); the homelab app makes one out of its collector; the world app out of public feeds it polls on their own clocks; the Signal K app out of a vessel's paths over a WebSocket stream.</p>
       <table>
         <tr><th>The host gives</th><th>So that</th></tr>
         <tr><td>systems, and a change event</td><td>the object repaints only what changed</td></tr>
@@ -48,10 +48,10 @@
       </table>
 
       <h2>Where it runs</h2>
-      <p>The core is a plain module that mounts on an element and draws with CSS and a little SVG. It works inside a shadow root, which is what a Home Assistant card is, and on a round screen, which is what a boat's helm or a wall panel may be. The repository has three examples: the Home Assistant app, the homelab app over a Mac or a Linux box, and the demo app over made-up data. The steps, from the imports to the theme: <a href="adapt.html">In your project</a>.</p>
+      <p>The core is a plain module that mounts on an element and draws with CSS and a little SVG. It works inside a shadow root, which is what a Home Assistant card is, and on a round screen, which is what a boat's helm or a wall panel may be. The repository has five examples: the Home Assistant app, the homelab app over a Mac or a Linux box, the world app over public feeds, the Signal K app over a boat, and the demo app over made-up data. The steps, from the imports to the theme: <a href="adapt.html">In your project</a>.</p>
 
       <h2>Open</h2>
-      <p>Pulse is MIT. A Signal K source for boats, and Victron with it, is the next one on the list.</p>
+      <p>Pulse is MIT. The Signal K app covers boats, and Victron through its Signal K plugin; the world app shows what a source with nothing to command looks like. Next on the list: a Prometheus host, Moonraker for 3D printers, Proxmox for a fleet of machines.</p>
     </article>
     <nav data-pager></nav>
   </main>

@@ -1,0 +1,15 @@
+/* On top of the object's style: only what the Signal K shell adds (the connect panel). */
+
+.connect-slot { position: absolute; inset: 0; display: grid; place-items: center; padding: 16px; overflow-y: auto; background: var(--bg); }
+.shell.disconnected .zumly-canvas, .shell.disconnected .z-depth-nav { visibility: hidden; }
+.connect { width: min(440px, 100%); display: grid; gap: 14px; }
+.connect h1 { font-size: 30px; font-weight: 550; letter-spacing: -.6px; }
+.connect-lead, .connect-hint { color: var(--muted); }
+.connect-hint { font-size: 12px; margin: -6px 0 0; }
+.connect label { display: grid; gap: 6px; font-size: 13px; color: var(--muted); }
+.connect input { min-height: 44px; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--dim); background: rgba(255,255,255,.04); color: var(--ink); font: inherit; }
+.connect input:focus { border-color: var(--muted); outline: none; }
+.connect .primary { margin: 0; justify-self: start; }
+.connect .error { text-align: left; }
+.connect-demo { display: grid; gap: 10px; padding-top: 14px; border-top: 1px solid var(--line); }
+.connect-demo .plain { justify-self: start; }

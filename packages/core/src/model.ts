@@ -58,6 +58,7 @@ export type Reading = {
   events?: Event[];
   list?: Seg[];                     // a choice with more options than the ring takes: all of them, for the detail's scrolling list
   month?: string;                   // a meter (kWh) worth this month's calendar in the detail (the host's `statistics`)
+  bearing?: number;                 // a direction, degrees clockwise from the top (a heading, where the wind comes from): a mark on the ring
   choice?: string;                  // a channel that follows one thing: the one it follows…
   choices?: string[];               // …and the others it could (the gear offers them)
 };
