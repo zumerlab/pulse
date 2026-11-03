@@ -82,6 +82,8 @@ test('on the groups axis each drone is an object: its mode is a choice ring that
   await expect(front.locator('.face-name')).toHaveText('Mode');
   await expect(front.locator('.face-big')).toHaveText('Auto');
   await expect(front.locator('o-arc[role="radio"]')).toHaveCount(5);
+  // The controls lock for a moment after a layer change; then Loiter is picked and set.
+  await page.waitForTimeout(900);
   await front.locator('o-arc[role="radio"][aria-label="Loiter"]').dispatchEvent('click');
   await expect(current(page).locator('.layer-front .face-big')).toHaveText('Loiter');
   // Its speed carries the heading as a bearing.
