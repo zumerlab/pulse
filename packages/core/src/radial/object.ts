@@ -4,6 +4,8 @@
 
 import { t } from '../i18n.ts';
 import { esc, icon } from './markup.ts';
+import { globe, type GlobeSpec } from './globe.ts';
+import { mapFace, type MapSpec } from './map.ts';
 import { radar, type Plot } from './radar.ts';
 import { GROW, LANE, PHONE } from './sizes.ts';
 
@@ -20,6 +22,10 @@ export type Face = {
   image?: { src: string; alt: string; key?: string };
   // Things around a point, as a radar behind the text: the center is here (home, the boat, you).
   plots?: Plot[];
+  // Things on the Earth, the disc as a globe behind the text.
+  globe?: GlobeSpec;
+  // Things on a city or a field, the disc as a window on a tiled map.
+  map?: MapSpec;
 };
 
 // The front layer's center: the face in an at-center satellite of orbit-0,
@@ -27,10 +33,10 @@ export type Face = {
 export function face(f: Face) {
   const props = Object.entries(f.props ?? {}).map(([k, v]) => ` data-${k}="${esc(v)}"`).join('');
   const img = f.image ? `<img class="face-image" src="${esc(f.image.src)}" alt="${esc(f.image.alt)}"${f.image.key ? ` data-image="${esc(f.image.key)}"` : ''}>` : '';
-  const plots = f.plots?.length ? radar(f.plots, f.name) : '';
+  const plots = f.map ? mapFace(f.map, f.name) : f.globe && (f.globe.plots.length || f.globe.center) ? globe(f.globe, f.name) : f.plots?.length ? radar(f.plots, f.name) : '';
   const opens = f.to ? ` role="button" tabindex="0" data-to="${f.to}"${props} aria-label="${esc(f.aria)}"` : '';
   return `<div class="orbit-0" style="--o-size-ratio:21.2"><div class="satellite at-center">
-    <div class="capsule disc${f.to ? ' zoom-me' : ''}${img ? ' has-image' : ''}${plots ? ' has-radar' : ''}"${opens}>
+    <div class="capsule disc${f.to ? ' zoom-me' : ''}${img ? ' has-image' : ''}${plots ? ' has-radar' : ''}${f.map ? ' has-map' : ''}"${opens}>
       ${img}${plots}${icon(f.glyph)}<span class="face-name">${esc(f.name)}</span>
       <span class="face-big">${esc(f.big)}</span><span class="face-label">${esc(f.label)}</span>${f.extra ?? ''}</div></div></div>`;
 }
@@ -55,8 +61,10 @@ export function backLayer(b: BackLayer) {
         role="button" tabindex="0" aria-label="${esc(b.pick.aria)}"></o-arc></div>`;
 }
 
-// Labels of the layers behind alternate sides so they never share a line.
-export const labelAt = (i: number) => (i === 1 ? 300 : 30);
+// Labels of the layers behind alternate sides so they never share a line. On a
+// phone the layers behind run past the edges of the screen, so the labels sit
+// nearer the top, where the width is.
+export const labelAt = (i: number) => (PHONE ? (i === 1 ? 332 : 18) : (i === 1 ? 300 : 30));
 
 // The system view's skeleton: stage with the universe, strip, dots on the
 // phone and the buttons below.

@@ -40,9 +40,12 @@ test('the swarm is a radar around home in the face, and the low battery calls wi
   await page.locator('.tile[data-system="swarm"]').click();
   const front = current(page).locator('.layer-front');
   await expect(front.locator('.face-name')).toHaveText('Around home');
-  await expect(front.locator('.face-radar')).toHaveAttribute('aria-label', 'Around home: 6 around');
+  await expect(front.locator('.face-map')).toHaveAttribute('aria-label', 'Around home: 6 on the map');
+  await expect(front.locator('.face-map')).toHaveAttribute('data-zoom', '15');
+  await expect(front.locator('.face-map .map-tile')).toHaveCount(4);
   await expect(front.locator('.radar-dot')).toHaveCount(6);
   await expect(front.locator('.radar-dot.tone-warn')).toHaveCount(2);
+  await expect(front.locator('.map-credit')).toHaveText('© OpenStreetMap contributors');
   // Power: the loiterer at 17% in front, with "Bring it home" as the action.
   await page.locator('.z-nav-back').click();
   await page.locator('.tile[data-system="power"]').click();
@@ -69,7 +72,8 @@ test('on the groups axis each drone is an object: its mode is a choice ring that
   await expect(current(page).locator('.strip [data-resolve]')).toHaveText('Take off to 30 m');
   await current(page).locator('.strip [data-resolve]').click();
   await expect(current(page).locator('.strip')).toContainText('need 3D fix');
-  await expect(current(page).locator('.strip [data-retry]')).toHaveCount(1);
+  // The toast says why for five seconds; then the retry card takes the strip.
+  await expect(current(page).locator('.strip [data-retry]')).toHaveCount(1, { timeout: 10_000 });
   // The fix itself waits behind, softly (on the ground); the refusal stays with the drone, on every channel of it.
   await current(page).locator('[data-pick="link/gps"]').first().dispatchEvent('click');
   await expect(current(page).locator('.layer-front .face-big')).toHaveText('2D fix');

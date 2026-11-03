@@ -1,4 +1,4 @@
-import { listOf, num, type Alert, type Group, type Reading, type Seg } from '@zumer/pulse';
+import { listOf, num, type Alert, type GeoPlot, type Group, type Reading, type Seg } from '@zumer/pulse';
 import type { Vehicle, Vehicles } from './source.ts';
 import { t } from './strings.ts';
 
@@ -22,7 +22,12 @@ const g = {
   satellite: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z M12 3v5 M12 16v5 M3 12h5 M16 12h5',
   speed: 'M12 3a9 9 0 0 0-9 9c0 2.5 1 4.7 2.6 6.4h12.8A9 9 0 0 0 12 3z M12 12l4-5 M12 12m-1.5 0a1.5 1.5 0 1 0 3 0a1.5 1.5 0 1 0-3 0',
   silence: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z M5.6 5.6l12.8 12.8',
+  map: 'M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2z M9 4v14 M15 6v14',
 };
+// A vehicle as a dot on the map: dim when stopped, in the alert's color when it calls.
+const plotOf = (v: Vehicle): GeoPlot | null => v.lat == null || v.long == null ? null
+  : { lat: v.lat, lon: v.long, label: `${nameOf(v)} → ${toOf(v)}${lateBy(v) >= LATE ? ` · ${t.late(mmss(lateBy(v)))}` : ''}`, id: VEH + v.id, on: (v.spd ?? 0) > 0.5,
+    tone: lateBy(v) >= VERY_LATE || !hasFix(v) ? 'critical' : lateBy(v) >= LATE || (v.occu ?? 0) >= CROWDED ? 'warn' : undefined };
 
 const clamp = (v: number) => Math.min(1, Math.max(0, v));
 // The alert's key is its label (late, crowded, GPS): the value in `big` drifts, the alert stays the same.
@@ -118,6 +123,14 @@ export const load: System = { id: 'load', title: 'Load', channels: [
 ] };
 
 export const fleet: System = { id: 'fleet', title: 'Fleet', channels: [
+  { key: 'map', name: 'On the map', glyph: g.map, read: (vs) => {
+    const all = vehicles(vs), plots = all.map(plotOf).filter((p): p is GeoPlot => !!p);
+    if (!plots.length) return null;
+    const center = { lat: plots.reduce((a, p) => a + p.lat, 0) / plots.length, lon: plots.reduce((a, p) => a + p.lon, 0) / plots.length };
+    const odd = plots.filter((p) => p.tone).length;
+    return { kind: 'p', v: clamp(all.filter((v) => (v.spd ?? 0) > 0.5).length / all.length), ids: all.map((v) => VEH + v.id), big: `${all.length} ${what(all)}`,
+      label: odd ? `${odd} calling on the map` : 'on the map', map: { center, zoom: 10, plots }, list: all.map((v) => tick(v, lateBy(v) < LATE, `${lineOf(v)} · ${v.veh} → ${toOf(v)}`)) };
+  } },
   { key: 'reporting', name: 'Reporting', glyph: g.tram, read: (vs) => {
     const all = vehicles(vs);
     if (!all.length) return null;
@@ -181,6 +194,12 @@ const vehicleChannels: { key: string; name: string; glyph: string; read: (v: Veh
     const id = VEH + v.id;
     return { kind: 'p', v: clamp(v.occu / 100), ids: [id], big: `${num(v.occu, 0)}%`, label: 'occupancy',
       alert: v.occu >= 90 ? got(1, `${num(v.occu, 0)}%`, 'crowded', t.crowdedWhy(nameOf(v), Math.round(v.occu))) : undefined };
+  } },
+  { key: 'fleet/where', name: 'Where', glyph: g.map, read: (v) => {
+    const plot = plotOf(v);
+    if (!plot) return null;
+    return { kind: 'p', v: clamp(kmh(v.spd ?? 0) / 60), ids: [VEH + v.id], big: toOf(v), label: `${v.hdg != null ? `heading ${compass(v.hdg)}` : 'heading unknown'}${v.stop ? ` · stop ${v.stop}` : ''}`, bearing: v.hdg ?? undefined,
+      map: { center: { lat: plot.lat, lon: plot.lon }, zoom: 15, plots: [plot] } };
   } },
   { key: 'load/doors', name: 'Doors', glyph: g.doors, read: (v) => {
     if (v.drst == null) return null;

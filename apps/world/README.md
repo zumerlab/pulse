@@ -13,8 +13,9 @@ wherever it is served.
 
 The wind ring carries a bearing: the arrow on the ring points where the wind
 comes from, north at the top. Temperature, Kp and the solar wind have a day
-ring in the detail, from the feed's own past. Earthquakes list the day's
-strongest in the detail; each opens on USGS.
+ring in the detail, from the feed's own past. The Earth's face is a globe
+turned to the day's strongest quake, the others as dots sized by magnitude;
+the detail lists them, and each opens on USGS.
 
 Nothing out there takes a command: an alert is marked seen, or opens the
 incident.

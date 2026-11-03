@@ -70,6 +70,14 @@
         <img src="images/el-face-radar.png" alt="A face reading 5 flying over a radar of six dots, one amber" loading="lazy">
         <figcaption><strong>Radar</strong> <code>plots: [{ bearing, range, label, on?, tone? }]</code>. A reading's <code>plots</code> become the face's radar; the words stay in front.</figcaption>
       </figure>
+      <figure class="element">
+        <img src="images/el-face-globe.png" alt="A face reading M 7.1 over a globe turned to the Pacific, the quakes as dots" loading="lazy">
+        <figcaption><strong>Globe</strong> <code>globe: { center?, plots: [{ lat, lon, label, size?, on?, tone? }] }</code>. The disc as the Earth: an orthographic globe turned to a center, Natural Earth's coasts and a faint graticule, a dot per thing at its latitude and longitude, sized by <code>size</code>. The map Pulse has without leaving the circle: flights, ships, the day's quakes.</figcaption>
+      </figure>
+      <figure class="element">
+        <img src="images/el-face-map.png" alt="A face reading 84 trams over a street map of Helsinki with dots on it" loading="lazy">
+        <figcaption><strong>Map</strong> <code>map: { center, zoom, plots, tiles?, attribution? }</code>. The disc as a window on a flat map at a zoom (11 a city, 14 a district, 16 a field): the tiles that cover it, clipped to the circle, a dot per thing, the credit at the bottom. OpenStreetMap's tiles by default, which ask for their credit and light use; any <code>{z}/{x}/{y}</code> server otherwise. For the scale the globe cannot show.</figcaption>
+      </figure>
 
       <h2>The keypad</h2>
       <figure class="element">

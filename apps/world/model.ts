@@ -1,4 +1,4 @@
-import { num, type Alert, type Reading, type Seg } from '@zumer/pulse';
+import { num, type Alert, type GeoPlot, type Reading, type Seg } from '@zumer/pulse';
 import type { Component, Incident, Service, Thing, Things } from './feeds.ts';
 import type { Act } from './source.ts';
 import { t } from './strings.ts';
@@ -83,8 +83,11 @@ export const sun: System = { id: 'sun', title: 'Sun', channels: [
   } },
 ] };
 
-type Quake = { mag: number; place: string; time: number; url: string; alert: string | null; tsunami: boolean; km: number; depth: number };
+type Quake = { mag: number; place: string; time: number; url: string; alert: string | null; tsunami: boolean; km: number; depth: number; lat: number; lon: number };
 const quakeSeg = (q: Quake): Seg => ({ label: `M ${num(q.mag, 1)} · ${q.place} · ${agoText(q.time)}`, on: q.mag >= 5, id: `quake:${q.time}`, act: open(q.url) });
+// The day's quakes on the globe, sized by magnitude, the big ones in the alert's color; turned to the strongest.
+const quakeGlobe = (top: Quake[], center: Quake) => ({ center: { lat: center.lat, lon: center.lon },
+  plots: top.map((q): GeoPlot => ({ lat: q.lat, lon: q.lon, label: `M ${num(q.mag, 1)} · ${q.place}`, id: `quake:${q.time}`, size: Math.max(0, (q.mag - 2.5) / 5), tone: q.mag >= 7 ? 'critical' : q.mag >= 6 ? 'warn' : undefined })) });
 
 export const earth: System = { id: 'earth', title: 'Earth', channels: [
   { key: 'strongest', name: 'Strongest', glyph: g.quake, read: (s) => {
@@ -93,7 +96,7 @@ export const earth: System = { id: 'earth', title: 'Earth', channels: [
     const q = th.attrs as unknown as Quake, top = (count ? attr<Quake[]>(count, 'top') : undefined) ?? [];
     const level = q.mag >= 7 || q.alert === 'red' || q.alert === 'orange' ? 2 : q.mag >= 6 || q.alert === 'yellow' ? 1 : 0;
     return { kind: 'p', v: clamp(q.mag / 9), ids: count ? ['earth.strongest', 'earth.count'] : ['earth.strongest'], big: `M ${num(q.mag, 1)}`,
-      label: `${q.place} · ${agoText(q.time)}`, list: top.map(quakeSeg),
+      label: `${q.place} · ${agoText(q.time)}`, list: top.map(quakeSeg), globe: quakeGlobe(top.length ? top : [q], q),
       alert: level ? { level, big: `M ${num(q.mag, 1)}`, label: q.place, key: `quake:${q.time}`, why: t.quakeWhy(num(q.mag, 1), q.place, agoText(q.time)) + (q.tsunami ? ' · tsunami watch' : ''),
         verb: 'See it on USGS', acts: [open(q.url)] } : undefined };
   } },
@@ -109,7 +112,7 @@ export const earth: System = { id: 'earth', title: 'Earth', channels: [
     const th = s.get('earth.count');
     if (!th || !isNum(th.state)) return null;
     const strong = attr<number>(th, 'strong') ?? 0, top = attr<Quake[]>(th, 'top') ?? [];
-    return { kind: 'p', v: clamp(th.state / 150), ids: ['earth.count'], big: `${th.state}`, label: `of M 2.5+ · ${strong} of M 5+`, list: top.map(quakeSeg) };
+    return { kind: 'p', v: clamp(th.state / 150), ids: ['earth.count'], big: `${th.state}`, label: `of M 2.5+ · ${strong} of M 5+`, list: top.map(quakeSeg), globe: top.length ? quakeGlobe(top, top[0]) : undefined };
   } },
 ] };
 
