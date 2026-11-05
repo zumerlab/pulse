@@ -31,6 +31,7 @@ export interface SkySource {
   readonly emergencies: Set<string>;      // the hexes squawking an emergency
   readonly sky: Sky | null;
   readonly region: Region;
+  readonly scoped?: boolean;              // read within some groups (a phase of flight): what is empty there is left out
   readonly mapUrl: (hex: string) => string;
   readonly status: Status;
   readonly error: string;
@@ -106,6 +107,7 @@ export class NetworkSource implements SkySource {
   private listeners = new Set<(ids: string[]) => void>();
   private statusListeners = new Set<() => void>();
   readonly region: Region;
+  readonly scoped?: boolean;              // read within some groups (a phase of flight): what is empty there is left out
   readonly api: string;
   readonly mapUrl: (hex: string) => string;
   private opensky: string;

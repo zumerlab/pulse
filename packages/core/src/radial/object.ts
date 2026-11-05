@@ -6,7 +6,7 @@ import { t } from '../i18n.ts';
 import { esc, icon } from './markup.ts';
 import { globe, type GlobeSpec } from './globe.ts';
 import { mapFace, type MapSpec } from './map.ts';
-import { radar, type Plot } from './radar.ts';
+import { radar, type Plot, type RadarSpec } from './radar.ts';
 import { videoMarkup } from './video.ts';
 import { GROW, LANE, PHONE } from './sizes.ts';
 
@@ -16,13 +16,17 @@ export type Face = {
   // control of one entity that is resolved on the face has no detail to open
   // (a detail only exists when it adds something the face does not have).
   to?: string;
+  // The thing the face is about, when it has an object of its own: a tap opens that object (the host's `data-object`).
+  object?: string;
   props?: Record<string, string>;      // data-* for that view
   aria: string;
   extra?: string;                      // more markup inside the disc ("sending…")
   // A picture inside the disc (a camera, a cover, a plan, a map): the text sits over it.
   image?: { src: string; alt: string; key?: string; video?: string };   // video: it moves (a live stream), the still as its poster
-  // Things around a point, as a radar behind the text: the center is here (home, the boat, you).
+  // Things around a point, as a radar behind the text: the center is here (home, the boat, you);
+  // how the radar reads (its rings named, the center's own course).
   plots?: Plot[];
+  radar?: RadarSpec;
   // Things on the Earth, the disc as a globe behind the text.
   globe?: GlobeSpec;
   // Things on a city or a field, the disc as a window on a tiled map.
@@ -35,12 +39,13 @@ export function face(f: Face) {
   const props = Object.entries(f.props ?? {}).map(([k, v]) => ` data-${k}="${esc(v)}"`).join('');
   const img = f.image?.video ? videoMarkup({ src: f.image.video, poster: f.image.src, alt: f.image.alt, cls: 'face-image' })
     : f.image ? `<img class="face-image" src="${esc(f.image.src)}" alt="${esc(f.image.alt)}"${f.image.key ? ` data-image="${esc(f.image.key)}"` : ''}>` : '';
-  const plots = f.map ? mapFace(f.map, f.name) : f.globe && (f.globe.plots.length || f.globe.center) ? globe(f.globe, f.name) : f.plots?.length ? radar(f.plots, f.name) : '';
-  const opens = f.to ? ` role="button" tabindex="0" data-to="${f.to}"${props} aria-label="${esc(f.aria)}"` : '';
+  const plots = f.map ? mapFace(f.map, f.name) : f.globe && (f.globe.plots.length || f.globe.center) ? globe(f.globe, f.name) : f.plots?.length ? radar(f.plots, f.name, f.radar) : '';
+  const opens = f.to ? ` role="button" tabindex="0" data-to="${f.to}"${props} aria-label="${esc(f.aria)}"`
+    : f.object ? ` role="button" tabindex="0" data-object="${esc(f.object)}" aria-label="${esc(f.aria)}"` : '';
   return `<div class="orbit-0" style="--o-size-ratio:21.2"><div class="satellite at-center">
-    <div class="capsule disc${f.to ? ' zoom-me' : ''}${img ? ' has-image' : ''}${plots ? ' has-radar' : ''}${f.map ? ' has-map' : ''}"${opens}>
+    <div class="capsule disc${f.to ? ' zoom-me' : ''}${f.object ? ' opens-object' : ''}${img ? ' has-image' : ''}${plots ? ' has-radar' : ''}${f.map ? ' has-map' : ''}"${opens}>
       ${img}${plots}${icon(f.glyph)}<span class="face-name">${esc(f.name)}</span>
-      <span class="face-big">${esc(f.big)}</span><span class="face-label">${esc(f.label)}</span>${f.extra ?? ''}</div></div></div>`;
+      <span class="face-big${f.big.length > 9 ? ' is-long' : ''}">${esc(f.big)}</span><span class="face-label">${esc(f.label)}</span>${f.extra ?? ''}</div></div></div>`;
 }
 
 export type BackLayer = {

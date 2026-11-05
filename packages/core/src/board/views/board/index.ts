@@ -145,10 +145,16 @@ export function boardView(b: Board, ctx: ViewContext) {
     const mode = target.closest<HTMLElement>('[data-mode]')?.dataset.mode as BoardMode | undefined;
     const pick = target.closest<HTMLElement>('[data-bpick]')?.dataset.bpick;
     if (target.closest('[data-calm]')) { setSettings(b, { calm: calmOpen(b) ? undefined : 'open' }); return; }
+    if (target.closest('[data-orbit-more]')) { b.orbitPage += 1; paint(); return; }
     const at = target.closest<HTMLElement>('[data-hubat]')?.dataset.hubat;
     if (at != null) { b.hubAt = Number(at); paint(); return; }
+    // A system on the list's rings comes to the center; tapped again, it opens (the center zooms in).
     const qitem = target.closest<HTMLElement>('[data-qitem]')?.dataset.qitem;
-    if (qitem) { b.listFocus = qitem; paint(); return; }
+    if (qitem) {
+      const center = body.querySelector<HTMLElement>(`.list-center[data-system="${CSS.escape(qitem)}"]`);
+      if (center) { void b.app.zoomIn(center); return; }
+      b.listFocus = qitem; paint(); return;
+    }
     if (target.closest('[data-qfocus]')) { b.listFocus = null; paint(); return; }
     if (mode && mode !== b.mode) {
       setSettings(b, { mode });

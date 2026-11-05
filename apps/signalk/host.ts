@@ -4,6 +4,7 @@
 
 import { changesOf, hourly, num, type Action, type Changed, type PulseHost, type System } from '@zumer/pulse';
 import { AIS, bar, celsius, compass, deg, fromBoat, hpa, kn, litres, lph, NM, rpm, systems } from './model.ts';
+import { shipName, vesselObject } from './traffic.ts';
 import type { Act, VesselSource } from './source.ts';
 
 // A path's leaf as a name: "stateOfCharge" → "state of charge", with its parent when that tells it apart.
@@ -50,7 +51,12 @@ export function hostOf(src: VesselSource): PulseHost {
     onChange: (fn: (changed: Changed[]) => void) => src.onChange((paths) => fn(paths.map((p) => ({ id: p, logged: p.startsWith('notifications.') || typeof src.values.get(p)?.value === 'string' })))),
     onStatus: (fn) => src.onStatus(fn),
     act: (a: Action) => src.act(a as Act),
-    nameOf: (id) => id.startsWith(AIS) ? src.others.get(id.slice(AIS.length))?.name ?? id.slice(AIS.length) : src.meta.get(id)?.displayName ?? humanize(id),
+    nameOf: (id) => id.startsWith(AIS) ? shipName(src.others.get(id.slice(AIS.length))?.name ?? id.slice(AIS.length)) : src.meta.get(id)?.displayName ?? humanize(id),
+    // A vessel around, opened from the traffic: its own object, read from its AIS while it is open.
+    objectOf: (id) => {
+      const o = id.startsWith(AIS) ? vesselObject(src, id) : null;
+      return o && { id: o.id, title: o.title, channels: o.channels.map((ch) => ({ key: ch.key, name: ch.name, glyph: ch.glyph, read: () => ch.read(src) })) };
+    },
     stateOf: (id) => {
       if (id.startsWith(AIS)) {
         const o = src.others.get(id.slice(AIS.length)), pos = src.values.get('navigation.position')?.value as { latitude?: number; longitude?: number } | undefined;

@@ -74,6 +74,7 @@ export type Board = {
   // ─── What the views keep ───
   boardPick: string | null;            // the system brought to the front of the layers by hand
   listFocus: string | null;            // the system in the list's center (null: the most serious)
+  orbitPage: number;                   // past twelve systems, which eleven the orbit shows (0: the most urgent)
   hubAt: number;                       // which open alert the orbit's face shows
   tab: Tab;                            // the gear's tab last open
   scrolls: Map<string, ScrollState>;   // each scrolling list: first item shown, focus

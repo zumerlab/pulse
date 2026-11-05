@@ -69,10 +69,15 @@ o-arc.is-failed { --o-stroke: var(--critical); --o-stroke-width: 2; }
   color: var(--ink); text-align: center;
   container-type: size;                /* the face sizes its lines from the disc (cqw) */
 }
+/* A face about one thing with an object of its own opens it, like a disc that opens its detail. */
+.disc.opens-object { cursor: pointer; }
+.disc.opens-object:focus-visible { outline: 2px solid var(--ink); outline-offset: 4px; }
 /* Each line of the face is one line, sized from the disc, and never past it. */
 .face-name, .face-big, .face-label { max-width: 78cqw; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .face-name { font-size: clamp(11px, 6.5cqw, 15px); color: var(--muted); }
 .face-big { font-size: clamp(18px, 14.5cqw, 34px); font-weight: 600; letter-spacing: -1px; line-height: 1.1; }
+/* A long value ("−5,200 ft/min") takes a smaller size rather than an ellipsis. */
+.face-big.is-long { font-size: clamp(16px, 10.5cqw, 26px); letter-spacing: -0.5px; }
 .face-label { font-size: clamp(10px, 5.5cqw, 13px); color: var(--muted); }
 .layer.is-alert[data-level="2"] .face-big { color: var(--critical); }
 .layer.is-alert[data-level="1"] .face-big { color: var(--minor); }
@@ -196,6 +201,26 @@ o-arc.is-failed { --o-stroke: var(--critical); --o-stroke-width: 2; }
 .primary.level-1 { background: var(--minor); border-color: var(--minor); color: var(--bg); }
 .primary.level-2 { background: var(--critical); border-color: var(--critical); color: var(--bg); }
 
+/* A thing that moves: a pointed mark turned to its course, its vector ahead; it glides to where it is next. */
+g.radar-mark { color: var(--ink); transition: transform 1.2s linear, opacity .2s; }
+.radar-mark path { fill: currentColor; }
+.radar-mark .radar-vector { stroke: currentColor; stroke-width: 1.2; stroke-linecap: round; opacity: .55; }
+.radar-mark.is-off { color: var(--dim); }
+.radar-mark.tone-warn { color: var(--minor); }
+.radar-mark.tone-critical { color: var(--critical); }
+.radar-mark.radar-self { color: var(--muted); }
+.radar-mark.radar-self .radar-vector { stroke-dasharray: 2 3; }
+.radar-range { fill: var(--muted); font-size: 7.5px; font-family: inherit; }
+/* In a face the radar stays behind the words: the calm marks and every vector step back, what calls keeps its color, the text a halo of the ground. The detail draws them whole. */
+.disc .face-radar g.radar-mark:not(.tone-warn):not(.tone-critical):not(.radar-self) { opacity: .5; }
+.disc .face-radar .radar-vector { opacity: .3; }
+.disc.has-radar :is(.face-big, .face-name, .face-label) { text-shadow: 0 0 6px var(--bg), 0 0 2px var(--bg); }
+/* In a face only the outer ring says how far: the inner ones would sit on the words. */
+.disc .radar-range:not(:last-of-type) { display: none; }
+@media (prefers-reduced-motion: reduce) { g.radar-mark { transition: opacity .2s; } }
+/* On a street map the marks are drawn again as the map moves: no glide, an edge to stand out from the tiles. */
+g.radar-mark.map-dot { transition: none; }
+.map-dot.radar-mark path { stroke: rgba(0,0,0,.55); stroke-width: 1; }
 
 /* A picture that moves (<pulse-video>): the still is its poster until the stream plays, and stays if it never does. */
 pulse-video { display: block; overflow: hidden; background: #000; }

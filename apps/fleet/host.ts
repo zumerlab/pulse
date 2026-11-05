@@ -4,15 +4,23 @@
 
 import type { Action, Changed, PulseHost, System } from '@zumer/pulse';
 import { groupsOf, isVehicle, lateBy, mmss, nameOf, systems, vehicleId, vehicleSystems } from './model.ts';
-import type { Act, FleetSource } from './source.ts';
+import type { Act, FleetSource, Vehicles } from './source.ts';
 import { t } from './strings.ts';
+
+// The vehicles in the groups in force (the lines the gear keeps, or one line's when the board reads it as an object of its own).
+const within = (vs: Vehicles, groups: string[] | null) => {
+  if (!groups) return vs;
+  const keep = new Set(groups);
+  return new Map([...vs].filter(([id]) => keep.has(id)));
+};
 
 export function hostOf(src: FleetSource): PulseHost {
   const bound: System[] = systems.map((sys) => ({
     id: sys.id, title: sys.title,
-    channels: sys.channels.map((ch) => ({ key: ch.key, name: ch.name, glyph: ch.glyph, read: () => ch.read(src.vehicles) })),
+    channels: sys.channels.map((ch) => ({ key: ch.key, name: ch.name, glyph: ch.glyph, read: (ctx) => ch.read(within(src.vehicles, ctx.groups)) })),
   }));
   const vehicle = (id: string) => (isVehicle(id) ? src.vehicles.get(vehicleId(id)) : undefined);
+  const photoOf = src.photoOf?.bind(src);
   return {
     get status() { return src.status; },
     get error() { return src.error; },
@@ -35,9 +43,14 @@ export function hostOf(src: FleetSource): PulseHost {
     changedAt: (id) => vehicle(id)?.at,
     url: (path) => path,
     groups: () => groupsOf(src.vehicles),
-    byGroup: (chosen, hidden) => vehicleSystems(src.vehicles, chosen, hidden).map((sys) => ({
+    byGroup: (chosen, hidden) => vehicleSystems(src.vehicles, chosen, hidden, photoOf).map((sys) => ({
       id: sys.id, title: sys.title,
       channels: sys.channels.map((ch) => ({ key: ch.key, name: ch.name, glyph: ch.glyph, read: () => ch.read(src.vehicles) })),
     })),
+    // A vehicle a tick or a row names: its own object, every channel it has.
+    objectOf: (id) => {
+      const v = vehicle(id), sys = v && vehicleSystems(new Map([[v.id, v]]), systems.map((x) => x.id), () => false, photoOf)[0];
+      return sys ? { id: sys.id, title: sys.title, channels: sys.channels.map((ch) => ({ key: ch.key, name: ch.name, glyph: ch.glyph, read: () => ch.read(src.vehicles) })) } : null;
+    },
   };
 }

@@ -1,28 +1,46 @@
 # Pulse world
 
-The world outside as four Pulse objects, read straight from public feeds in
-the browser. No server, no sign-in, nothing to install: the page is live
-wherever it is served.
+The calamities of the world as five Pulse objects, read straight from public
+feeds in the browser: earthquakes, cyclones, floods, wildfires and volcanoes.
+No server, no sign-in, nothing to install: the page is live wherever it is
+served.
 
 | System | Channels | Source | Alerts |
 |---|---|---|---|
-| Sun | Geomagnetic (Kp), solar wind, X-rays, radiation | NOAA Space Weather Prediction Center: the NOAA scales, the planetary K index, the solar wind at L1, GOES X-rays | NOAA's own scales: G1, R1 and S1 call softly; G3, R3 and S3 and up call loudly. Fast wind or a southward Bz call softly |
-| Earth | Strongest, nearest, last 24 hours | USGS, every M2.5+ of the past day | M6 or a yellow PAGER alert calls softly; M7 or an orange or red alert calls loudly. A quake near you calls by distance |
-| Sky | Temperature, wind, rain, UV index, air | Open-Meteo forecast and air quality for the place | Freezing or extreme heat; gusts over 60 km/h (90 loudly); rain coming; very high UV; poor air (very poor loudly) |
-| Services | One ring per status page | Statuspage public summaries (GitHub, Cloudflare, OpenAI, npm, Vercel by default) | The page's own indicator: minor calls softly, major or critical loudly. The degraded components are the painted segments; the incident opens from the alert |
+| Earthquakes | Strongest, nearest, last 24 hours | USGS, every M2.5+ of the past day | M6 or a yellow PAGER alert calls softly; M7 or an orange or red alert calls loudly. The nearest calls by distance and magnitude (M4.5 within 300 km softly, M5.5 within 150 km loudly) |
+| Cyclones | Worst, nearest, active | GDACS's tropical cyclones now; the path of each from NASA's EONET | GDACS's own alert: orange calls softly, red loudly. The nearest within 1,000 km calls softly, within 300 km loudly |
+| Floods | Worst, nearest, active | GDACS's floods now | GDACS's alert; the nearest within 200 km softly, 50 km loudly |
+| Wildfires | Worst, nearest, active | GDACS's wildfires now (the hundred most recently updated) | GDACS's alert; the nearest within 100 km softly, 25 km loudly |
+| Volcanoes | Worst, nearest, active | The US observatories' volcanoes above normal (USGS), and GDACS's eruptions of the past 30 days anywhere | An observatory's aviation code orange calls softly, red loudly (yellow is listed, calm); GDACS's alert the same. The nearest within 150 km softly, 30 km loudly |
 
-The wind ring carries a bearing: the arrow on the ring points where the wind
-comes from, north at the top. Temperature, Kp and the solar wind have a day
-ring in the detail, from the feed's own past. The strongest quake's face is
-a street map around its epicenter (wider for a bigger one), the day's other
-quakes nearby as dots sized by magnitude; the nearest's is a map with you and
-it; the last 24 hours, a globe turned to the strongest with all of them. A
-map opens big, live and zoomable in its detail. The detail lists the quakes,
-and each is an object of its own: its epicenter on the map, its depth, how far
-from you, when; the epicenter's detail opens it on USGS.
+GDACS (the Global Disaster Alert and Coordination System, of the UN and the
+European Commission) rates each event green, orange or red by its likely
+humanitarian impact: how strong it is and how many people live where it
+strikes. A category 4 typhoon over open sea can be green; that is GDACS's
+reading, not a mistake.
 
-Nothing out there takes a command: an alert is marked seen, or opens the
-incident.
+The worst of each hazard is its face: a street map around it with the others
+of its kind, a cyclone with the path it took. The nearest is a map with you
+and it; the active, a globe with all of them, and its detail lists them. Each
+event is an object of its own, opened from the face of the worst or the
+nearest, or from its row: where it is, its alert, how far from you, since
+when; its detail opens it on GDACS or USGS. A map opens big, live, zoomable
+and draggable in its detail.
+
+A US volcano says more of itself: what it is doing in its observatory's
+words (the synopsis of the latest notice, over the volcano's picture), its
+ground alert level among the four (normal, advisory, watch, warning, a choice
+ring with the one in force marked), its summit and its threat by the national
+volcano early warning system, where it is, how far from you, and when the
+observatory last wrote.
+
+USGS marks a large quake at sea with a tsunami flag. It is not a warning: the
+strip says "at sea: see tsunami.gov". The tsunami centers' own bulletins do
+not let a page read them (no `Access-Control-Allow-Origin`), so they are not
+here yet.
+
+Nothing out there takes a command: an alert opens the event's page, or is
+marked seen.
 
 ## Run locally
 
@@ -33,10 +51,12 @@ npm ci
 npm run dev:world
 ```
 
-Open [the app](http://127.0.0.1:5176). It reads the feeds for Buenos Aires
-until told otherwise. To explore without the feeds, open
-[the recorded stormy day](http://127.0.0.1:5176/?demo): a G2 storm, an M7.1
-in the Kermadec Islands, rain on the way and GitHub Actions down.
+Open [the app](http://127.0.0.1:5176). "Near you" is Buenos Aires until told
+otherwise. To explore without the feeds, open
+[the recorded day](http://127.0.0.1:5176/?demo): an M7.1 at sea in the
+Kermadec Islands, a red typhoon east of Luzon, an orange flood in Bangladesh
+and a green one 178 km from Buenos Aires, an orange wildfire in Western
+Australia, and Kilauea on watch. The events are made up; the places are real.
 
 ## Options
 
@@ -44,19 +64,27 @@ All in the URL, so a link or a kiosk fixes them:
 
 | Parameter | What it does |
 |---|---|
-| `?at=-34.6,-58.4&place=Buenos Aires` | Where the sky is read (also `?lat=&lon=`). `?here` in the status line asks the browser |
-| `?services=github,cloudflare,status.example.com` | Which status pages to follow: a short name from the list in `feeds.ts`, or any Statuspage host |
-| `?systems=sun,sky&mode=orbit&start=sky` | What the page shows; the gear chooses within it |
+| `?at=-34.6,-58.4&place=Buenos Aires` | Where "near you" is (also `?lat=&lon=`). "Use my location" in the status line asks the browser |
+| `?systems=quakes,cyclones&mode=orbit&start=quakes` | What the page shows; the gear chooses within it |
 | `?demo` | The recorded day instead of the feeds |
 
 ## Feeds
 
-Each feed is a URL and a parser in `feeds.ts`, asked again on its own clock
-(two minutes for status pages and earthquakes, five for the sun, ten to
-thirty for the sky). A feed that fails keeps what it last said and is named
-in the status line; nothing answering at all shows a panel with a retry and
-the demo. The demo runs the same parsers over recorded answers in each feed's
-shape, so what the parsers accept is what the feeds send.
+Each feed is a URL and a parser in `feeds.ts`, asked again on its own clock:
+
+| Feed | URL | Every |
+|---|---|---|
+| Earthquakes | `earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_day.geojson` | 2 min |
+| Tropical cyclones, floods, wildfires, eruptions | `www.gdacs.org/gdacsapi/api/events/geteventlist/SEARCH?eventlist=TC` (`FL`, `WF`, `VO`) | 10 min for cyclones, 30 for the rest |
+| Storm tracks | `eonet.gsfc.nasa.gov/api/v3/events?category=severeStorms&status=open` | 30 min |
+| US volcanoes above normal | `volcanoes.usgs.gov/hans-public/api/volcano/getElevatedVolcanoes` | 10 min |
+| Where the US volcanoes are, how high, their threat and picture | `volcanoes.usgs.gov/hans-public/api/volcano/getUSVolcanoes` | once a day |
+| The latest notice of each volcano above normal | `volcanoes.usgs.gov/hans-public/api/notice/getNotice/<id>` | with the list |
+
+A feed that fails keeps what it last said and is named in the status line;
+nothing answering at all shows a panel with a retry and the demo. The demo
+runs the same parsers over recorded answers in each feed's shape, so what the
+parsers accept is what the feeds send.
 
 The feeds are public and send `Access-Control-Allow-Origin: *`, which is what
 lets a page read them from any origin. A feed that stops doing so would need

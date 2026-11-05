@@ -1,79 +1,12 @@
-// A stormy day, recorded: the feeds' answers in their own shapes, built
-// around "now" so the day rings and the "3 h ago" read right. The demo source
-// runs the real parsers over them: what the parsers accept is what the live
-// feeds send.
+// A day of calamities, recorded: the feeds' answers in their own shapes,
+// built around "now" so the "3 h ago" and the "9 days" read right. The demo
+// source runs the real parsers over them: what the parsers accept is what the
+// live feeds send. The events are made up; the places are real.
 
 const H = 3_600_000, MIN = 60_000;
-// SWPC writes "YYYY-MM-DD HH:MM:SS.000" in UTC.
-const swpc = (at: number) => new Date(at).toISOString().replace('T', ' ').replace('Z', '');
-const floorTo = (at: number, step: number) => Math.floor(at / step) * step;
 
-export function scalesJson(now: number) {
-  const day = (d: number) => new Date(now + d * 24 * H).toISOString().slice(0, 10);
-  const stamp = new Date(now).toISOString().slice(11, 19);
-  return {
-    '-1': { DateStamp: day(-1), TimeStamp: '00:00:00', R: { Scale: '0', Text: 'none', MinorProb: null, MajorProb: null }, S: { Scale: '0', Text: 'none', Prob: null }, G: { Scale: '1', Text: 'minor' } },
-    '0': { DateStamp: day(0), TimeStamp: stamp, R: { Scale: '0', Text: 'none', MinorProb: null, MajorProb: null }, S: { Scale: '0', Text: 'none', Prob: null }, G: { Scale: '2', Text: 'moderate' } },
-    '1': { DateStamp: day(1), TimeStamp: '00:00:00', R: { Scale: null, Text: null, MinorProb: '35', MajorProb: '5' }, S: { Scale: null, Text: null, Prob: '1' }, G: { Scale: '2', Text: 'moderate' } },
-    '2': { DateStamp: day(2), TimeStamp: '00:00:00', R: { Scale: null, Text: null, MinorProb: '25', MajorProb: '1' }, S: { Scale: null, Text: null, Prob: '1' }, G: { Scale: '1', Text: 'minor' } },
-    '3': { DateStamp: day(3), TimeStamp: '00:00:00', R: { Scale: null, Text: null, MinorProb: '20', MajorProb: '1' }, S: { Scale: null, Text: null, Prob: '1' }, G: { Scale: '0', Text: 'none' } },
-  };
-}
-
-// Two days of Kp every three hours: calm, then a storm building through today.
-export function kpJson(now: number) {
-  const rows: string[][] = [['time_tag', 'Kp', 'a_running', 'station_count']];
-  const start = floorTo(now, 3 * H) - 16 * 3 * H;
-  for (let i = 0; i <= 16; i++) {
-    const at = start + i * 3 * H, h = (now - at) / H;
-    const kp = h > 18 ? 1.67 + (i % 3) * 0.33 : h > 9 ? 3 + (18 - h) * 0.15 : 5.33 + (9 - h) * 0.11;
-    rows.push([swpc(at), kp.toFixed(2), String(Math.round(kp * 7)), '8']);
-  }
-  return rows;
-}
-
-// A day of solar wind, a row a minute: a CME arrives six hours ago and the
-// speed jumps from 380 to 620 km/s; Bz turns south an hour later.
-export function plasmaJson(now: number) {
-  const rows: string[][] = [['time_tag', 'density', 'speed', 'temperature']];
-  const start = floorTo(now, MIN) - 24 * H;
-  for (let at = start; at <= now; at += MIN) {
-    const h = (now - at) / H;
-    const speed = h > 6 ? 380 + 8 * Math.sin(h) : h > 5.5 ? 380 + (6 - h) * 480 : 620 - (5.5 - h) * 4 + 6 * Math.sin(h * 7);
-    const density = h > 6 ? 4.2 + Math.sin(h * 2) : 11 - (6 - h) * 0.8;
-    rows.push([swpc(at), density.toFixed(2), speed.toFixed(1), String(Math.round(60000 + speed * 100))]);
-  }
-  return rows;
-}
-export function magJson(now: number) {
-  const rows: string[][] = [['time_tag', 'bx_gsm', 'by_gsm', 'bz_gsm', 'lon_gsm', 'lat_gsm', 'bt']];
-  const start = floorTo(now, MIN) - 24 * H;
-  for (let at = start; at <= now; at += MIN) {
-    const h = (now - at) / H;
-    const bz = h > 5 ? 1.5 + 2 * Math.sin(h * 3) : -14 + 3 * Math.sin(h * 5);
-    const bt = Math.abs(bz) + 6;
-    rows.push([swpc(at), '2.10', '-3.40', bz.toFixed(2), '211.0', (-Math.asin(bz / bt) * 180 / Math.PI).toFixed(1), bt.toFixed(2)]);
-  }
-  return rows;
-}
-
-// Six hours of X-rays: a C-class background and an M1.2 flare three hours ago.
-export function xraysJson(now: number) {
-  const rows: { time_tag: string; satellite: number; flux: number; observed_flux: number; electron_correction: number; electron_contaminaton: boolean; energy: string }[] = [];
-  const start = floorTo(now, MIN) - 6 * H;
-  for (let at = start; at <= now; at += MIN) {
-    const h = (now - at) / H;
-    const flare = h > 3.3 ? 0 : h > 3.1 ? (3.3 - h) * 5.5e-5 : 1.2e-4 * Math.exp(-(3.1 - h) * 2.2);
-    const long = 4.1e-6 + flare, short = long / 12;
-    const iso = new Date(at).toISOString().replace('.000Z', 'Z');
-    rows.push({ time_tag: iso, satellite: 19, flux: short, observed_flux: short, electron_correction: 0, electron_contaminaton: false, energy: '0.05-0.4nm' });
-    rows.push({ time_tag: iso, satellite: 19, flux: long, observed_flux: long, electron_correction: 0, electron_contaminaton: false, energy: '0.1-0.8nm' });
-  }
-  return rows;
-}
-
-// The day's earthquakes: an M7.1 in the Kermadec Islands three hours ago
-// (tsunami watch), an M4.6 in San Juan, and the usual dozen.
+// The day's earthquakes: an M7.1 in the Kermadec Islands three hours ago (at
+// sea, an orange PAGER alert), an M4.6 in San Juan, and the usual dozen.
 export function quakesJson(now: number) {
   const q = (mag: number, place: string, agoH: number, lon: number, lat: number, depth: number, alert: string | null = null, tsunami = 0) => ({
     type: 'Feature', properties: { mag, place, time: Math.round(now - agoH * H), updated: Math.round(now - agoH * H + 20 * MIN), tz: null, url: `https://earthquake.usgs.gov/earthquakes/eventpage/demo${Math.round(agoH * 100)}`,
@@ -97,54 +30,111 @@ export function quakesJson(now: number) {
   ] };
 }
 
-// A warm, windy afternoon with a storm coming in: Open-Meteo's shape, local times without a zone.
-export function weatherJson(now: number) {
-  const offset = -3 * 3600;
-  const local = (at: number) => new Date(at + offset * 1000).toISOString().slice(0, 16);
-  const hourStart = floorTo(now, H);
-  const hours = Array.from({ length: 36 }, (_, i) => hourStart - 24 * H + i * H);
-  const tempAt = (at: number) => { const h = ((at + offset * 1000) / H) % 24; return 22 + 7 * Math.sin((h - 9) / 24 * Math.PI * 2); };
-  const probAt = (at: number) => { const ahead = (at - now) / H; return ahead < 0 ? 5 : ahead < 1 ? 40 : ahead < 4 ? 85 : 60; };
-  const mmAt = (at: number) => { const ahead = (at - now) / H; return ahead < 1 ? 0 : ahead < 4 ? 3.1 : ahead < 6 ? 1.2 : 0; };
-  const uvAt = (at: number) => { const h = ((at + offset * 1000) / H) % 24; return Math.max(0, 9 * Math.sin((h - 6) / 13 * Math.PI)); };
-  return {
-    latitude: -34.625, longitude: -58.375, generationtime_ms: 0.4, utc_offset_seconds: offset, timezone: 'America/Argentina/Buenos_Aires', timezone_abbreviation: 'GMT-3', elevation: 25,
-    current_units: { time: 'iso8601', interval: 'seconds', temperature_2m: '°C', relative_humidity_2m: '%', apparent_temperature: '°C', precipitation: 'mm', weather_code: 'wmo code', wind_speed_10m: 'km/h', wind_direction_10m: '°', wind_gusts_10m: 'km/h', uv_index: '' },
-    current: { time: local(floorTo(now, 15 * MIN)), interval: 900, temperature_2m: Math.round(tempAt(now) * 10) / 10, relative_humidity_2m: 71, apparent_temperature: Math.round((tempAt(now) + 2.4) * 10) / 10, precipitation: 0, weather_code: 3,
-      // The UV now is fixed (not the hour's), so the recorded day calls the same at any time of day.
-      wind_speed_10m: 38.2, wind_direction_10m: 152, wind_gusts_10m: 64.1, uv_index: 2.7 },
-    hourly_units: { time: 'iso8601', temperature_2m: '°C', precipitation_probability: '%', precipitation: 'mm', uv_index: '' },
-    hourly: { time: hours.map(local), temperature_2m: hours.map((at) => Math.round(tempAt(at) * 10) / 10), precipitation_probability: hours.map(probAt), precipitation: hours.map(mmAt), uv_index: hours.map((at) => Math.round(uvAt(at) * 100) / 100) },
-    daily_units: { time: 'iso8601', uv_index_max: '', temperature_2m_min: '°C', temperature_2m_max: '°C' },
-    daily: { time: [local(now).slice(0, 10)], uv_index_max: [8.9], temperature_2m_min: [15.2], temperature_2m_max: [29.1] },
-  };
-}
-export function airJson(now: number) {
-  return { latitude: -34.6, longitude: -58.4, generationtime_ms: 0.2, utc_offset_seconds: -10800, timezone: 'America/Argentina/Buenos_Aires', timezone_abbreviation: 'GMT-3', elevation: 25,
-    current_units: { time: 'iso8601', interval: 'seconds', european_aqi: 'EAQI', us_aqi: 'USAQI', pm2_5: 'μg/m³', pm10: 'μg/m³', ozone: 'μg/m³' },
-    current: { time: new Date(floorTo(now, H) - 10800 * 1000).toISOString().slice(0, 16), interval: 3600, european_aqi: 28, us_aqi: 41, pm2_5: 9.8, pm10: 18.4, ozone: 61 } };
+// GDACS's event list, one hazard at a time: its dates in UTC without a zone.
+const gdacsTime = (at: number) => new Date(at).toISOString().slice(0, 19);
+const SCORE: Record<string, number> = { Green: 1, Orange: 2, Red: 3 };
+type Ev = { kind: string; id: number; name: string; short?: string; country: string; alert: string; lat: number; lon: number; fromH: number; toH: number; severity?: number; text?: string; unit?: string; current?: boolean };
+function gdacsJson(now: number, events: Ev[]) {
+  return { type: 'FeatureCollection', features: events.map((e) => ({
+    type: 'Feature', bbox: [e.lon, e.lat, e.lon, e.lat], geometry: { type: 'Point', coordinates: [e.lon, e.lat] },
+    properties: { eventtype: e.kind, eventid: e.id, episodeid: 1, eventname: e.short ?? '', glide: '', name: e.name, description: e.name, htmldescription: `${e.alert} ${e.name}`,
+      icon: `https://www.gdacs.org/images/gdacs_icons/maps/${e.alert}/${e.kind}.png`, iconoverall: `https://www.gdacs.org/images/gdacs_icons/maps/${e.alert}/${e.kind}.png`,
+      url: { geometry: '', report: `https://www.gdacs.org/report.aspx?eventid=${e.id}&episodeid=1&eventtype=${e.kind}`, details: '' },
+      alertlevel: e.alert, alertscore: SCORE[e.alert], episodealertlevel: e.alert, episodealertscore: SCORE[e.alert], istemporary: 'false', iscurrent: String(e.current ?? true),
+      country: e.country, fromdate: gdacsTime(now - e.fromH * H), todate: gdacsTime(now - e.toH * H), datemodified: gdacsTime(now - e.toH * H + 30 * MIN), iso3: '', source: 'GDACS', sourceid: '',
+      polygonlabel: 'Centroid', Class: 'Point_Centroid', affectedcountries: [], severitydata: { severity: e.severity ?? 0, severitytext: e.text ?? 'Magnitude 0 ', severityunit: e.unit ?? '' } },
+  })) };
 }
 
-// Status pages: GitHub with Actions down and an open incident; the rest fine.
-export function statusJson(slug: string, now: number) {
-  const iso = (agoMin: number) => new Date(now - agoMin * MIN).toISOString();
-  const comp = (name: string, status: string, position: number, agoMin = 60 * 24 * 6) => ({ id: `${slug}-${position}`, name, status, created_at: iso(60 * 24 * 400), updated_at: iso(agoMin), position, description: null, showcase: true, start_date: null, group_id: null, page_id: slug, group: false, only_show_if_degraded: false });
-  const page = { id: slug, name: slug, url: `https://status.example/${slug}`, time_zone: 'Etc/UTC', updated_at: iso(2) };
-  if (slug === 'github') {
-    return { page: { ...page, name: 'GitHub', url: 'https://www.githubstatus.com' }, status: { indicator: 'major', description: 'Partial System Outage' },
-      components: [comp('Git Operations', 'operational', 1), comp('API Requests', 'operational', 2), comp('Webhooks', 'degraded_performance', 3, 38), comp('Issues', 'operational', 4), comp('Pull Requests', 'operational', 5),
-        comp('Actions', 'partial_outage', 6, 41), comp('Packages', 'operational', 7), comp('Pages', 'operational', 8), comp('Codespaces', 'operational', 9), comp('Copilot', 'operational', 10)],
-      incidents: [{ id: 'inc-demo', name: 'Incident with Actions and Webhooks', status: 'identified', created_at: iso(44), updated_at: iso(12), monitoring_at: null, resolved_at: null, impact: 'major', shortlink: 'https://www.githubstatus.com/incidents/demo', started_at: iso(44), page_id: 'github',
-        incident_updates: [{ id: 'u2', status: 'identified', body: 'We have identified the cause of delayed Actions workflow runs and webhook deliveries and are applying a fix. Queued jobs will run once it lands.', created_at: iso(12), updated_at: iso(12), display_at: iso(12), incident_id: 'inc-demo' },
-          { id: 'u1', status: 'investigating', body: 'We are investigating reports of delayed Actions workflow runs.', created_at: iso(44), updated_at: iso(44), display_at: iso(44), incident_id: 'inc-demo' }], components: [] }],
-      scheduled_maintenances: [] };
-  }
-  const names: Record<string, string[]> = {
-    cloudflare: ['Cloudflare Sites and Services', 'Cloudflare Dashboard', 'Cloudflare API', 'Workers', 'R2', 'Zero Trust'],
-    openai: ['API', 'ChatGPT', 'Sora', 'Playground'],
-    npm: ['Package Publishing', 'Package Installation', 'Website', 'Login'],
-    vercel: ['Deployments', 'Edge Network', 'Serverless Functions', 'Dashboard', 'Domains'],
+// A red typhoon east of Luzon, a tropical storm in the Atlantic, and one from last month, over.
+export const cyclonesJson = (now: number) => gdacsJson(now, [
+  { kind: 'TC', id: 900101, name: 'Tropical Cyclone HALIA-26', short: 'HALIA-26', country: 'Philippines', alert: 'Red', lat: 15.2, lon: 127.8, fromH: 96, toH: 3, severity: 204.4, text: 'Hurricane/Typhoon > 74 mph (maximum wind speed of 204 km/h)', unit: 'km/h' },
+  { kind: 'TC', id: 900102, name: 'Tropical Cyclone BRISA-26', short: 'BRISA-26', country: '', alert: 'Green', lat: 22.4, lon: -59.6, fromH: 30, toH: 3, severity: 83.3, text: 'Tropical Storm (maximum wind speed of 83 km/h)', unit: 'km/h' },
+  { kind: 'TC', id: 900090, name: 'Tropical Cyclone OLMO-26', short: 'OLMO-26', country: 'Mexico', alert: 'Orange', lat: 18.9, lon: -104.6, fromH: 30 * 24, toH: 25 * 24, severity: 165, unit: 'km/h', current: false },
+]);
+// An orange flood in Bangladesh for nine days, a green one in Entre Ríos close to Buenos Aires, and others green.
+export const floodsJson = (now: number) => gdacsJson(now, [
+  { kind: 'FL', id: 900201, name: 'Flood in Bangladesh', country: 'Bangladesh', alert: 'Orange', lat: 23.7, lon: 90.4, fromH: 9 * 24, toH: 5 },
+  { kind: 'FL', id: 900202, name: 'Flood in Argentina', country: 'Argentina', alert: 'Green', lat: -33.01, lon: -58.52, fromH: 3 * 24, toH: 5 },
+  { kind: 'FL', id: 900203, name: 'Flood in Italy', country: 'Italy', alert: 'Green', lat: 44.5, lon: 11.3, fromH: 4 * 24, toH: 5 },
+  { kind: 'FL', id: 900204, name: 'Flood in Nigeria', country: 'Nigeria', alert: 'Green', lat: 7.8, lon: 6.7, fromH: 20 * 24, toH: 5 },
+  { kind: 'FL', id: 900205, name: 'Flood in Viet Nam', country: 'Viet Nam', alert: 'Green', lat: 16.0, lon: 108.2, fromH: 6 * 24, toH: 5 },
+]);
+// An orange wildfire in Western Australia, and the season's green ones.
+export const firesJson = (now: number) => gdacsJson(now, [
+  { kind: 'WF', id: 900301, name: 'Forest fires in Australia', country: 'Australia', alert: 'Orange', lat: -31.5, lon: 116.0, fromH: 6 * 24, toH: 8, severity: 48200, text: 'Orange impact for forestfire in 48200 ha', unit: 'ha' },
+  { kind: 'WF', id: 900302, name: 'Forest fires in Botswana', country: 'Botswana', alert: 'Green', lat: -19.5, lon: 23.5, fromH: 9 * 24, toH: 8, severity: 25900, text: 'Green impact for forestfire in 25900 ha', unit: 'ha' },
+  { kind: 'WF', id: 900303, name: 'Forest fires in Brazil', country: 'Brazil', alert: 'Green', lat: -17.5, lon: -57.0, fromH: 12 * 24, toH: 8, severity: 12400, text: 'Green impact for forestfire in 12400 ha', unit: 'ha' },
+  { kind: 'WF', id: 900304, name: 'Forest fires in Bolivia', country: 'Bolivia', alert: 'Green', lat: -16.0, lon: -62.0, fromH: 7 * 24, toH: 8, severity: 8100, text: 'Green impact for forestfire in 8100 ha', unit: 'ha' },
+  { kind: 'WF', id: 900305, name: 'Forest fires in South Sudan', country: 'South Sudan', alert: 'Green', lat: 9.27, lon: 25.79, fromH: 2 * 24, toH: 8, severity: 5082, text: 'Green impact for forestfire in 5082 ha', unit: 'ha' },
+  { kind: 'WF', id: 900306, name: 'Forest fires in Argentina', country: 'Argentina', alert: 'Green', lat: -31.3, lon: -64.5, fromH: 3 * 24, toH: 8, severity: 3200, text: 'Green impact for forestfire in 3200 ha', unit: 'ha' },
+]);
+// Kanlaon erupted five days ago; Semeru two months ago, too long to count.
+export const eruptionsJson = (now: number) => gdacsJson(now, [
+  { kind: 'VO', id: 900401, name: 'Eruption  Kanlaon', short: 'Kanlaon', country: 'Philippines', alert: 'Orange', lat: 10.412, lon: 123.132, fromH: 5 * 24, toH: 5 * 24, text: '', current: false },
+  { kind: 'VO', id: 900390, name: 'Eruption  Semeru', short: 'Semeru', country: 'Indonesia', alert: 'Orange', lat: -8.108, lon: 112.922, fromH: 60 * 24, toH: 60 * 24, text: '', current: false },
+]);
+
+// HALIA's path from EONET: a point every six hours for four days, west-northwest
+// across the Philippine Sea, strengthening from 45 to 110 knots.
+export function tracksJson(now: number) {
+  const start = Math.floor((now - 96 * H) / (6 * H)) * 6 * H;
+  const halia = Array.from({ length: 16 }, (_, i) => ({ magnitudeValue: Math.round(45 + (65 * i) / 15), magnitudeUnit: 'kts', date: new Date(start + i * 6 * H).toISOString().replace('.000', ''), type: 'Point',
+    coordinates: [Math.round((140.5 - (12.7 * i) / 15) * 10) / 10, Math.round((11.0 + (4.2 * i) / 15 + Math.sin(i / 3) * 0.3) * 10) / 10] }));
+  const brisa = Array.from({ length: 5 }, (_, i) => ({ magnitudeValue: 35 + i * 2, magnitudeUnit: 'kts', date: new Date(now - (30 - i * 6) * H).toISOString().replace(/\.\d+Z$/, 'Z'), type: 'Point',
+    coordinates: [-54.2 - i * 1.35, 19.8 + i * 0.65] }));
+  const storm = (id: string, title: string, geometry: unknown[]) => ({ id, title, description: null, link: `https://eonet.gsfc.nasa.gov/api/v3/events/${id}`, closed: null,
+    categories: [{ id: 'severeStorms', title: 'Severe Storms' }], sources: [{ id: 'JTWC', url: '' }], geometry });
+  return { title: 'EONET Events', description: 'Natural events from EONET.', link: 'https://eonet.gsfc.nasa.gov/api/v3/events',
+    events: [storm('EONET_DEMO1', 'Super Typhoon Halia', halia), storm('EONET_DEMO2', 'Tropical Storm Brisa', brisa)] };
+}
+
+// The US volcanoes above normal: Kilauea erupting (orange, watch), Great Sitkin and Ahyi restless (yellow, advisory).
+export function elevatedJson(now: number) {
+  const v = (obs: string, abbr: string, name: string, vnum: string, color: string, level: string, agoH: number) => {
+    const at = now - agoH * H, id = `DOI-USGS-${abbr.toUpperCase()}-${new Date(at).toISOString().slice(0, 19)}+00:00`;
+    return { obs_fullname: obs, obs_abbr: abbr, volcano_name: name, vnum, notice_type_cd: 'DU', notice_identifier: id, sent_utc: new Date(at).toISOString().slice(0, 19).replace('T', ' '),
+      sent_unixtime: Math.round(at / 1000), color_code: color, alert_level: level, notice_url: `https://volcanoes.usgs.gov/hans-public/notice/${id}`,
+      notice_data: `https://volcanoes.usgs.gov/hans-public/api/notice/getNotice/${id}` };
   };
-  const list = names[slug] ?? ['API', 'Website', 'Dashboard'];
-  return { page: { ...page, name: slug }, status: { indicator: 'none', description: 'All Systems Operational' }, components: list.map((name, i) => comp(name, 'operational', i + 1)), incidents: [], scheduled_maintenances: [] };
+  return [
+    v('Hawaiian Volcano Observatory', 'hvo', 'Kilauea', '332010', 'ORANGE', 'WATCH', 6),
+    v('Alaska Volcano Observatory', 'avo', 'Great Sitkin', '311120', 'YELLOW', 'ADVISORY', 20),
+    v('Northern Mariana Islands', 'nmi', 'Ahyi Seamount', '284141', 'YELLOW', 'ADVISORY', 5 * 24),
+  ];
+}
+// Where the US volcanoes are (a few of the list's hundred and seventy), with
+// their height, their threat by the national warning system, picture and page.
+export function usVolcanoesJson() {
+  const v = (abbr: string, vnum: string, name: string, region: string, latitude: number, longitude: number, elevation: number, threat: string, page: string, image: string) =>
+    ({ obs_abbr: abbr, obs_fullname: '', obs_email: '', volcano_cd: '', vnum, volcano_name: name, region, latitude, longitude, elevation_meters: elevation, boilerplate: '',
+      volcano_url: page, volcano_image_url: image, nvews_threat: threat, icao_coordinates: '' });
+  return [
+    v('hvo', '332010', 'Kilauea', 'Hawaii', 19.421, -155.287, 1247, 'Very High Threat', 'https://www.usgs.gov/volcanoes/kilauea', 'https://volcanoes.usgs.gov/vsc/images/kilauea/kilauea.jpg'),
+    v('hvo', '332020', 'Mauna Loa', 'Hawaii', 19.475, -155.608, 4170, 'Very High Threat', 'https://www.usgs.gov/volcanoes/mauna-loa', 'https://volcanoes.usgs.gov/vsc/images/mauna_loa/mauna_loa.jpg'),
+    v('avo', '311120', 'Great Sitkin', 'Alaska - Aleutians', 52.0765, -176.1109, 1740, 'High Threat', 'https://www.avo.alaska.edu/activity/GreatSitkin.php', 'https://avo.alaska.edu/images/dbimages/display/1102983616_16_3.jpg'),
+    v('avo', '313040', 'Spurr', 'Alaska - Cook Inlet', 61.299, -152.251, 3374, 'High Threat', 'https://www.avo.alaska.edu/activity/Spurr.php', ''),
+    v('nmi', '284141', 'Ahyi Seamount', 'Mariana Islands', 20.42, 145.03, -55, 'Very Low Threat', 'https://www.usgs.gov/volcanoes/ahyi-seamount', 'https://volcanoes.usgs.gov/vsc/images/ahyi/ahyi-home.jpg'),
+    v('cvo', '321050', 'St. Helens', 'Washington', 46.2, -122.18, 2549, 'Very High Threat', 'https://www.usgs.gov/volcanoes/mount-st.-helens', ''),
+  ];
+}
+// The latest notice of each volcano above normal, as the observatories wrote
+// them (USGS, public domain), sent when the list of elevated volcanoes says.
+export function noticeJson(vnum: string, now: number) {
+  const n = (type: string, agoH: number, synopsis: string, summary: string, image: string) => {
+    const at = now - agoH * H;
+    return { notice_type: type, sent_unixtime: Math.round(at / 1000), notice_url: 'https://volcanoes.usgs.gov/hans-public/', notice_sections: [{ vnum, synopsis, summary, vImage: image }] };
+  };
+  switch (vnum) {
+    case '332010': return n('Daily Update', 6, 'HVO Kilauea ORANGE/WATCH - Intermittent lava flows have continued from the north vent over the past day. High fountaining remains a possibility today or anytime within the next few days.',
+      '<p><strong>Overview:</strong></p><p>Lava flows have occurred intermittently over the past day from the north vent. Summit inflation that continued through most of yesterday shifted to deflation around 3 a.m. this morning. Seismic tremor at the summit is elevated, and SO<sub>2</sub> emission rates are elevated.</p>',
+      'https://volcanoes.usgs.gov/vsc/images/kilauea/kilauea.jpg');
+    case '311120': return n('Daily Update', 20, 'AVO Great Sitkin YELLOW/ADVISORY - Lava likely continues to erupt slowly within the summit crater.',
+      '<p>Lava likely continues to erupt slowly within the summit crater of Great Sitkin Volcano. A few small earthquakes were detected at the volcano over the last day. The current eruption began in July 2021; since then, lava flows have filled most of the summit crater.</p>',
+      'https://avo.alaska.edu/images/dbimages/display/1102983616_16_3.jpg');
+    case '284141': return n('Weekly Update', 5 * 24, 'NMI Ahyi Seamount YELLOW/ADVISORY - No signs of unrest in satellite data; no significant geophysical signals.',
+      '<p>Small plumes of discolored water were seen in the ocean above Ahyi this past week, drifting several hundred meters from the summit. They are likely associated with degassing and hydrothermal activity at the summit of the underwater volcano.</p>',
+      'https://volcanoes.usgs.gov/vsc/images/ahyi/ahyi-home.jpg');
+    default: return null;
+  }
 }

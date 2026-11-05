@@ -19,8 +19,16 @@ itself), squawk. The flight's map is at the scale of its last three minutes:
 an airliner at cruise sees about a hundred kilometres, one taxiing the apron.
 Tap the map and it opens big and live, following the aircraft: the wheel, a
 pinch, or + and − zoom it, and a button opens it on the network's own map. On
-the groups axis, the region's aircraft are the board, one object each, by
-category.
+the groups axis the board is the region's aircraft by what they are doing
+(arriving, departing, holding, en route, on the ground): past twelve
+aircraft, one object per phase with the sky's channels read within it (only
+what that phase holds: a phase with no fast descent has no such channel),
+each aircraft one tap further (one object each once the gear keeps twelve or
+fewer).
+
+On the region's radar and on each aircraft's map an aircraft in the air is a
+mark turned to its track, with six minutes of way ahead of it on the radar;
+the radar's rings say how far they are.
 
 The globe is the core's `globe`: the disc as the Earth, turned to a center,
 with the coasts and a dot per thing at its latitude and longitude. The radar
@@ -48,7 +56,7 @@ descent, a lost signal, a Cessna low and slow.
 | `?at=-34.6,-58.4&place=Buenos Aires&nm=250` | The region: its center and its radius (250 nm at most, the networks' limit). "Use my location" in the status line asks the browser |
 | `?network=adsb.lol` | Which network answers: `adsb.lol` (default), `adsb.fi`, `airplanes.live` (see below), or the URL of any API with the same v2 shape that lets the page read it |
 | `?opensky=/net/opensky` | Where OpenSky is: by default the dev server's way to it; a URL of your own proxy otherwise |
-| `?axis=groups` | Open on the aircraft, one object each |
+| `?axis=groups` | Open on the aircraft by phase of flight (one object each once the gear keeps twelve or fewer) |
 | `?systems=emergencies,anomalies&mode=orbit` | What the page shows; the gear chooses within it |
 | `?demo` | The recorded sky instead of the networks |
 

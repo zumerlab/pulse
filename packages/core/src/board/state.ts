@@ -6,7 +6,7 @@ import type { ViewContext } from 'zumly';
 import type { Action, Alert, Reading } from '../model.ts';
 import { esc } from '../radial/index.ts';
 import type { Board, Item, Ui } from './context.ts';
-import { activeGroups, hiddenChannels } from './settings.ts';
+import { activeGroups, hiddenChannels, isCrowd } from './settings.ts';
 
 // How long an action waits for the host to report a change before it stops beating.
 export const PENDING_MS = 8000;
@@ -104,6 +104,8 @@ export function order(b: Board, id: string): string[] {
     || map.get(y)!.r.alert!.level - map.get(x)!.r.alert!.level
     || u.since.get(x)! - u.since.get(y)!);
   const rest = keys.filter((k) => !alerts.includes(k));
+  // A group of members (a line, a phase of flight) is told, while calm, by the reading that speaks for most of them.
+  if (isCrowd(id)) rest.sort((x, y) => map.get(y)!.r.ids.length - map.get(x)!.r.ids.length);
   const all = [...alerts.filter((k) => !u.seen.has(k)), ...rest, ...alerts.filter((k) => u.seen.has(k))];
   if (u.pick && all.includes(u.pick)) all.sort((x, y) => Number(y === u.pick) - Number(x === u.pick));
   return all;
@@ -121,7 +123,8 @@ export const watched = (b: Board) => new Set(b.ids.flatMap((id) => [...b.reading
 // opened) and zooms into it from where it was tapped. False when the host has
 // no object for it.
 export function openObject(b: Board, to: string, from: HTMLElement) {
-  const sys = b.host.objectOf?.(to);
+  // The host's object of the thing; on the groups axis a member it already named (a tram of a line) is one too.
+  const sys = b.host.objectOf?.(to) ?? (b.axis === 'groups' && b.sys[to] && !b.ids.includes(to) && !b.all.includes(to) ? b.sys[to] : null);
   if (!sys) return false;
   b.sys[sys.id] = sys;
   b.views[`sys-${sys.id}`] ??= b.systemView(sys.id);

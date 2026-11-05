@@ -6,7 +6,8 @@ export const t = {
   // The board's words, where the sky has its own.
   connecting: 'Listening to the sky…',
   things: 'Behind this reading',
-  noGroup: 'No category',
+  noGroup: 'Elsewhere',
+  phases: { holding: 'Holding', arriving: 'Arriving', departing: 'Departing', enroute: 'En route', ground: 'On the ground' } as Record<string, string>,
   hostError: (message: string) => `The networks: ${message}`,
   status: { 'signed-out': 'not connected', connecting: 'reading', live: 'live', offline: 'offline, retrying', error: 'error' } as Record<string, string>,
   leaveDemo: 'Leave the demo',

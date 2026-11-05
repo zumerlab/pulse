@@ -39,7 +39,7 @@ export function mountBoard(canvas: HTMLElement, options: BoardOptions): BoardHan
     ids: [], chosen: [], objects: [], mode: 'grid', axis: 'systems',
     ui: {}, readings: {}, channels: {},
     pending: new Map(), failed: new Map(), hold: new Map(), log: [], toast: '', loaded: false, rerender: new Set(),
-    boardPick: null, listFocus: null, hubAt: 0, tab: loadTab(store), scrolls: new Map(), scrollOpened: new Set(),
+    boardPick: null, listFocus: null, orbitPage: 0, hubAt: 0, tab: loadTab(store), scrolls: new Map(), scrollOpened: new Set(),
     months: new Map(), monthLoading: new Set(), pastChanges: null, pastLoading: false, histories: new Map(), dayChanges: new Map(),
     repaint: () => repaint(b),
     systemView: (id) => (ctx: ViewContext) => systemView(b, ctx, id),

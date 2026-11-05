@@ -56,13 +56,14 @@ test('an aircraft tapped in a list zooms into its own object: on the street map,
   await page.goto(`${FLIGHTS}?demo`);
   await page.locator('.tile[data-system="region"]').click();
   await current(page).locator('.layer-front .disc').click();
-  const row = current(page).locator('.scroll-item').nth(2), flight = (await row.innerText()).split(' · ')[0];
+  const row = current(page).locator('.scroll-item').nth(2), flight = await row.locator('.sl-text').innerText();
   await row.click();
   await expect(current(page)).toHaveAttribute('data-title', new RegExp(`^${flight} · `));
   const front = current(page).locator('.layer-front');
   await expect(front.locator('.face-name')).toHaveText('Flight');
   await expect(front.locator('.face-map .map-tile').first()).toHaveAttribute('href', /tile\.openstreetmap\.org/);
-  await expect(front.locator(`.face-map [data-plot^="ac:"]`)).toHaveAttribute('cx', '0.0');
+  // In the air it is a mark turned to its track, at the center of its map.
+  await expect(front.locator(`.face-map g.radar-mark[data-plot^="ac:"]`)).toHaveAttribute('style', /translate\(0\.0px, 0\.0px\) rotate\(\d+deg\)/);
   // Its detail is the map big and live, zoomed with the buttons, and the way out to the network's own map.
   await front.locator('.disc').click();
   const map = current(page).locator('.map-big');
@@ -113,5 +114,24 @@ test('the sky is a globe of five-degree cells, and on the groups axis an aircraf
   await expect(current(page).locator('.layer-front .face-label')).toContainText('B738 LV-FUC · descending 1,500 ft/min');
   // The flight on the street map at the scale of its last three minutes (240 kn: zoom 9), itself at the center.
   await expect(current(page).locator('.layer-front .face-map')).toHaveAttribute('data-zoom', '9');
-  await expect(current(page).locator('.layer-front .face-map [data-plot="ac:e0a1b2"]')).toHaveAttribute('cx', '0.0');
+  await expect(current(page).locator('.layer-front .face-map g.radar-mark[data-plot="ac:e0a1b2"]')).toHaveAttribute('style', /translate\(0\.0px, 0\.0px\) rotate\(215deg\)/);
+});
+
+test('past twelve aircraft the groups axis climbs to the phases of flight: each phase an object with only what it holds, each aircraft one tap further', async ({ page }) => {
+  await page.addInitScript(() => { localStorage.setItem('pulse-flights-settings', '{"calm":"open","axis":"groups","mode":"grid"}'); });
+  await page.goto(`${FLIGHTS}?demo`);
+  // Forty aircraft would be forty objects: the board names what they are doing instead.
+  await expect(page.locator('.tile[data-system]')).toHaveCount(5);
+  await expect(page.locator('.tile[data-system] .tile-title')).toHaveText(['Arriving', 'En route', 'Holding', 'Departing', 'On the ground']);
+  await expect(page.locator('.tile[data-system="crowd:Arriving"] .tile-big')).toHaveText('−5,200 ft/min');
+  await expect(page.locator('.tile[data-system="crowd:On the ground"] .tile-big')).toHaveText('2');
+  // A phase reads only what it holds: no squawks, no empty anomalies.
+  await page.locator('.tile[data-system="crowd:Arriving"]').click();
+  await expect(current(page)).toHaveAttribute('data-title', 'Arriving');
+  await expect(current(page).locator('.layer-index .layer-item')).toHaveText([/Fast descents/, /Traffic/, /Arriving/]);
+  // Each aircraft one tap further, from its row.
+  await current(page).locator('[data-pick="region/traffic"]').first().dispatchEvent('click');
+  await current(page).locator('.layer-front .disc').click();
+  await current(page).locator('.scroll-item').first().click();
+  await expect(current(page).locator('.layer-front .face-name')).toHaveText('Flight');
 });

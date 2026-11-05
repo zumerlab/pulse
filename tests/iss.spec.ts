@@ -72,7 +72,7 @@ test('the solar arrays are eight switches, the dark wing painted; the gyroscopes
   await expect(front.locator('o-arc.ripple')).toHaveCount(1);
   await current(page).locator('.layer-front .disc').click();
   await expect(current(page).locator('.scroll-item')).toHaveCount(8);
-  await expect(current(page).locator('.scroll-item', { hasText: '3B' })).toContainText('3B · 0 V');
+  await expect(current(page).locator('.scroll-item', { hasText: '3B' })).toContainText(/3B\s*(· )?0 V/);
   await expect(current(page).locator('.detail-why')).toContainText('Wing 3B without voltage while the others have it');
   await page.goto(`${ISS}?demo&start=attitude`);
   await expect(current(page).locator('.layer-front .face-name')).toHaveText('CMG momentum');

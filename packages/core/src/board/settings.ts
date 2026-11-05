@@ -4,6 +4,7 @@
 
 import { PHONE, STACK_MAX } from '../radial/index.ts';
 import { DEFAULT_THEME, THEME_NAMES, applyColors, applyTheme } from '../themes.ts';
+import type { System } from '../model.ts';
 import type { Board } from './context.ts';
 import { AXES, BOARD_MODES, LOOK_DEFAULT, type BoardSettings, type LookFull } from './types.ts';
 
@@ -29,6 +30,38 @@ function groupSystems(b: Board) {
   return list.map((g) => g.id);
 }
 
+// Past this many objects a view cannot name each one: the ring of the orbit
+// and of the list run out of room, the grid out of rows. On the groups axis
+// the board then climbs a level: one object per group of the gear (a line of
+// trams, a kind of aircraft, a job of hosts), each with the channels of the
+// systems chosen read within that group, as a home's rooms are; each member
+// is one zoom further, from a segment, a row or a dot that names it.
+export const CROWD = 12;
+const CROWD_ID = 'crowd:';
+export const isCrowd = (id: string) => id.startsWith(CROWD_ID);
+function crowdSystems(b: Board, members: string[]): string[] | null {
+  const groups = hostGroups(b);
+  if (members.length <= CROWD || groups.length < 2) return null;
+  const left = new Set(members.map(groupOf)), list: { title: string; items: string[] }[] = [];
+  for (const g of groups) {
+    const items = g.items.map((i) => i.id).filter((i) => left.has(i));
+    items.forEach((i) => left.delete(i));
+    if (items.length) list.push({ title: g.title, items });
+  }
+  if (left.size) list.push({ title: b.t.noGroup, items: [...left] });
+  if (list.length < 2) return null;
+  return list.map(({ title, items }) => {
+    const sys: System = { id: `${CROWD_ID}${title}`, title, channels: b.chosen.flatMap((sid) => {
+      const hidden = hiddenChannels(b, sid);
+      return b.sys[sid].channels.filter((ch) => !hidden.includes(ch.key)).map((ch) => ({
+        key: `${sid}/${ch.key}`, name: ch.name, glyph: ch.glyph, read: (ctx) => ch.read({ ...ctx, groups: items }) }));
+    }) };
+    b.sys[sys.id] = sys;
+    if (!b.views[`sys-${sys.id}`]) b.views[`sys-${sys.id}`] = b.systemView(sys.id);
+    return sys.id;
+  });
+}
+
 export function applySettings(b: Board) {
   const { frame, local, host } = b;
   const chosen = valid(b, local.systems).filter((id) => frame.systems.includes(id));
@@ -37,7 +70,8 @@ export function applySettings(b: Board) {
   if (b.axis === 'groups') {
     // The groups within the ones in force; the object of what is in no group only when none is chosen.
     const within = activeGroups(b);
-    b.ids = groupSystems(b).filter((id) => !within || within.includes(groupOf(id)));
+    const members = groupSystems(b).filter((id) => !within || within.includes(groupOf(id)));
+    b.ids = crowdSystems(b, members) ?? members;
   } else b.ids = b.chosen;
   b.mode = local.mode && BOARD_MODES.includes(local.mode) ? local.mode : frame.mode ?? 'grid';
   const theme = local.look?.theme ?? frame.look?.theme;

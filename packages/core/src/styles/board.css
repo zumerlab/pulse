@@ -78,17 +78,35 @@
 .detail-image.is-square img { width: 100%; aspect-ratio: auto; border-radius: 10px; }
 .detail-image figcaption { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
 /* The map big in a detail, live, as tall as the screen allows: it keeps the
-   pinch and the wheel (one finger still scrolls the detail), a plus and a
-   minus on its right edge as on any map; the way out below. */
+   pinch, the wheel and the drag (a finger on it moves the map; the detail
+   scrolls from around it), a plus and a minus on its right edge as on any
+   map, and the way back to the center once moved; the way out below. */
 .detail-map { position: relative; justify-self: center; width: min(100%, 352px, 52svh); margin: 0; }
-.map-frame { width: 100%; aspect-ratio: 1; border-radius: 50%; overflow: hidden; border: 1px solid var(--line); touch-action: pan-y; }
+.map-frame { width: 100%; aspect-ratio: 1; border-radius: 50%; overflow: hidden; border: 1px solid var(--line); touch-action: none; cursor: grab; }
+.map-frame:active { cursor: grabbing; }
 .map-frame:focus-visible { outline: 2px solid var(--ink); outline-offset: 4px; }
 .map-big { display: block; width: 100%; height: 100%; }
 .map-big .map-credit { font-size: 10px; }
 .detail-map figcaption { position: absolute; right: 14px; top: 50%; translate: 0 -50%; display: flex; flex-direction: column; gap: 8px; }
 .map-zoom { width: 40px; height: 40px; border-radius: 50%; border: 1px solid rgba(255,255,255,.35); background: rgba(0,0,0,.55); color: #fff; font-size: 20px; line-height: 1; cursor: pointer; }
 .map-zoom:hover { background: rgba(0,0,0,.7); }
+.map-home { display: grid; place-items: center; }
+.map-home[hidden] { display: none; }
 .detail-link { margin: 0; text-align: center; }
+/* The globe or the radar of the face, big, in a detail. */
+.detail-globe { position: relative; justify-self: center; width: min(100%, 320px, 52svh); aspect-ratio: 1; margin: 0; }
+.detail-globe svg { position: static; display: block; width: 100%; height: 100%; z-index: auto; }
+/* Where the things are and which they are, side by side where the screen is
+   wide, one over the other where it is not. A row pointed at lights its dot. */
+.detail:has(.detail-pair) { max-width: 760px; }
+.detail-pair { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 16px 28px; }
+.detail-pair > * { flex: 0 1 auto; margin: 0; }
+.detail-pair .scroll-list.is-rows { width: min(100%, 320px, 52svh); }
+.detail-pair svg:has(.is-lit) .radar-dot:not(.is-lit) { opacity: .4; }
+.radar-dot.is-lit { stroke: var(--ink); stroke-width: 2; transform: scale(1.7); transform-box: fill-box; transform-origin: center; }
+/* A dot that moves (a ship, a drone, a plane) glides to its new place; on a map moved by hand the dots are drawn again. */
+.radar-dot { transition: opacity .2s, transform .2s, cx 1.2s linear, cy 1.2s linear; }
+@media (prefers-reduced-motion: reduce) { .radar-dot { transition: opacity .2s; } }
 .history { display: grid; gap: 6px; justify-items: center; min-height: 200px; padding: 6px 0; container-type: inline-size; }
 .history .hint { font-size: 13px; }
 .ranges { display: grid; gap: 10px; }

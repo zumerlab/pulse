@@ -4,17 +4,16 @@ import '@zumer/orbit';
 import '@zumer/pulse/style.css';
 import './style.css';
 import { BOARD_MODES, esc, mountBoard, type BoardMode } from '@zumer/pulse';
-import { DEFAULT_SERVICES, serviceOf } from './feeds.ts';
 import { DemoSource } from './demo/source.ts';
 import { hostOf } from './host.ts';
 import { DEFAULT_WHERE, LiveSource, type WorldSource } from './source.ts';
 import { t } from './strings.ts';
 
-// The world app: the sun, the earth, the sky over a place and a few services,
-// read straight from public feeds. No server, no sign-in: the page is live
-// wherever it is served. `?at=lat,lon&place=Name` says where the sky is read
-// (`?here` asks the browser), `?services=github,cloudflare,status.example.com`
-// which status pages to follow; `?demo` opens a recorded stormy day.
+// The world app: the calamities of the world (earthquakes, cyclones, floods,
+// wildfires, volcanoes), read straight from public feeds. No server, no
+// sign-in: the page is live wherever it is served. `?at=lat,lon&place=Name`
+// says where "near you" is (the status line's button asks the browser);
+// `?demo` opens a recorded day.
 
 const shell = document.querySelector<HTMLElement>('.shell')!;
 const canvas = document.querySelector<HTMLElement>('#canvas')!;
@@ -28,9 +27,8 @@ const whereOf = () => {
   const known = Number.isFinite(lat) && Number.isFinite(lon) && (query.has('at') || query.has('lat'));
   return known ? { lat, lon, place: query.get('place') ?? `${lat.toFixed(2)}, ${lon.toFixed(2)}` } : { ...DEFAULT_WHERE, place: query.get('place') ?? DEFAULT_WHERE.place };
 };
-const services = (query.get('services')?.split(',').map((s) => s.trim()).filter(Boolean) ?? DEFAULT_SERVICES).map(serviceOf);
 const demo = new DemoSource();
-let source: WorldSource = query.has('demo') ? demo : new LiveSource(whereOf(), services);
+let source: WorldSource = query.has('demo') ? demo : new LiveSource(whereOf());
 
 function status() {
   const failing = source.failed.length && source.status === 'live' ? ` · <span class="conn-failing">${esc(source.failed.join(', '))} not answering</span>` : '';
@@ -39,7 +37,7 @@ function status() {
     ${source === demo ? `<button class="plain" data-action="leave">${t.leaveDemo}</button>` : here}</span>`;
 }
 
-// `?systems=sun,sky&mode=orbit&start=sky` fixes what the page shows (a kiosk, a shared link); the gear chooses within that.
+// `?systems=quakes,cyclones&mode=orbit&start=quakes` fixes what the page shows (a kiosk, a shared link); the gear chooses within that.
 const listParam = (name: string) => { const v = query.get(name)?.split(',').map((s) => s.trim()).filter(Boolean); return v?.length ? v : undefined; };
 const modeParam = query.get('mode') as BoardMode | null;
 
@@ -70,14 +68,14 @@ function use(src: WorldSource) {
 function leaveDemo() {
   query.delete('demo');
   history.replaceState(null, '', `${location.pathname}${query.size ? `?${query}` : ''}`);
-  use(new LiveSource(whereOf(), services));
+  use(new LiveSource(whereOf()));
 }
 function useHere() {
   navigator.geolocation.getCurrentPosition((pos) => {
     query.set('at', `${pos.coords.latitude.toFixed(4)},${pos.coords.longitude.toFixed(4)}`);
     query.set('place', t.here);
     history.replaceState(null, '', `${location.pathname}?${query}`);
-    use(new LiveSource(whereOf(), services));
+    use(new LiveSource(whereOf()));
   });
 }
 

@@ -59,6 +59,9 @@ export const t = {
 
   // What is fine, folded away while something calls
   calmN: (n: number) => `${n} calm`,
+  moreN: (n: number) => `+${n} more`,
+  nextOf: (from: number, to: number, n: number) => `${from}–${to} of ${n}`,
+  showMore: (n: number) => `Show the next ones, ${n} more`,
   showCalm: 'Show',
   foldCalm: 'Fold the calm',
   showTheCalm: (n: number) => `Show the ${n} that are calm`,
@@ -102,7 +105,8 @@ export const t = {
   snapshot: 'Snapshot',
   zoomInMap: 'Zoom in',
   zoomOutMap: 'Zoom out',
-  mapZoomHint: (name: string) => `${name} on the map, live: the wheel, a pinch, or + and − zoom it`,
+  mapZoomHint: (name: string) => `${name} on the map, live: drag or the arrows move it; the wheel, a pinch, or + and − zoom it`,
+  recenterMap: 'Back to the center',
   historyLoading: 'Loading the last 24 hours…',
   historyNone: 'No history for the last 24 hours.',
   outsideIn: (first: number) => first ? `The rings, outside in (the first ${first}):` : 'The rings, outside in:',
@@ -157,7 +161,7 @@ export const t = {
   colorsField: 'Your colors',
   colorsHint: 'Starts from the theme that was chosen. The two alert colors are what calls; keep them apart from the rest.',
   colorLabels: { bg: 'Background', ink: 'Text', muted: 'Secondary text', dim: 'Rings at rest', line: 'Lines', minor: 'Alert', critical: 'Critical alert' } as Record<string, string>,
-  tuneGroups: { orbit: 'Orbit', time: 'Time in the orbit', layers: 'Layers' } as Record<string, string>,
+  tuneGroups: { orbit: 'Orbit', time: 'Time in the orbit', layers: 'Layers', list: 'List' } as Record<string, string>,
   tuneLabels: {
     orbit: 'Size of the orbit', tile: 'Thickness of each system\'s ring', align: 'Systems pulled inward', hub: 'Size of the center',
     orbitStep: 'Depth of the systems behind',
@@ -165,6 +169,8 @@ export const t = {
     layerBlur: 'Blur of the layers behind', layerStep: 'Depth between layers', layerZoom: 'Size of the object', layerOpacity: 'Opacity of the layers behind',
     timeGap: 'Gap between the segments and the news', timeSplit: 'Height of the line across the face', timePointer: 'Pointer toward each system',
     timeBar: 'Tallest bar of a calm day',
+    listCenter: 'Size of the center', listInner: 'Ring of what calls', listOuter: 'Ring of the calm', listItem: 'Size of each system',
+    listLink: 'Hand from the center to its system',
   } as Record<string, string>,
   resetGroup: 'Reset',
   resetAllTuning: 'Reset all',

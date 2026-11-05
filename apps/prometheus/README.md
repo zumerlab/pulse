@@ -12,7 +12,7 @@ channel is read two ways:
 | Axis | Objects | Channels |
 |---|---|---|
 | Systems (the fleet by dimension) | Targets, CPU, Memory, Disk, Network, Alerts | A swarm per channel: a tick per host, the ones over the line painted; the targets down; the alerts firing, the silenced ones dim |
-| Groups (one object per host, the jobs as the gear's groups) | web-01, api-03, … | The same channels as bands with a day ring in the detail, the host's target, its alerts |
+| Groups (one object per job past twelve hosts; one per host once the gear keeps twelve or fewer) | api, web, … (web-01, api-03, …) | A job: the fleet's channels read within it. A host: the same channels as bands with a day ring in the detail, the host's target, its alerts |
 
 The default configuration is a fleet of node_exporter hosts: CPU (usage,
 load per core, steal), memory (used, swap), disk (root, I/O), network
@@ -49,7 +49,7 @@ two targets down, a disk nearly full, a hot CPU, three alerts firing.
 |---|---|
 | `?server=http://host:9090&alertmanager=http://host:9093` | Which Prometheus, and the Alertmanager to silence on |
 | `?config=https://…/fleet.json` | Systems and channels of your own instead of node_exporter's |
-| `?axis=groups` | Open on the hosts, one object each |
+| `?axis=groups` | Open on the jobs, one object each (a host each once the gear keeps twelve or fewer) |
 | `?systems=cpu,alerts&mode=list&start=alerts` | What the page shows; the gear chooses within it |
 | `?demo` | The recorded hosts instead of a server |
 

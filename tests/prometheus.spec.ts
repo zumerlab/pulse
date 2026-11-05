@@ -46,7 +46,10 @@ test('the recorded fleet fills six systems from the configuration; each channel 
   await expect(current(page).locator('.strip')).toContainText('1 host with CPU usage over 95%: api-03 97%');
   await front.locator('.disc').click();
   await expect(current(page).locator('.detail h1')).toContainText('Usage');
-  await expect(current(page).locator('.scroll-list')).toContainText('api-03 · 97%');
+  // The row of the host over the line calls with the alert's dot; its value under its name.
+  const row = current(page).locator('.scroll-item', { has: page.locator('.sl-text', { hasText: /^api-03$/ }) });
+  await expect(row.locator('.sl-detail')).toHaveText('97%');
+  await expect(row.locator('.sl-mark')).toBeVisible();
 });
 
 test('a firing alert is silenced for an hour from the ring, and comes out dim', async ({ page }) => {

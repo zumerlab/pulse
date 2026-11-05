@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Pulse over the world outside: the sun, the earth, the sky over you and the services you depend on, from public feeds, with no server and no sign-in.",
+  "description": "Pulse over the calamities of the world: earthquakes, cyclones, floods, wildfires and volcanoes, from public feeds, with no server and no sign-in.",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

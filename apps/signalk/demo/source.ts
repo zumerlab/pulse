@@ -96,21 +96,30 @@ const META: Record<string, Meta> = {
 };
 
 const jitter = (v: number, step: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v + (Math.random() - 0.5) * 2 * step));
-// The vessels around, from their AIS: a freighter crossing ahead, a fishing boat, a ferry and a sailboat, metres north and east of the yacht.
-const AROUND: (Omit<Target, 'lat' | 'lon' | 'at'> & { n: number; e: number; dn: number; de: number })[] = [
-  { id: 'urn:mrn:imo:mmsi:636019825', name: 'MSC ALICIA', n: 1400, e: 2600, cog: 275 * R, sog: 14 * KN, dn: 0.4, de: -7 },
-  { id: 'urn:mrn:imo:mmsi:701006201', name: 'DON PEDRO', n: -700, e: 900, cog: 40 * R, sog: 5 * KN, dn: 2, de: 1.6 },
-  { id: 'urn:mrn:imo:mmsi:701000733', name: 'BUQUEBUS', n: 5200, e: -4100, cog: 150 * R, sog: 32 * KN, dn: -14, de: 8 },
-  { id: 'urn:mrn:imo:mmsi:701001122', name: 'ALMA', n: -2200, e: -1500, cog: 210 * R, sog: 5.5 * KN, dn: -2.4, de: -1.4 },
+// The vessels around, from their AIS, metres north and east of where the
+// yacht starts, each on its course at its speed: a freighter on a crossing
+// course that will pass 0.3 nm off in about fourteen minutes
+// (the one that calls), a fishing boat opening to the northeast, the ferry to
+// Buenos Aires crossing well ahead, and a sailboat the yacht slowly overtakes.
+// The scene starts over every twenty minutes.
+type Around = Omit<Target, 'lat' | 'lon' | 'at'> & { n: number; e: number };
+const AROUND: Around[] = [
+  { id: 'vessels.urn:mrn:imo:mmsi:636019825', mmsi: '636019825', name: 'MSC ALICIA', n: -4972, e: 4110, cog: 300 * R, sog: 14 * KN, type: 'Cargo', length: 199, destination: 'Buenos Aires', state: 'motoring' },
+  { id: 'vessels.urn:mrn:imo:mmsi:701006201', mmsi: '701006201', name: 'DON PEDRO', n: 880, e: 760, cog: 40 * R, sog: 5 * KN, type: 'Fishing', length: 24, state: 'fishing' },
+  { id: 'vessels.urn:mrn:imo:mmsi:701000733', mmsi: '701000733', name: 'BUQUEBUS', n: 5200, e: -4100, cog: 120 * R, sog: 32 * KN, type: 'Passenger', length: 99, destination: 'Montevideo', state: 'motoring' },
+  { id: 'vessels.urn:mrn:imo:mmsi:701001122', mmsi: '701001122', name: 'ALMA', n: -2200, e: -1500, cog: 210 * R, sog: 5.5 * KN, type: 'Sailing', length: 11, state: 'sailing' },
 ];
+const SCENE_S = 20 * 60, TICK_S = 2;
 const LAT0 = -38.052, LON0 = -57.413;
 const place = (n: number, e: number) => ({ lat: LAT0 + n / 111_320, lon: LON0 + e / (111_320 * Math.cos((LAT0 * Math.PI) / 180)) });
+// Where something is `s` seconds into the scene, from where it started, its course and its speed.
+const at = (n: number, e: number, cog: number, sog: number, s: number) => place(n + sog * Math.cos(cog) * s, e + sog * Math.sin(cog) * s);
 
 export class DemoSource implements VesselSource {
   readonly values = new Map<string, Value>();
   readonly meta = new Map<string, Meta>(Object.entries(META));
   readonly others = new Map<string, Target>();
-  private around = AROUND.map((a) => ({ ...a }));
+  private scene = 0;                 // seconds into the traffic's scene
   readonly name = 'Tehuelche';
   status: Status = 'signed-out';
   error = '';
@@ -127,8 +136,8 @@ export class DemoSource implements VesselSource {
     const now = Date.now();
     this.values.clear();
     for (const [path, value] of Object.entries(YACHT)) this.values.set(path, { value, at: path.startsWith('notifications.') ? now - 25 * 60_000 : now });
-    this.others.clear();
-    for (const a of this.around) this.others.set(a.id, { id: a.id, name: a.name, cog: a.cog, sog: a.sog, ...place(a.n, a.e), at: now });
+    this.scene = 0;
+    this.moveTraffic(now);
     this.setStatus('live');
     this.listeners.forEach((fn) => fn([...this.values.keys()]));
     this.timer = window.setInterval(() => this.tick(), 2000);
@@ -147,7 +156,7 @@ export class DemoSource implements VesselSource {
     };
     move('navigation.speedOverGround', 0.15, 5.6 * KN, 7.2 * KN);
     move('navigation.headingMagnetic', 1.5 * R, 208 * R, 216 * R);
-    move('navigation.courseOverGroundTrue', 1.5 * R, 211 * R, 219 * R);
+    move('navigation.courseOverGroundTrue', 0.5 * R, 214 * R, 216 * R);
     move('environment.wind.angleApparent', 3 * R, 30 * R, 46 * R);
     move('environment.wind.speedApparent', 0.4, 12 * KN, 17 * KN);
     move('environment.depth.belowTransducer', 0.1, 2.4, 2.95);
@@ -157,17 +166,33 @@ export class DemoSource implements VesselSource {
     move('propulsion.port.revolutions', 10 / 60, 1820 / 60, 1880 / 60);
     const p = this.values.get('environment.outside.pressure')?.value;
     if (typeof p === 'number') { this.values.set('environment.outside.pressure', { value: p - 1, at: now }); changed.push('environment.outside.pressure'); }
-    // The traffic moves along its course.
-    for (const a of this.around) { a.n += a.dn; a.e += a.de; this.others.set(a.id, { id: a.id, name: a.name, cog: a.cog, sog: a.sog, ...place(a.n, a.e), at: now }); }
-    changed.push('traffic');
+    // The traffic moves along its course, and the yacht along hers.
+    this.scene = (this.scene + TICK_S) % SCENE_S;
+    this.moveTraffic(now);
+    changed.push('navigation.position', 'traffic');
     this.listeners.forEach((fn) => fn(changed));
+  }
+
+  // Everyone where the scene puts them: the vessels on their courses, the yacht where her own course and speed took her.
+  private own = { n: 0, e: 0 };
+  private moveTraffic(now: number) {
+    if (!this.scene) this.own = { n: 0, e: 0 };
+    else {
+      const cog = this.values.get('navigation.courseOverGroundTrue')?.value as number, sog = this.values.get('navigation.speedOverGround')?.value as number;
+      this.own = { n: this.own.n + sog * Math.cos(cog) * TICK_S, e: this.own.e + sog * Math.sin(cog) * TICK_S };
+    }
+    const own = place(this.own.n, this.own.e);
+    this.values.set('navigation.position', { value: { latitude: own.lat, longitude: own.lon }, at: now });
+    this.others.clear();
+    for (const { n, e, ...a } of AROUND) this.others.set(a.id, { ...a, ...at(n, e, a.cog!, a.sog!, this.scene), at: now });
   }
 
   // The server's PUTs, answered a moment later like a real round trip: the
   // autopilot takes a state and a target; anything else is refused.
   async act(a: Act) {
+    if (a.kind === 'open') { window.open(a.url, '_blank', 'noopener'); return; }
     await new Promise((r) => setTimeout(r, 400));
-    if (a.kind !== 'put' || !a.path.startsWith('steering.autopilot.')) throw new Error(`no handler for ${a.path}`);
+    if (!a.path.startsWith('steering.autopilot.')) throw new Error(`no handler for ${a.path}`);
     this.values.set(a.path, { value: a.value, at: Date.now() });
     this.listeners.forEach((fn) => fn([a.path]));
   }

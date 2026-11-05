@@ -13,10 +13,16 @@ export type Value = { value: unknown; at: number };
 export type Meta = { units?: string; displayName?: string; shortName?: string; description?: string };
 // A notification the server raises on a path (its zones, a plugin's alarm).
 export type Notification = { state: 'normal' | 'nominal' | 'alert' | 'warn' | 'alarm' | 'emergency'; message?: string; method?: string[] };
-// An action for the server: the core's Action (`ids`: the paths it touches) and a PUT of a value to a path.
-export type Act = Action & { kind: 'put'; path: string; value: unknown };
-// Another vessel on the stream (its AIS): where it is and where it goes.
-export type Target = { id: string; name: string; lat: number; lon: number; cog?: number; sog?: number; at: number };
+// An action for the server: the core's Action (`ids`: the paths it touches) and a PUT of a value to a path;
+// or a way out to a page about a thing (a vessel on MarineTraffic).
+export type Act = Action & ({ kind: 'put'; path: string; value: unknown } | { kind: 'open'; url: string });
+// Another vessel on the stream (its AIS): where it is and where it goes, and
+// what it says of itself (its MMSI, its type, its length, where it is bound,
+// its navigational status) when it says it.
+export type Target = {
+  id: string; name: string; lat: number; lon: number; cog?: number; sog?: number; at: number;
+  mmsi?: string; type?: string; length?: number; destination?: string; state?: string;
+};
 
 export interface VesselSource {
   readonly values: Map<string, Value>;
@@ -71,6 +77,7 @@ export class WebSocketSource implements VesselSource {
   private self = 'vessels.self';
   private retry = 0;
   private timer = 0;
+  private trafficTimer = 0;
   private stopped = true;
   private listeners = new Set<(paths: string[]) => void>();
   private statusListeners = new Set<() => void>();
@@ -180,31 +187,41 @@ export class WebSocketSource implements VesselSource {
     if (changed.length) this.listeners.forEach((fn) => fn(changed));
   }
 
-  // Another vessel's delta: its position, course, speed and name; forgotten after ten minutes of silence.
+  // Another vessel's delta: its position, course, speed, name and what it says
+  // of itself; forgotten after ten minutes of silence. A busy channel brings a
+  // delta per vessel every second or two: the traffic is told at most once a
+  // second, all of it at once, so the board does not repaint for each ship.
   private other(context: string, updates: NonNullable<Delta['updates']>) {
     if (!context.startsWith('vessels.')) return;
     const now = Date.now();
     let o = this.others.get(context);
     let changed = false;
+    const mmsi = /mmsi:(\d+)/.exec(context)?.[1];
     for (const u of updates) {
       for (const { path, value } of u.values ?? []) {
         if (path === 'navigation.position' && value && typeof value === 'object') {
           const p = value as { latitude?: number; longitude?: number };
           if (typeof p.latitude !== 'number' || typeof p.longitude !== 'number') continue;
-          o = { ...(o ?? { id: context, name: context.replace(/^vessels\.(urn:mrn:imo:mmsi:)?/, '') }), lat: p.latitude, lon: p.longitude, at: now };
+          o = { ...(o ?? { id: context, name: mmsi ?? context.replace(/^vessels\./, ''), mmsi }), lat: p.latitude, lon: p.longitude, at: now };
           changed = true;
-        } else if (o && path === 'navigation.courseOverGroundTrue' && typeof value === 'number') o = { ...o, cog: value, at: now };
-        else if (o && path === 'navigation.speedOverGround' && typeof value === 'number') o = { ...o, sog: value, at: now };
-        else if (o && (path === 'name' || (path === '' && value && typeof value === 'object' && typeof (value as { name?: unknown }).name === 'string'))) o = { ...o, name: path === 'name' ? String(value) : (value as { name: string }).name };
+        } else if (!o) continue;
+        else if (path === 'navigation.courseOverGroundTrue' && typeof value === 'number') o = { ...o, cog: value, at: now };
+        else if (path === 'navigation.speedOverGround' && typeof value === 'number') o = { ...o, sog: value, at: now };
+        else if (path === 'navigation.state' && typeof value === 'string') o = { ...o, state: value.replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase() };
+        else if (path === 'navigation.destination.commonName' && typeof value === 'string') o = { ...o, destination: value };
+        else if (path === 'design.aisShipType' && value && typeof value === 'object') o = { ...o, type: String((value as { name?: unknown }).name ?? '') || o.type };
+        else if (path === 'design.length' && value && typeof value === 'object') o = { ...o, length: Number((value as { overall?: unknown }).overall) || o.length };
+        else if (path === 'name' || (path === '' && value && typeof value === 'object' && typeof (value as { name?: unknown }).name === 'string')) o = { ...o, name: path === 'name' ? String(value) : (value as { name: string }).name };
       }
     }
     if (o) this.others.set(context, o);
     for (const [id, t] of this.others) if (now - t.at > 600_000) { this.others.delete(id); changed = true; }
-    if (changed) this.listeners.forEach((fn) => fn(['traffic']));
+    if (changed && !this.trafficTimer) this.trafficTimer = window.setTimeout(() => { this.trafficTimer = 0; this.listeners.forEach((fn) => fn(['traffic'])); }, 1000);
   }
 
   // A value to a path: Signal K's PUT, answered by whatever plugin owns the path.
   async act(a: Act) {
+    if (a.kind === 'open') { window.open(a.url, '_blank', 'noopener'); return; }
     const res = await fetch(`${this.url}/signalk/v1/api/vessels/self/${a.path.replace(/\./g, '/')}`, {
       method: 'PUT', headers: { 'Content-Type': 'application/json', ...this.headers() }, body: JSON.stringify({ value: a.value }),
     });

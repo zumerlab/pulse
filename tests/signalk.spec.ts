@@ -2,9 +2,9 @@ import { expect, test, type Page } from '@playwright/test';
 import { SIGNALK } from '../playwright.config.ts';
 
 // The Signal K app without a server: the connect panel, and the recorded
-// yacht (Tehuelche, motor-sailing with shallow water, a low house bank and a
-// full holding tank calling, answering the autopilot's PUTs in the browser).
-// A real server is not part of the suite.
+// yacht (Tehuelche, motor-sailing with shallow water, a low house bank, a
+// full holding tank and a freighter on a crossing course calling, answering
+// the autopilot's PUTs in the browser). A real server is not part of the suite.
 
 const current = (page: Page) => page.locator('.z-view.is-current-view');
 
@@ -32,10 +32,10 @@ test('with no server answering, the app says so and offers the demo', async ({ p
   await expect(page.locator('.conn')).toContainText('Demo · Tehuelche · live');
 });
 
-test('the recorded yacht fills six systems, three things calling', async ({ page }) => {
+test('the recorded yacht fills seven systems, four things calling', async ({ page }) => {
   await page.goto(`${SIGNALK}?demo`);
-  await expect(page.locator('.tile[data-system]')).toHaveCount(6);
-  await expect(page.locator('.board h1')).toContainText('3 things calling');
+  await expect(page.locator('.tile[data-system]')).toHaveCount(7);
+  await expect(page.locator('.board h1')).toContainText('4 things calling');
   await expect(page.locator('.tile[data-system="navigation"] .tile-big')).toHaveText(/^2\.\d m$/);
   await expect(page.locator('.tile[data-system="electrical"] .tile-big')).toHaveText('24%');
   await expect(page.locator('.tile[data-system="tanks"] .tile-big')).toHaveText('86%');
@@ -99,4 +99,30 @@ test("the holding tank takes the server's name for its path, in litres, with a d
   await expect(current(page).locator('.time-ring')).toBeVisible();
   await current(page).locator('.things summary').click();
   await expect(current(page).locator('.things li')).toContainText(['tanks.fuel.0.currentLevel']);
+});
+
+test('the traffic calls by how close a vessel will pass, not by how close it is; each vessel opens as an object of its own', async ({ page }) => {
+  await page.goto(`${SIGNALK}?demo`);
+  await page.locator('.tile[data-system="traffic"]').click();
+  const front = current(page).locator('.layer-front');
+  // The freighter three and a half miles off calls: it will pass about 0.3 nm from the boat in fourteen minutes.
+  await expect(front.locator('.face-name')).toHaveText('Closest approach');
+  await expect(front.locator('.face-big')).toHaveText(/^0\.[23]\d nm$/);
+  await expect(current(page).locator('.strip')).toContainText(/MSC Alicia will pass 0\.[23]\d nm from you in 1[34] min/);
+  // The radar: the boat in the center on its course, each vessel a mark turned to its course with six minutes of way ahead.
+  await expect(front.locator('.face-radar .radar-self')).toHaveCount(1);
+  await expect(front.locator('.face-radar g.radar-mark[data-plot]')).toHaveCount(4);
+  await expect(front.locator('.face-radar g.radar-mark.tone-warn')).toHaveCount(1);
+  // The detail lists them by how they pass; the fishing boat a cable off but opening does not call.
+  await front.locator('[data-to="detail"]').click();
+  const rows = current(page).locator('.sl-rows .scroll-item');
+  await expect(rows.first()).toContainText('MSC Alicia');
+  await expect(current(page).locator('.sl-rows .scroll-item', { hasText: 'Don Pedro' })).toContainText('opening');
+  // A row opens the vessel: how it passes, where, how it moves, what it is.
+  await rows.first().click();
+  await expect(current(page).locator('.sys-title')).toHaveText('MSC Alicia');
+  await expect(current(page).locator('.layer-index')).toContainText('Vessel');
+  await current(page).locator('.layer-index [data-pick="vessel"]').click();
+  await expect(current(page).locator('.layer-front .face-big')).toHaveText('Cargo');
+  await expect(current(page).locator('.layer-front .face-label')).toContainText('MMSI 636019825 · 199 m · to Buenos Aires');
 });

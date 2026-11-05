@@ -46,24 +46,50 @@
 
 /* ─── Scroll list: a long list, in a circle ───────────── */
 .scroll-list { outline: none; touch-action: none; }
-.scroll-orbit.is-hidden { display: none; }
-.scroll-orbit > .satellite { transition: transform .25s cubic-bezier(.2, .8, .2, 1), opacity .25s; }
 .scroll-item { cursor: pointer; }
-.scroll-item .capsule { position: relative; width: 100%; height: 100%; overflow: visible; }
-/* The name reaches inward from its point on the ring, never past the center. */
-.scroll-item .sl-text {
-  position: absolute; right: 50%; top: 50%; transform: translateY(-50%); width: 168px; padding-right: 12px;
-  text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 14px; color: var(--muted); transition: color .2s;
-}
-.scroll-item.is-focus .sl-text { color: var(--ink); }
-.scroll-item.is-on .sl-text { color: var(--ink); font-weight: 600; }
-.scroll-item.is-on::after { content: ""; position: absolute; left: 50%; top: 50%; width: 7px; height: 7px; margin: -3.5px 0 0 -3.5px; border-radius: 50%; background: var(--ink); }
-.scroll-list:focus-visible .scroll-item.is-focus .sl-text { text-decoration: underline; text-underline-offset: 3px; }
 .scroll-list.is-pending .scroll-item { opacity: .5 !important; }
 .scroll-track o-arc { --o-fill: var(--line); --o-stroke: transparent; }
 .scroll-thumb { --o-fill: var(--muted); --o-stroke: transparent; cursor: grab; }
 .scroll-list:active .scroll-thumb { cursor: grabbing; }
-@media (prefers-reduced-motion: reduce) { .scroll-orbit > .satellite { transition: none; } }
+/* The ring (the changes): the items along its right side, the name reaching
+   inward from its point, never past the center. */
+.scroll-orbit.is-hidden { display: none; }
+.scroll-orbit > .satellite { transition: transform .25s cubic-bezier(.2, .8, .2, 1), opacity .25s; }
+.scroll-orbit .capsule { position: relative; width: 100%; height: 100%; overflow: visible; }
+.scroll-orbit .sl-text {
+  position: absolute; right: 50%; top: 50%; transform: translateY(-50%); width: 168px; padding-right: 12px;
+  text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 14px; color: var(--muted); transition: color .2s;
+}
+.scroll-orbit .is-focus .sl-text { color: var(--ink); }
+.scroll-orbit .is-on .sl-text { color: var(--ink); font-weight: 600; }
+.scroll-orbit .is-on::after { content: ""; position: absolute; left: 50%; top: 50%; width: 7px; height: 7px; margin: -3.5px 0 0 -3.5px; border-radius: 50%; background: var(--ink); }
+.scroll-list:focus-visible .scroll-orbit .is-focus .sl-text { text-decoration: underline; text-underline-offset: 3px; }
+/* A list item that was an alert: a dot of its level at the end of its name. */
+.scroll-orbit .level-1 .sl-text::after, .scroll-orbit .level-2 .sl-text::after { content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-left: 8px; vertical-align: middle; background: var(--minor); }
+.scroll-orbit .level-2 .sl-text::after { background: var(--critical); }
+/* The rows (a detail's list): inside the disc, each as wide as the circle is
+   at its height (scroll.ts places them), a name and a line under it, centered;
+   the dot of its level before the name of one that calls, the one chosen of a
+   choice checked, the ones off dim. */
+.scroll-list.is-rows { position: relative; width: min(100%, 320px); height: auto; aspect-ratio: 1; }
+.sl-rows { position: absolute; inset: 0; border-radius: 50%; overflow: hidden; }
+.sl-rows .scroll-item {
+  position: absolute; left: 50%; display: grid; justify-items: center; align-content: center; gap: 1px; height: 12%; padding: 0 8px;
+  box-sizing: border-box; border-radius: 14px; text-align: center; transition: top .25s cubic-bezier(.2, .8, .2, 1), width .25s, opacity .25s, transform .25s, background .15s;
+}
+.sl-rows .scroll-item.is-hidden { display: none; }
+.sl-name { display: flex; align-items: center; justify-content: center; gap: 7px; max-width: 100%; min-width: 0; }
+.sl-rows .sl-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; line-height: 1.2; font-weight: 550; color: var(--ink); }
+.sl-detail { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; line-height: 1.25; color: var(--muted); }
+.sl-mark { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--minor); }
+.sl-rows .level-2 .sl-mark { background: var(--critical); }
+.sl-check { flex: none; font-size: 13px; color: var(--ink); }
+.sl-rows .is-off .sl-text { color: var(--muted); font-weight: 450; }
+.sl-rows .scroll-item:hover, .scroll-list:focus-visible .sl-rows .is-focus { background: color-mix(in srgb, var(--ink) 9%, transparent); }
+.scroll-list:focus-visible .sl-rows .is-focus { box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--ink) 45%, transparent); }
+.sl-rows .is-still { cursor: default; }
+.sl-rows .is-still:hover { background: none; }
+@media (prefers-reduced-motion: reduce) { .scroll-orbit > .satellite, .sl-rows .scroll-item { transition: none; } }
 
 /* ─── Behind the current view, nothing moves ──────────── */
 /* Zumly keeps the views behind in the DOM, scaled and blurred: an animation
@@ -82,8 +108,10 @@
 .queue-glyph { display: grid; color: var(--muted); }
 .queue-item.level-1 .queue-glyph { color: var(--minor); }
 .queue-item.level-2 .queue-glyph { color: var(--critical); }
-/* The one in the center is circled, not enlarged. */
+/* The one in the center is circled, not enlarged, in its color: the hand ends at its circle. */
 .queue-item.is-focus .queue-hit::before { content: ""; position: absolute; inset: -7px; border-radius: 50%; border: 1px solid var(--muted); }
+.queue-item.is-focus.level-1 .queue-hit::before { border-color: var(--minor); }
+.queue-item.is-focus.level-2 .queue-hit::before { border-color: var(--critical); }
 /* What calls never changes size: a wave leaves its ring (quicker for the more serious). */
 .queue-item.level-1 .queue-hit::after, .queue-item.level-2 .queue-hit::after {
   content: ""; position: absolute; inset: 0; border-radius: 50%; pointer-events: none;
@@ -94,6 +122,7 @@
 .queue-label { position: absolute; top: 50%; translate: 0 -50%; display: grid; gap: 1px; white-space: nowrap; pointer-events: none; font-size: 13px; line-height: 1.25; }
 .queue-label.is-start { left: calc(100% + 12px); text-align: left; }
 .queue-label.is-end { right: calc(100% + 12px); text-align: right; }
+.queue-label.is-below { top: calc(100% + 8px); left: 50%; translate: -50% 0; text-align: center; }
 .queue-title { color: var(--muted); }
 .queue-big { color: var(--muted); }
 .queue-item.level-1 .queue-title, .queue-item.level-2 .queue-title { color: var(--ink); font-size: 14px; }
@@ -161,7 +190,17 @@
 @keyframes hub-wave { from { transform: scale(1); opacity: .6; } to { transform: scale(2.6); opacity: 0; } }
 @keyframes hub-wave-soft { from { transform: scale(1); opacity: .35; } to { transform: scale(2.2); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .orbit-hub .oh-wave { animation: none; opacity: .3; } }
-/* A list item that was an alert: a dot of its level at the end of its name. */
-.scroll-item.level-1 .sl-text::after, .scroll-item.level-2 .sl-text::after { content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-left: 8px; vertical-align: middle; background: var(--minor); }
-.scroll-item.level-2 .sl-text::after { background: var(--critical); }
 
+
+/* ─── The list's hand: the center tied to the system it shows ── */
+/* A notch on the center's rim and a line out to the system, in its color; it swings to the next one picked. */
+.queue-rings { position: relative; }
+.queue-link { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
+.queue-hand { transition: rotate .45s cubic-bezier(.2, .8, .2, 1); }
+.queue-link { --hand: var(--muted); }
+.queue-link.level-1 { --hand: var(--minor); }
+.queue-link.level-2 { --hand: var(--critical); }
+.queue-notch { fill: var(--hand); }
+.queue-line { stroke: var(--hand); stroke-linecap: round; opacity: .7; }
+.queue-rim { fill: none; stroke: var(--hand); stroke-linecap: round; }
+@media (prefers-reduced-motion: reduce) { .queue-hand { transition: none; } }

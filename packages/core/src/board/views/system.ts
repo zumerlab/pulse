@@ -92,12 +92,14 @@ export function systemView(b: Board, ctx: ViewContext, id: string) {
       layer.style.setProperty('--halo', (d * 0.8 / (grow * (1 + d * 110 / 900))).toFixed(2));
       const shown = r.alert && !seen ? r.alert : r;
       // The alerts that wait are their layers behind, in their color and named; the strip counts them.
-      layer.innerHTML = ring(b, key, r, strokeAt(d) / grow / LANE, i === 0, false, i === 0 && !!r.alert && !seen, ch.name) + (i === 0
-        ? face({ glyph: ch.glyph, name: ch.name, big: shown.big, label: shown.label, to: detailAdds(r) ? 'detail' : undefined,
-          props: { system: id, channel: key }, aria: t.details(ch.name), image: imageOf(b, r), plots: r.plots, globe: r.globe, map: r.map,
+      setHTML(layer, ring(b, key, r, strokeAt(d) / grow / LANE, i === 0, false, i === 0 && !!r.alert && !seen, ch.name) + (i === 0
+        ? face({ glyph: ch.glyph, name: ch.name, big: shown.big, label: shown.label,
+          // A reading about one thing with an object of its own opens that object; the rest, a detail when it adds something.
+          to: r.to && b.host.objectOf ? undefined : detailAdds(r) ? 'detail' : undefined, object: r.to && b.host.objectOf ? r.to : undefined,
+          props: { system: id, channel: key }, aria: t.details(ch.name), image: imageOf(b, r), plots: r.plots, radar: r.radar, globe: r.globe, map: r.map,
           extra: (isPending(b, r) ? `<span class="face-wait">${t.sending}</span>` : '') + visualFor(id, key) })
         : backLayer({ text: `${ch.name} · ${shown.big}`, at: labelAt(i), grow, stroke: strokeAt(d), hit: 12,
-          pick: { attr: 'data-pick', value: key, aria: t.bringToFront(ch.name) } }));
+          pick: { attr: 'data-pick', value: key, aria: t.bringToFront(ch.name) } })));
     });
 
     startVisuals(b, el, visuals);
@@ -113,24 +115,24 @@ export function systemView(b: Board, ctx: ViewContext, id: string) {
       return { id: key, title: ch.name, big: shown.big, level: r.alert && !u.seen.has(key) ? r.alert.level : 0, off: i >= SZ.length };
     }), 'data-pick'));
 
-    if (!front) { strip.textContent = t.noEntities; return; }
+    if (!front) { setHTML(strip, esc(t.noEntities)); return; }
     const hidden = ord.slice(SZ.length).map((k) => ({ key: k, name: map.get(k)!.ch.name }));
     const fa = front.r.alert && !u.seen.has(ord[0]) ? front.r.alert : null;
     // An object opened from a row has no neighbours to swipe to: no dots.
     if (dotsEl) {
-      dotsEl.innerHTML = !b.ids.includes(id) ? '' : dots(b.ids.filter((other) => order(b, other).length).map((other) => {
+      setHTML(dotsEl, !b.ids.includes(id) ? '' : dots(b.ids.filter((other) => order(b, other).length).map((other) => {
         const k = order(b, other)[0];
         return { id: other, title: b.sys[other].title, level: worst(b, other), ring: ring(b, k, b.readings[other].get(k)!.r, DOT_LANES) };
-      }), id);
+      }), id));
     }
-    strip.innerHTML = b.toast ? `<span class="error">${esc(b.toast)}</span>`
+    setHTML(strip, b.toast ? `<span class="error">${esc(b.toast)}</span>`
       : u.code ? `<span>${esc(t.codeLine(front.ch.name, u.code.title))}</span> <button class="plain" data-code="cancel">${t.cancel}</button>`
       : failuresOf(b, front.r).length ? retryCard(b, front.r)
       : fa ? `<strong>${front.ch.name}:</strong> ${esc(fa.why)}.
           ${fa.busy ? `<span class="face-wait">${t.inProgress}</span>` : `<button class="primary level-${fa.level}" data-resolve="${ord[0]}">${esc(fa.verb)}</button>
           ${fa.acts.length ? `<button class="plain" data-seen="${ord[0]}">${t.mute}</button>` : ''}`}
           ${waiting.length ? `<span class="how">${t.moreWaiting(waiting.length)}</span>` : ''}`
-      : calmStrip(sys.title, front.ch.name, hidden);
+      : calmStrip(sys.title, front.ch.name, hidden));
 
     if (focusSel) el.querySelector<HTMLElement>(focusSel)?.focus({ preventScroll: true });
   };
@@ -190,6 +192,8 @@ export function systemView(b: Board, ctx: ViewContext, id: string) {
     const again = target.closest<HTMLElement>('[data-retry]')?.dataset.retry;
     if (again) { retry(b, again); return; }
     if (go) { goSystem(go); return; }
+    const object = target.closest<HTMLElement>('[data-object]');
+    if (object && !locked) { openObject(b, object.dataset.object!, object); return; }
     // The keypad: a digit, delete, cancel or send.
     const digit = target.closest<HTMLElement>('[data-key]')?.dataset.key;
     const code = target.closest<HTMLElement>('[data-code]')?.dataset.code;
@@ -216,6 +220,12 @@ export function systemView(b: Board, ctx: ViewContext, id: string) {
     else if (act === 'view') flat = !flat;
     else return;
     repaint(b);
+  });
+
+  // A face that opens its thing's object answers the keyboard as a button.
+  el.addEventListener('keydown', (e) => {
+    const target = e.target as HTMLElement;
+    if ((e.key === 'Enter' || e.key === ' ') && target.matches('[data-object]')) { e.preventDefault(); target.click(); }
   });
 
   // ─── The keypad ───

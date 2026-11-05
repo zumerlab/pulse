@@ -7,12 +7,13 @@ import type { ViewContext } from 'zumly';
 import { localeOf, num } from '../../i18n.ts';
 import { spansOf } from '../../history.ts';
 import {
-  MAP_ZOOM_MAX, MAP_ZOOM_MIN, MAX_TRACKS, SCROLL_VISIBLE, colorArcs, dialControls, esc, hsCss, icon, mapControls, mapDetail, monthRing,
-  ringCenter, satColor, scrollControls, scrollList, timeRing, timeWindow, timeline, turnMap, videoMarkup, type MapSpec,
+  MAP_ZOOM_MAX, MAP_ZOOM_MIN, MAX_TRACKS, colorArcs, panCenter, dialControls, esc, globe, hsCss, icon, mapControls, mapDetail, monthRing, radar,
+  ringCenter, satColor, scrollControls, scrollList, scrollTo, timeRing, timeWindow, timeline, turnMap, videoMarkup, type MapSpec,
 } from '../../radial/index.ts';
+import type { Seg } from '../../model.ts';
 import type { Board } from '../context.ts';
 import { dialBinding } from '../dials.ts';
-import { activeElement, imageOf, ring, scrollState } from '../draw.ts';
+import { activeElement, imageOf, ring, scrollState, setHTML } from '../draw.ts';
 import { look } from '../settings.ts';
 import { PENDING_MS, failuresOf, openObject, repaint, retry, retryCard, send, uiOf, whenCurrent } from '../state.ts';
 import { MONTH_MS, ROLLING_DAYS, loadMonth, monthKey } from '../time.ts';
@@ -32,9 +33,10 @@ export function detailView(b: Board, ctx: ViewContext) {
   let last = '';
   let square = false, live = false, dragging = false;
   // The map stays the same element across paints (only its tiles and dots
-  // move, `turnMap`), at the reading's zoom until the viewer chooses one.
-  let mapEl: HTMLElement | null = null, mapZoom: number | null = null;
-  const mapAt = (m: MapSpec) => ({ radius: MAP_RADIUS, zoom: mapZoom ?? m.zoom });
+  // move, `turnMap`), at the reading's zoom and center until the viewer
+  // chooses others (a zoom, a drag); the way back to the center is a button.
+  let mapEl: HTMLElement | null = null, mapZoom: number | null = null, mapCenter: { lat: number; lon: number } | null = null;
+  const mapAt = (m: MapSpec) => ({ radius: MAP_RADIUS, zoom: mapZoom ?? m.zoom, center: mapCenter ?? undefined });
   const paint = () => {
     if (dragging) return;              // repainting would cut the drag
     const { host } = b;
@@ -52,7 +54,8 @@ export function detailView(b: Board, ctx: ViewContext) {
     // Focus returns to the same control after repainting.
     const focus = activeElement(b);
     const focusSel = focus && el.contains(focus) && focus.matches('[data-dial]')
-      ? `[data-dial="${focus.dataset.dial}"]${focus.dataset.handle ? `[data-handle="${focus.dataset.handle}"]` : ''}` : null;
+      ? `[data-dial="${focus.dataset.dial}"]${focus.dataset.handle ? `[data-handle="${focus.dataset.handle}"]` : ''}`
+      : focus && el.contains(focus) && focus.matches('.scroll-list') ? '.scroll-list' : null;
     const a = r.alert && !uiOf(b, id).seen.has(key) ? r.alert : null;
     // The dial, big, operated like the system's front ring (a knob at each
     // end of a range), what is now in its center; a light's hue and
@@ -65,11 +68,15 @@ export function detailView(b: Board, ctx: ViewContext) {
         r.color ? colorArcs(key, r.color.hs, { open: look(b).dial === 'open', name: ch.name }) : ''}${
         ringCenter(value, r.dial.label, r.color ? 13 : 18, color)}</div></div>`;
     } else if (r.list) {
-      // A long choice: its options scrolled in a circle; the list opens at the one that is on.
-      const sk = `${id}/${key}`, st = scrollState(b, sk), on = r.list.findIndex((x) => x.on);
-      if (!b.scrollOpened.has(sk) && on >= 0) { st.focus = on; st.offset = Math.max(0, Math.min(r.list.length - SCROLL_VISIBLE, on - 3)); b.scrollOpened.add(sk); }
-      control = scrollList(r.list.map((x) => ({ label: x.label, on: x.on, act: !!(x.act || x.to) })), st, { key: sk, name: r.name ?? ch.name });
-      if (r.ids.some((e) => b.pending.has(e))) control = control.replace('class="bigbang detail-ring scroll-list"', 'class="bigbang detail-ring scroll-list is-pending"');
+      // A long list: its rows scrolled in the disc; a choice opens at the one that is on.
+      const sk = `${id}/${key}`, st = scrollState(b, sk), choice = r.kind === 'c', on = choice ? r.list.findIndex((x) => x.on) : -1;
+      if (!b.scrollOpened.has(sk) && on >= 0) { st.focus = on; st.offset = scrollTo(on, r.list.length, true); b.scrollOpened.add(sk); }
+      // The rows that call: their own level, or, when the list is the ring's segments, the ones the alert paints.
+      const segs = r.segs, fails = r.alert?.fail && segs && segs.length === r.list.length && r.list.every((x, i) => x.id === segs[i].id) ? new Set(r.alert.fail) : null;
+      // A row is its name and a line under it: its `detail`, or what its label says after the first " · ".
+      const rowOf = (x: Seg) => { if (x.detail) return [x.label, x.detail]; const cut = x.label.indexOf(' · '); return cut > 0 ? [x.label.slice(0, cut), x.label.slice(cut + 3)] : [x.label, '']; };
+      control = scrollList(r.list.map((x, i) => { const [label, detail] = rowOf(x); return { label, detail, on: x.on, act: !!(x.act || x.to), level: x.level ?? (fails?.has(i) ? r.alert!.level : undefined) }; }),
+        st, { key: sk, name: r.name ?? ch.name, rows: true, choice, pending: r.ids.some((e) => b.pending.has(e)) });
     } else if (r.segs) {
       // Switches, or the options of a choice (radios: the one that is on has no action).
       const type = r.kind === 'c' ? 'radio' : 'checkbox';
@@ -88,9 +95,12 @@ export function detailView(b: Board, ctx: ViewContext) {
           : `<img src="${esc(live && stream ? stream : img.src)}" alt="${esc(img.alt)}"${img.key && !live ? ` data-image="${esc(img.key)}"` : ''}>`}
         <figcaption><button class="plain" data-shape>${square ? t.showRound : t.showSquare}</button>
           ${stream ? `<button class="plain" data-live aria-pressed="${live}">${live ? t.snapshot : t.live}</button>` : ''}</figcaption></figure>`;
-    } else if (r.map) figure = mapEl ? '<div class="detail-map-slot"></div>' : mapDetail(r.map, ch.name, mapAt(r.map));
+    } else if (r.map) figure = mapEl ? '<figure class="detail-map" data-own="map"></figure>' : mapDetail(r.map, ch.name, mapAt(r.map));
+    // The globe or the radar of the face, big: where the things of the list are.
+    else if (r.globe && (r.globe.plots.length || r.globe.center)) figure = `<figure class="detail-globe">${globe(r.globe, ch.name)}</figure>`;
+    else if (r.plots?.length) figure = `<figure class="detail-globe">${radar(r.plots, ch.name, r.radar)}</figure>`;
     if (!r.map || r.image) mapEl = null;
-    if (r.link) figure += `<p class="detail-link"><button class="plain" data-link>${esc(r.link.label)} ↗</button></p>`;
+    const link = r.link ? `<p class="detail-link"><button class="plain" data-link>${esc(r.link.label)} ↗</button></p>` : '';
     // The last 24 hours: a ring per thing (what was on, when), with what is
     // now in the center, or a numeric thing's values as one ring.
     let day = '';
@@ -136,7 +146,9 @@ export function detailView(b: Board, ctx: ViewContext) {
     }
     // What is now is said once: in the center of the rings, or as the headline.
     const inRing = rings || !!r.dial;
-    el.innerHTML = `<div class="detail">
+    // Where the things are and which they are, side by side where there is room: the map (or the globe) and the list.
+    const pair = !!figure && !!r.list && !r.image && !day;
+    setHTML(el, `<div class="detail">
       <p class="eyebrow">${b.sys[id].title}</p>
       <h1>${icon(ch.glyph, 30)} ${ch.name}</h1>
       ${inRing ? '' : `<p class="detail-big${a ? ` level-${a.level}` : ''}">${esc(a ? a.big : r.big)}</p>
@@ -144,19 +156,33 @@ export function detailView(b: Board, ctx: ViewContext) {
       ${a ? `<p class="detail-why level-${a.level}">${esc(a.why)}. ${a.busy ? `<span class="face-wait">${t.inProgress}</span>`
         : `<button class="primary" data-resolve>${esc(a.verb)}</button>`}</p>` : ''}
       ${failuresOf(b, r).length ? `<p class="detail-fail">${retryCard(b, r)}</p>` : b.toast ? `<p class="error">${esc(b.toast)}</p>` : ''}
-      ${figure}
+      ${pair ? `<div class="detail-pair">${figure}${control}</div>${link}` : `${figure}${link}
       ${day}
       ${rings && r.segs ? `<p class="hint rings-order">${t.outsideIn(r.tracks!.length > MAX_TRACKS ? MAX_TRACKS : 0)}</p>` : ''}
-      ${control}
+      ${control}`}
       ${r.ids.length ? `<details class="things"><summary>${t.things}</summary><ul>${r.ids.map((e) =>
         `<li><code>${esc(e)}</code> <span>${esc(host.nameOf(e))}</span> <strong>${esc(host.stateOf(e))}</strong></li>`).join('')}</ul></details>` : ''}
-    </div>`;
-    // The map that was there goes back in its place and follows the reading.
-    const slot = el.querySelector('.detail-map-slot');
-    if (slot && mapEl && r.map) { slot.replaceWith(mapEl); turnMap(mapEl.querySelector('svg')!, r.map, mapAt(r.map)); }
+    </div>`);
+    // The map that was there stays (or goes back in its place, if the layout moved it) and follows the reading.
+    const slot = el.querySelector('.detail-map:not(:has(svg))');
+    if (slot && mapEl) slot.replaceWith(mapEl);
+    if (mapEl && r.map && mapEl.isConnected) turnMap(mapEl.querySelector('svg')!, r.map, mapAt(r.map));
     else mapEl = el.querySelector<HTMLElement>('.detail-map');
     if (focusSel) el.querySelector<HTMLElement>(focusSel)?.focus({ preventScroll: true });
+    light(lit);
   };
+  // A row pointed at, or in focus from the keyboard, lights its dot on the map or the globe; the others step back.
+  let lit: number | null = null;
+  const light = (i: number | null) => {
+    lit = i;
+    const rowId = i == null ? undefined : b.readings[id]?.get(key)?.r.list?.[i]?.id;
+    for (const dot of el.querySelectorAll('.detail-pair [data-plot]')) dot.classList.toggle('is-lit', !!rowId && (dot as SVGElement).dataset.plot === rowId);
+  };
+  const rowAt = (target: EventTarget | null) => (target as HTMLElement | null)?.closest?.<HTMLElement>('.sl-rows .scroll-item[data-opt]');
+  el.addEventListener('pointerover', (e) => { const row = rowAt(e.target); if (row) light(Number(row.dataset.opt)); });
+  el.addEventListener('pointerout', (e) => { if (rowAt(e.target) && !rowAt(e.relatedTarget)) light(null); });
+  el.addEventListener('focusin', (e) => { if ((e.target as HTMLElement).matches?.('.scroll-list:focus-visible')) light(scrollState(b, `${id}/${key}`).focus); });
+  el.addEventListener('focusout', (e) => { if ((e.target as HTMLElement).matches?.('.scroll-list')) light(null); });
   const loadChanges = (setKey: string, ids: string[]) => {
     const was = b.dayChanges.get(setKey);
     b.dayChanges.set(setKey, { at: Date.now(), changes: was?.changes ?? null });
@@ -235,17 +261,25 @@ export function detailView(b: Board, ctx: ViewContext) {
     onInput: (k) => { if (isColor(k)) { clearTimeout(colorTimer); colorTimer = window.setTimeout(sendColor, 500); } else d.commitSoon(k); },
   }));
 
-  // The map zooms in place: a step in or out from where it is.
-  ctx.onCleanup(mapControls(el, (by) => {
+  // The map zooms and moves in place: a step in or out from where it is, a drag from where it was.
+  const moveMap = (change: (m: MapSpec) => void) => {
     const m = b.readings[id]?.get(key)?.r.map, svg = mapEl?.querySelector('svg');
     if (!m || !svg) return;
-    mapZoom = Math.max(MAP_ZOOM_MIN, Math.min(MAP_ZOOM_MAX, Math.round(mapZoom ?? m.zoom) + by));
+    change(m);
     turnMap(svg, m, mapAt(m));
+    const home = mapEl!.querySelector<HTMLElement>('[data-map-home]');
+    if (home) home.hidden = !mapCenter;
+  };
+  ctx.onCleanup(mapControls(el, {
+    step: (by) => moveMap((m) => { mapZoom = Math.max(MAP_ZOOM_MIN, Math.min(MAP_ZOOM_MAX, Math.round(mapZoom ?? m.zoom) + by)); }),
+    pan: (dx, dy) => moveMap((m) => { mapCenter = panCenter(mapCenter ?? m.center, mapZoom ?? m.zoom, dx, dy); }),
+    home: () => moveMap(() => { mapCenter = null; }),
   }));
 
   ctx.onCleanup(scrollControls(el, {
     state: (k) => scrollState(b, k),
     count: () => b.readings[id].get(key)?.r.list?.length ?? 0,
+    focus: (_, i) => { if (activeElement(b)?.matches('.scroll-list:focus-visible')) light(i); },
     // A row with an object of its own zooms into it; the rest do what they say.
     pick: (_, i) => {
       const x = b.readings[id].get(key)?.r.list?.[i], row = el.querySelector<HTMLElement>(`.scroll-item[data-opt="${i}"]`);

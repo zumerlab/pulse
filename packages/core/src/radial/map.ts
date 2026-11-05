@@ -11,6 +11,7 @@
 import { t } from '../i18n.ts';
 import type { GeoPlot } from './globe.ts';
 import { esc } from './markup.ts';
+import { mark } from './radar.ts';
 
 export type MapSpec = {
   center: { lat: number; lon: number };
@@ -20,8 +21,8 @@ export type MapSpec = {
   attribution?: string;           // the credit the tiles ask for, written at the bottom of the disc
 };
 // How a map is drawn: its radius in pixels of the map (96 in a face), the zoom
-// when the viewer chose one, and the SVG's class.
-export type MapOptions = { radius?: number; zoom?: number; cls?: string };
+// and the center when the viewer chose them, and the SVG's class.
+export type MapOptions = { radius?: number; zoom?: number; center?: { lat: number; lon: number }; cls?: string };
 export const OSM_TILES = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 export const OSM_ATTRIBUTION = '© OpenStreetMap contributors';
 export const MAP_ZOOM_MIN = 2, MAP_ZOOM_MAX = 18;
@@ -32,13 +33,23 @@ const pixel = (lat: number, lon: number, zoom: number) => {
   const n = TILE * 2 ** zoom, φ = (Math.max(-85.05, Math.min(85.05, lat)) * Math.PI) / 180;
   return { x: ((lon + 180) / 360) * n, y: ((1 - Math.log(Math.tan(φ) + 1 / Math.cos(φ)) / Math.PI) / 2) * n };
 };
+// And back: pixels of the world at a zoom as a place.
+const place = (x: number, y: number, zoom: number) => {
+  const n = TILE * 2 ** zoom;
+  return { lat: (Math.atan(Math.sinh(Math.PI * (1 - (2 * y) / n))) * 180) / Math.PI, lon: ((((x / n) * 360 - 180) + 540) % 360) - 180 };
+};
+// A center moved by a drag of dx, dy pixels of the map: the map follows the pointer, so the center goes the other way.
+export const panCenter = (center: { lat: number; lon: number }, zoom: number, dx: number, dy: number) => {
+  const c = pixel(center.lat, center.lon, Math.round(zoom));
+  return place(c.x - dx, c.y - dy, Math.round(zoom));
+};
 
 // What a window shows: the tiles that cover it (each by its z/x/y, placed from
 // the center), the dots inside the circle, the credit.
 function windowOf(m: MapSpec, o: MapOptions) {
   const R = o.radius ?? 96, H = R + 4;
   const zoom = Math.max(0, Math.min(19, Math.round(o.zoom ?? m.zoom))), template = m.tiles ?? OSM_TILES;
-  const c = pixel(m.center.lat, m.center.lon, zoom), count = 2 ** zoom, world = count * TILE;
+  const center = o.center ?? m.center, c = pixel(center.lat, center.lon, zoom), count = 2 ** zoom, world = count * TILE;
   const tiles: { key: string; url: string; x: string; y: string }[] = [];
   for (let ty = Math.floor((c.y - H) / TILE); ty <= Math.floor((c.y + H) / TILE); ty++) {
     if (ty < 0 || ty >= count) continue;
@@ -54,6 +65,7 @@ function windowOf(m: MapSpec, o: MapOptions) {
     if (Math.hypot(x, y) > R - 3) return '';
     const r = 2.5 + 3 * Math.min(1, Math.max(0, p.size ?? (p.tone ? 0.7 : 0.4)));
     const cls = `radar-dot map-dot${p.on === false ? ' is-off' : ''}${p.tone ? ` tone-${p.tone}` : ''}`;
+    if (p.course != null) return mark(cls, x, y, p.course, undefined, p.id, p.label, r / 4.6);
     return `<circle class="${cls}" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r.toFixed(1)}"${p.id ? ` data-plot="${esc(p.id)}"` : ''}><title>${esc(p.label)}</title></circle>`;
   }).join('');
   return { R, H, zoom, tiles, dots, credit: m.attribution ?? (m.tiles ? '' : OSM_ATTRIBUTION) };
@@ -85,20 +97,28 @@ export function turnMap(svg: SVGSVGElement, m: MapSpec, o: MapOptions = {}) {
   svg.dataset.zoom = String(w.zoom);
 }
 
-// The map big, in a detail: the window (it keeps the pinch and the wheel,
-// `data-zooms`), and a plus and a minus on its edge.
+// The map big, in a detail: the window (it keeps the pinch, the wheel and
+// the drag, `data-zooms`), a plus and a minus on its edge, and the way back
+// to where the reading is once the viewer moved it away (`data-map-home`).
+const HOME = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.5v3.5M12 18v3.5M2.5 12H6M18 12h3.5"/></svg>`;
 export function mapDetail(m: MapSpec, name: string, o: MapOptions) {
-  return `<figure class="detail-map">
+  return `<figure class="detail-map" data-own="map">
     <div class="map-frame" data-zooms tabindex="0" aria-label="${esc(t.mapZoomHint(name))}">${mapFace(m, name, { ...o, cls: 'map-big' })}</div>
     <figcaption><button class="map-zoom" type="button" data-map-zoom="1" aria-label="${esc(t.zoomInMap)}">+</button>
-      <button class="map-zoom" type="button" data-map-zoom="-1" aria-label="${esc(t.zoomOutMap)}">−</button></figcaption></figure>`;
+      <button class="map-zoom" type="button" data-map-zoom="-1" aria-label="${esc(t.zoomOutMap)}">−</button>
+      <button class="map-zoom map-home" type="button" data-map-home aria-label="${esc(t.recenterMap)}" title="${esc(t.recenterMap)}"${o.center ? '' : ' hidden'}>${HOME}</button></figcaption></figure>`;
 }
 
-// Zooming a detail's map: the wheel and the trackpad's pinch over it, two
-// fingers spreading or closing on it (Zumly never sees them: they are its
-// pinch back), the buttons, and + and − on the focused map. `step` takes a
-// zoom in (1) or out (−1). Returns the cleanup.
-export function mapControls(root: HTMLElement, step: (by: 1 | -1) => void) {
+// What the viewer does to a detail's map: `step` takes a zoom in (1) or out
+// (−1), `pan` a drag of dx, dy pixels of the map (the window follows the
+// pointer), `home` the way back to the reading's center.
+export type MapMoves = { step: (by: 1 | -1) => void; pan?: (dx: number, dy: number) => void; home?: () => void };
+// Zooming and moving a detail's map: the wheel and the trackpad's pinch over
+// it, two fingers spreading or closing on it (Zumly never sees them: they are
+// its pinch back), a drag with the mouse or one finger, the buttons, and +, −
+// and the arrows on the focused map. Returns the cleanup.
+export function mapControls(root: HTMLElement, moves: MapMoves | ((by: 1 | -1) => void)) {
+  const { step, pan, home } = typeof moves === 'function' ? { step: moves, pan: undefined, home: undefined } : moves;
   const inMap = (target: EventTarget | null) => !!(target as Element | null)?.closest?.('[data-zooms]');
   let acc = 0, until = 0;
   const onWheel = (e: WheelEvent) => {
@@ -115,28 +135,63 @@ export function mapControls(root: HTMLElement, step: (by: 1 | -1) => void) {
   const fingers = new Map<number, { x: number; y: number }>();
   let base = 0;
   const spread = () => { const [a, b] = [...fingers.values()]; return Math.hypot(a.x - b.x, a.y - b.y); };
+  // A drag: the pointer that holds the map, where it was, and how many pixels of the map a pixel of the screen is.
+  let drag: { id: number; x: number; y: number; scale: number; moved: boolean } | null = null;
+  let swallowUntil = 0;
   const onDown = (e: PointerEvent) => {
-    if (e.pointerType !== 'touch' || !inMap(e.target)) return;
-    fingers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if (fingers.size === 2) base = spread();
+    if (!inMap(e.target) || (e.pointerType === 'mouse' && e.button !== 0)) return;
+    if (e.pointerType === 'touch') {
+      fingers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      // A second finger is a pinch: the drag ends where it is.
+      if (fingers.size === 2) { base = spread(); drag = null; return; }
+    }
+    const frame = (e.target as Element).closest<HTMLElement>('[data-zooms]')!, svg = frame.querySelector('svg');
+    if (!pan || !svg) return;
+    const box = svg.getBoundingClientRect();
+    drag = { id: e.pointerId, x: e.clientX, y: e.clientY, scale: svg.viewBox.baseVal.width / Math.max(1, box.width), moved: false };
+    frame.setPointerCapture?.(e.pointerId);
   };
   const onMove = (e: PointerEvent) => {
-    if (!fingers.has(e.pointerId)) return;
-    fingers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if (fingers.size !== 2 || !base) return;
-    const ratio = spread() / base;
-    if (ratio > 1.4 || ratio < 0.7) { step(ratio > 1 ? 1 : -1); base = spread(); }
+    if (fingers.has(e.pointerId)) fingers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (fingers.size === 2 && base) {
+      const ratio = spread() / base;
+      if (ratio > 1.4 || ratio < 0.7) { step(ratio > 1 ? 1 : -1); base = spread(); }
+      return;
+    }
+    if (!drag || e.pointerId !== drag.id || !pan) return;
+    const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+    if (!drag.moved && Math.hypot(dx, dy) < 4) return;
+    drag.moved = true;
+    drag.x = e.clientX;
+    drag.y = e.clientY;
+    pan(dx * drag.scale, dy * drag.scale);
   };
-  const onUp = (e: PointerEvent) => { fingers.delete(e.pointerId); if (fingers.size < 2) base = 0; };
+  const onUp = (e: PointerEvent) => {
+    fingers.delete(e.pointerId);
+    if (fingers.size < 2) base = 0;
+    if (drag && e.pointerId === drag.id) { if (drag.moved) swallowUntil = performance.now() + 300; drag = null; }
+  };
   const keep = (e: TouchEvent) => { if (inMap(e.target)) e.stopPropagation(); };
   const onClick = (e: MouseEvent) => {
-    const by = (e.target as Element).closest<HTMLElement>('[data-map-zoom]')?.dataset.mapZoom;
+    // The click that ends a drag is not a tap.
+    if (performance.now() < swallowUntil) { e.stopPropagation(); e.preventDefault(); return; }
+    const target = e.target as Element;
+    const by = target.closest<HTMLElement>('[data-map-zoom]')?.dataset.mapZoom;
     if (by) step(by === '1' ? 1 : -1);
+    else if (target.closest('[data-map-home]')) home?.();
   };
+  // The arrows move the focused map a quarter of its window.
+  const ARROWS: Record<string, [number, number]> = { ArrowLeft: [1, 0], ArrowRight: [-1, 0], ArrowUp: [0, 1], ArrowDown: [0, -1] };
   const onKey = (e: KeyboardEvent) => {
     if (!inMap(e.target)) return;
     if (e.key === '+' || e.key === '=') { e.preventDefault(); step(1); }
     else if (e.key === '-' || e.key === '_') { e.preventDefault(); step(-1); }
+    else if (pan && e.key in ARROWS) {
+      e.preventDefault();
+      const r = ((e.target as Element).closest('[data-zooms]')?.querySelector('svg')?.viewBox.baseVal.width ?? 200) / 8;
+      pan(ARROWS[e.key][0] * r, ARROWS[e.key][1] * r);
+    }
+    else if (home && (e.key === '0' || e.key === 'Home')) { e.preventDefault(); home(); }
   };
   root.addEventListener('wheel', onWheel, { passive: false });
   root.addEventListener('pointerdown', onDown);
@@ -144,7 +199,7 @@ export function mapControls(root: HTMLElement, step: (by: 1 | -1) => void) {
   root.addEventListener('pointerup', onUp);
   root.addEventListener('pointercancel', onUp);
   for (const type of ['touchstart', 'touchmove', 'touchend'] as const) root.addEventListener(type, keep, { passive: true });
-  root.addEventListener('click', onClick);
+  root.addEventListener('click', onClick, true);
   root.addEventListener('keydown', onKey);
   return () => {
     root.removeEventListener('wheel', onWheel);
@@ -153,7 +208,7 @@ export function mapControls(root: HTMLElement, step: (by: 1 | -1) => void) {
     root.removeEventListener('pointerup', onUp);
     root.removeEventListener('pointercancel', onUp);
     for (const type of ['touchstart', 'touchmove', 'touchend'] as const) root.removeEventListener(type, keep);
-    root.removeEventListener('click', onClick);
+    root.removeEventListener('click', onClick, true);
     root.removeEventListener('keydown', onKey);
   };
 }

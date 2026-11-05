@@ -173,8 +173,8 @@
           <figcaption><strong>Queue, open</strong>. The same with <code>open: true</code>: the calm ones each on the outer ring, quiet.</figcaption>
         </figure>
         <figure class="element">
-          <img src="images/el-scroll-list.png" alt="Sources along the right side of a ring, Bluetooth on, a curved scrollbar outside" loading="lazy">
-          <figcaption><strong>Scroll list</strong> <code>scrollList(items, state, { key, name })</code> + <code>scrollControls</code>. A long choice in a circle: a window of seven along the right side, the one on marked with a dot, a curved scrollbar outside with a thumb that drags. A tap picks.</figcaption>
+          <img src="images/el-scroll-list.png" alt="The day's earthquakes as rows inside a circle, the M7.1 with a red dot, each with where and when under it, a curved scrollbar on the right" loading="lazy">
+          <figcaption><strong>Scroll list</strong> <code>scrollList(items, state, { key, name, rows: true })</code> + <code>scrollControls</code>. A long list in the disc: five rows whole, each as wide as the circle is at its height, a name and a line under it; a row that calls has the dot of its level, the one chosen of a choice a check, the ones off are dim; the rows passing out shrink and fade at the rim. A curved scrollbar on the ring's right side with a thumb that drags. In a detail it sits beside the reading's map, globe or radar, and a row pointed at lights its dot. Without <code>rows</code>, the items go along the right side of the ring and the middle stays free (the changes).</figcaption>
         </figure>
       </div>
 
@@ -190,7 +190,7 @@
         <tr><td><code>dialControls(el, c)</code></td><td>Drag, wheel and keys on every dial inside <code>el</code>, a range's two knobs included; <code>locked</code> after a layer change; swallows the click that follows a drag so Zumly does not zoom; a second finger cancels the drag, so a pinch born on the dial is still Zumly's way back. Returns the cleanup.</td></tr>
         <tr><td><code>wheelControls(el, c)</code></td><td>The color wheel: drag, tap, arrows.</td></tr>
         <tr><td><code>listControls(el, c)</code></td><td>Turning the radial list: wheel, drag around the center, arrows; settles on the nearest item.</td></tr>
-        <tr><td><code>scrollControls(el, c)</code></td><td>The scroll list: wheel, drag along the items, the thumb, arrows, Enter.</td></tr>
+        <tr><td><code>scrollControls(el, c)</code></td><td>The scroll list: wheel, a drag along the rows (up and down; around the ring in its other shape), the thumb, arrows, Enter; <code>focus</code> hears the focus move. The arrows stay in the list: Zumly does not read their release as a zoom out.</td></tr>
         <tr><td><code>zoomOutGestures(app, canvas)</code></td><td>The ways back Zumly does not offer: the trackpad's pinch (a wheel with ctrl) zooms out of a view inside the board, once per pinch; pinching out does nothing. Returns the cleanup.</td></tr>
         <tr><td><code>parallax(stage, obj, active)</code></td><td>A few degrees of tilt with the pointer, in 3D only, on the compositor.</td></tr>
       </table>

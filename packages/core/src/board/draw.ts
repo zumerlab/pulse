@@ -3,7 +3,7 @@
 // it changed, and the sound in Media's face.
 
 import type { Dial, Reading } from '../model.ts';
-import { musicVisual, ring as drawRing, type RingReading } from '../radial/index.ts';
+import { morph, musicVisual, ring as drawRing, type RingReading } from '../radial/index.ts';
 import type { Board } from './context.ts';
 import { look } from './settings.ts';
 import { isPending } from './state.ts';
@@ -45,13 +45,15 @@ export function imageOf(b: Board, r: Reading) {
 // has no detail: it would repeat the face.
 export const detailAdds = (r: Reading) => !!(r.tracks?.length || r.history || r.list || r.image || r.color || r.month || r.map || r.link) || r.ids.length > 1;
 
-// Replaces the content only if it changed: new o-arc take a moment to draw (and
-// to receive taps), and a host sends changes every few seconds.
+// Writes the content only if it changed, and then only what changed (morph):
+// a host sends changes every few seconds, and an element made again would
+// start its animations over (the wave of an alert), take a moment to draw (a
+// new o-arc) and lose taps.
 const drawn = new WeakMap<HTMLElement, string>();
 export function setHTML(el: HTMLElement, html: string) {
   if (drawn.get(el) === html) return;
   drawn.set(el, html);
-  el.innerHTML = html;
+  morph(el, html);
 }
 // Forgets what an element holds, so the next setHTML writes it.
 export const forget = (el: HTMLElement) => drawn.delete(el);

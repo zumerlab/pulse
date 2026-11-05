@@ -1,5 +1,5 @@
-import { num, type Alert, type Plot, type Reading, type Seg } from '@zumer/pulse';
-import type { Act, Notification, Target, VesselSource } from './source.ts';
+import { num, type Alert, type Reading, type Seg } from '@zumer/pulse';
+import type { Act, Notification, VesselSource } from './source.ts';
 import { t } from './strings.ts';
 
 // Every channel is read from the vessel's paths: there are no hand-written
@@ -68,13 +68,8 @@ const noteAlert = (s: VesselSource, path: string, big: string, label: string): A
   return level ? got(level, big, label, n!.message ?? label, `note:${path}`) : undefined;
 };
 
-// Where a target is from the boat: metres and degrees from the north.
-export const NM = 1852, TRAFFIC_RANGE = 5 * NM;
-export function fromBoat(pos: { latitude: number; longitude: number }, o: Target) {
-  const r = Math.PI / 180, dLat = (o.lat - pos.latitude) * r, dLon = (o.lon - pos.longitude) * r * Math.cos(pos.latitude * r);
-  return { m: Math.hypot(dLat, dLon) * 6_371_000, bearing: ((Math.atan2(dLon, dLat) * 180) / Math.PI + 360) % 360 };
-}
-export const AIS = 'ais:';
+export { AIS, fromBoat, NM } from './traffic.ts';
+import { traffic } from './traffic.ts';
 
 export const navigation: System = { id: 'navigation', title: 'Navigation', channels: [
   { key: 'speed', name: 'Speed', glyph: g.speed, read: (s) => {
@@ -93,20 +88,6 @@ export const navigation: System = { id: 'navigation', title: 'Navigation', chann
     const cog = numAt(s, 'navigation.courseOverGroundTrue');
     return { kind: 'p', v: 0, ids: [mag != null ? 'navigation.headingMagnetic' : 'navigation.headingTrue'], big: `${num(deg(h), 0)}°`, bearing: deg(h),
       label: `${mag != null ? 'magnetic' : 'true'}${cog != null ? ` · course ${num(deg(cog), 0)}°` : ''}` };
-  } },
-  // The vessels around, from their AIS: a radar in the face, the boat in the center, five miles to the rim.
-  { key: 'traffic', name: 'Traffic', glyph: g.radar, read: (s) => {
-    const pos = s.values.get('navigation.position')?.value as { latitude?: number; longitude?: number } | undefined;
-    if (!pos || typeof pos.latitude !== 'number' || typeof pos.longitude !== 'number' || !s.others.size) return null;
-    const here = { latitude: pos.latitude, longitude: pos.longitude };
-    const targets = [...s.others.values()].map((o) => ({ ...o, ...fromBoat(here, o) })).filter((o) => o.m <= TRAFFIC_RANGE).sort((a, b) => a.m - b.m);
-    if (!targets.length) return null;
-    const close = targets.filter((o) => o.m < NM / 2), nearest = targets[0];
-    const plots: Plot[] = targets.map((o) => ({ bearing: o.bearing, range: o.m / TRAFFIC_RANGE, label: `${o.name} · ${num(o.m / NM, 1)} nm ${compass(o.bearing)}${o.sog != null ? ` · ${num(kn(o.sog), 0)} kn` : ''}`, id: AIS + o.id, tone: o.m < NM / 2 ? 'warn' : undefined }));
-    const line = (o: typeof nearest) => `${o.name} · ${num(o.m / NM, 1)} nm ${compass(o.bearing)}${o.sog != null ? ` · ${num(kn(o.sog), 0)} kn${o.cog != null ? ` ${num(deg(o.cog), 0)}°` : ''}` : ''}`;
-    return { kind: 'p', v: clamp(1 - nearest.m / TRAFFIC_RANGE), ids: targets.map((o) => AIS + o.id), big: `${num(nearest.m / NM, 1)} nm`, label: `${nearest.name} · ${compass(nearest.bearing)} · ${targets.length} in 5 nm`, plots,
-      list: targets.map((o) => ({ label: line(o), on: o.m >= NM / 2, id: AIS + o.id })),
-      alert: close.length ? got(1, `${num(close[0].m / NM, 1)} nm`, 'close', `${close[0].name} is ${num(close[0].m / NM, 1)} nm to the ${compass(close[0].bearing)}${close[0].sog != null ? `, making ${num(kn(close[0].sog), 0)} kn` : ''}`, 'traffic') : undefined };
   } },
   { key: 'depth', name: 'Depth', glyph: g.depth, read: (s) => {
     const path = ['environment.depth.belowTransducer', 'environment.depth.belowKeel', 'environment.depth.belowSurface'].find((p) => numAt(s, p) != null);
@@ -249,4 +230,4 @@ export const steering: System = { id: 'steering', title: 'Steering', channels: [
   } },
 ] };
 
-export const systems: System[] = [navigation, wind, electrical, tanks, engine, steering];
+export const systems: System[] = [navigation, traffic, wind, electrical, tanks, engine, steering];

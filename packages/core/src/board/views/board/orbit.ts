@@ -96,13 +96,27 @@ function paintSlide(b: Board, body: HTMLElement) {
     </div>` : shown.html.replace(/<\/div>\s*$/, `${dots}</div>`));
 }
 
+// Past twelve the orbit has no room to name them all: it shows eleven, the
+// most urgent first, and the twelfth place turns to the next eleven (`+N`).
+const ORBIT_MAX = 12;
+function moreTile(b: Board, rest: number, at: string) {
+  return `<div class="satellite"><div class="capsule">
+    <button class="otile orbit-more" data-orbit-more aria-label="${esc(b.t.showMore(rest))}">
+      <span class="otile-ring calm-ring">${'<i></i>'.repeat(Math.min(rest, 5))}</span>
+      <span class="otile-label outward-y"><span class="tile-title">${esc(b.t.moreN(rest))}</span><span class="tile-big">${esc(at)}</span></span>
+    </button></div></div>`;
+}
+
 // The systems around, the hub in the center with the news inside it. `changed`:
 // something new entered the log since the last paint (the center beats).
 export function paintOrbit(b: Board, body: HTMLElement, ids: string[], ready: boolean, changed: boolean) {
   const { t } = b;
   // The systems queue by urgency, clockwise from the top: the most serious first (urgencyOrder).
   // Each part is replaced on its own: the carousel does not redraw the rings.
-  const fixed = urgencyOrder(b, b.ids.filter((id) => ids.includes(id)));
+  const queue = urgencyOrder(b, b.ids.filter((id) => ids.includes(id)));
+  const per = ORBIT_MAX - 1, pages = queue.length > ORBIT_MAX ? Math.ceil(queue.length / per) : 1;
+  if (b.orbitPage >= pages) b.orbitPage = 0;
+  const fixed = pages > 1 ? queue.slice(b.orbitPage * per, b.orbitPage * per + per) : queue;
   const hubEl = body.querySelector<HTMLElement>('.hub')!;
   if (hubEl.hidden !== !ready) hubEl.hidden = !ready;
   const tm = look(b).time, calling = fixed.some((id) => worst(b, id));
@@ -130,8 +144,9 @@ export function paintOrbit(b: Board, body: HTMLElement, ids: string[], ready: bo
   const tilesEl = body.querySelector<HTMLElement>('.orbit-tiles')!;
   // Half a step of offset: no system right at the top, and each one faces its
   // segment of the center ring.
-  tilesEl.style.setProperty('--o-from', `${180 / Math.max(1, fixed.length)}deg`);
-  setHTML(tilesEl, fixed.map((id) => orbitTile(b, id)).join(''));
+  tilesEl.style.setProperty('--o-from', `${180 / Math.max(1, fixed.length + (pages > 1 ? 1 : 0))}deg`);
+  const from = b.orbitPage * per;
+  setHTML(tilesEl, fixed.map((id) => orbitTile(b, id)).join('') + (pages > 1 ? moreTile(b, queue.length - fixed.length, t.nextOf(from + 1, from + fixed.length, queue.length)) : ''));
   if (ready) paintSlide(b, body);
   if (changed) { hubEl.classList.remove('beat'); void hubEl.offsetWidth; hubEl.classList.add('beat'); }
 }

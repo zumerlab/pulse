@@ -7,10 +7,22 @@ import type { Action, Changed, PulseHost, System } from '@zumer/pulse';
 import { AC, aircraftObject, aircraftSystems, groupsOf, systemsOf } from './model.ts';
 import type { Act, SkySource } from './source.ts';
 
+// The sky within the groups in force: the region's aircraft of those kinds
+// (the gear keeps some, or the board reads one kind as an object of its
+// own), their squawks; what is in no group (a squawk far away, the whole
+// sky) does not count there.
+function within(src: SkySource, groups: string[] | null): SkySource {
+  if (!groups) return src;
+  const keep = new Set(groups);
+  const aircraft = new Map([...src.aircraft].filter(([hex]) => keep.has(hex)));
+  const emergencies = new Set([...src.emergencies].filter((hex) => keep.has(hex)));
+  return new Proxy(src, { get: (target, key) => (key === 'aircraft' ? aircraft : key === 'emergencies' ? emergencies : key === 'sky' ? null : key === 'scoped' ? true : Reflect.get(target, key)) });
+}
+
 export function hostOf(src: SkySource): PulseHost {
   const bind = (sys: { id: string; title: string; channels: { key: string; name: string; glyph: string; read: (s: SkySource) => ReturnType<System['channels'][number]['read']> }[] }): System => ({
     id: sys.id, title: sys.title,
-    channels: sys.channels.map((ch) => ({ key: ch.key, name: ch.name, glyph: ch.glyph, read: () => ch.read(src) })),
+    channels: sys.channels.map((ch) => ({ key: ch.key, name: ch.name, glyph: ch.glyph, read: (ctx) => ch.read(within(src, ctx?.groups ?? null)) })),
   });
   const ac = (id: string) => (id.startsWith(AC) ? src.aircraft.get(id.slice(AC.length)) : undefined);
   return {

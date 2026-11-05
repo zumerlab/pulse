@@ -34,5 +34,12 @@ export const t = {
   fleetCrowded: (n: number, names: string) => `${n} crowded: ${names}`,
   noFix: (name: string) => `${name} has no GPS fix`,
   fleetNoFix: (n: number, names: string) => `${n} without a GPS fix: ${names}`,
+  // A vehicle's photo, from Wikimedia Commons, always with its credit.
+  photoBy: (author: string, license: string) => license === 'public domain' ? `${author}, public domain` : `© ${author}${license ? `, ${license}` : ''}`,
+  another: (model: string) => `another ${model}`,
+  photoOfModel: (model: string) => `Another ${model}, not this one`,
+  lookingForPhoto: 'looking for a photo on Commons…',
+  noPhoto: 'no photo of it on Commons',
+  onCommons: 'See the photo on Commons',
   compass: ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'],
 };

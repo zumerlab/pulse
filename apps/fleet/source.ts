@@ -9,6 +9,7 @@
 
 import type { Action, Status } from '@zumer/pulse';
 import { MqttClient, text } from './mqtt.ts';
+import { Photos, type Photo } from './photos.ts';
 import { t } from './strings.ts';
 
 // A vehicle as the feed reports it. Speed in m/s, heading in degrees, `dl`
@@ -22,8 +23,8 @@ export type Vehicle = {
   occu: number | null; drst: number | null; loc: string; stop: number | null; at: number; seen: number;
 };
 export type Vehicles = Map<string, Vehicle>;
-// A fleet takes no commands from here.
-export type Act = Action & { kind: string };
+// A fleet takes no commands from here: the only act is a way out (a photo's page).
+export type Act = Action & { kind: string; url?: string };
 
 export interface FleetSource {
   readonly vehicles: Vehicles;
@@ -34,6 +35,9 @@ export interface FleetSource {
   readonly rate: number;            // messages a minute, lately
   onChange(fn: (ids: string[]) => void): () => void;
   onStatus(fn: () => void): () => void;
+  // A vehicle's photo, where the source looks for one (the live feed's are
+  // real vehicles, the demo's are not): a photo, none, or not yet.
+  photoOf?(v: Vehicle): Photo | null | undefined;
   act(a: Act): Promise<unknown>;
   start(): void;
   stop(): void;
@@ -90,8 +94,12 @@ export class HslSource implements FleetSource {
   readonly modes: string[];
   private routes: string[];
   private url: string;
+  // A photo found is a change of its vehicle, handed on with the next second's.
+  private photos = new Photos((id) => this.pending.add(id));
 
   constructor(modes: string[], routes: string[] = [], url = HSL_URL) { this.modes = modes; this.routes = routes; this.url = url; }
+
+  photoOf(v: Vehicle) { return this.photos.of(v); }
 
   get label() { return t.liveLabel(this.modes.map((m) => t.modes[m] ?? m), this.vehicles.size, this.rate); }
   onChange(fn: (ids: string[]) => void) { this.listeners.add(fn); return () => this.listeners.delete(fn); }
@@ -171,5 +179,8 @@ export class HslSource implements FleetSource {
     if (gone.length) this.listeners.forEach((fn) => fn(gone));
   }
 
-  async act(a: Act) { throw new Error(`a fleet takes no ${a.kind}`); }
+  async act(a: Act) {
+    if (a.kind === 'open' && a.url) { window.open(a.url, '_blank', 'noopener'); return; }
+    throw new Error(`a fleet takes no ${a.kind}`);
+  }
 }

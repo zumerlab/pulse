@@ -6,8 +6,8 @@
 // uses it to mark what was sent and not confirmed, to log changes and to ask
 // the host for names, states and a day of history.
 
-import type { GlobeSpec, MapSpec, Plot, Tone } from './radial/index.ts';
-export type { GeoPlot, GlobeSpec, MapSpec, Plot } from './radial/index.ts';
+import type { GlobeSpec, MapSpec, Plot, RadarSpec, Tone } from './radial/index.ts';
+export type { GeoPlot, GlobeSpec, MapSpec, Plot, RadarSpec } from './radial/index.ts';
 
 export type Level = 1 | 2;
 
@@ -21,8 +21,12 @@ export type Action = { ids: string[]; asks?: CodeFormat; code?: string } & Recor
 
 // A segment of a ring, or a row of a list. `act` is what tapping it does; `to`
 // names a thing with an object of its own (`PulseHost.objectOf`: an aircraft,
-// a quake), and tapping it zooms into that object instead.
-export type Seg = { label: string; on: boolean; id: string; act?: Action; to?: string };
+// a quake), and tapping it zooms into that object instead. A row of a list
+// may say more under its name (`detail`: the type, the distance, since when)
+// and call with a `level` (a dot of its color); a list that is the ring's
+// segments calls with the ones the alert's `fail` paints. Off is dim, except
+// in a choice, where on is the one chosen.
+export type Seg = { label: string; on: boolean; id: string; act?: Action; to?: string; detail?: string; level?: Level };
 export type Dial = {
   min: number; max: number; step: number; unit: string; label: string;
   value: number; id: string; set: (value: number) => Action;
@@ -70,9 +74,11 @@ export type Reading = {
   month?: string;                   // a meter (kWh) worth this month's calendar in the detail (the host's `statistics`)
   bearing?: number;                 // a direction, degrees clockwise from the top (a heading, where the wind comes from): a mark on the ring
   plots?: Plot[];                   // things around a point (drones around home, ships around the boat, quakes around you): a radar in the face
+  radar?: RadarSpec;                // how that radar reads: its rings named ("1 nm"), the center's own course and vector when it moves
   globe?: GlobeSpec;                // things on the Earth (flights, ships, quakes), by latitude and longitude: the disc as a globe, turned to a center
   map?: MapSpec;                    // things on a city or a field, by latitude and longitude: the disc as a window on a tiled map at a zoom; its detail, the map big, live, to zoom
   link?: Seg;                       // a way out to the thing elsewhere (the network's map, USGS): a button in the detail
+  to?: string;                      // the one thing the reading is about, when it has an object of its own (PulseHost.objectOf): the face opens it instead of a detail
   choice?: string;                  // a channel that follows one thing: the one it follows…
   choices?: string[];               // …and the others it could (the gear offers them)
 };

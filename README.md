@@ -13,8 +13,8 @@ attention while keeping the other readings and controls within reach.
 
 Home Assistant is the most complete integration so far. There is also a homelab
 app that reads a Mac or Linux machine through a small collector, a world app
-that reads the sun, the earth, the sky and a few status pages from public
-feeds with no server at all, a Signal K app that reads a boat, a fleet app
+that reads the calamities of the world (earthquakes, cyclones, floods,
+wildfires, volcanoes) from public feeds with no server at all, a Signal K app that reads a boat, a fleet app
 that follows the trams of Helsinki from a public MQTT feed, a Prometheus app
 that reads a fleet of hosts with PromQL by configuration, a drones app that
 flies a swarm of ArduPilot vehicles through mavlink2rest, a flights app that
@@ -88,7 +88,7 @@ so you can try the interface without a Home Assistant instance.
 | [apps/demo](apps/demo/README.md) | Simulated systems and a component gallery |
 | [apps/home-assistant](apps/home-assistant/README.md) | Standalone Home Assistant app, demo homes, card and dashboard strategies |
 | [apps/homelab](apps/homelab/README.md) | Machine monitoring app and a Node.js collector for Mac and Linux |
-| [apps/world](apps/world/README.md) | The world outside from public feeds (NOAA, USGS, Open-Meteo, Statuspage): live in the browser, no server |
+| [apps/world](apps/world/README.md) | The world's calamities from public feeds (USGS, GDACS, NASA EONET): earthquakes, cyclones, floods, wildfires, volcanoes; live in the browser, no server |
 | [apps/signalk](apps/signalk/README.md) | A boat over a Signal K server: navigation, wind, batteries, tanks, engine, autopilot |
 | [apps/fleet](apps/fleet/README.md) | A fleet over HSL's public MQTT feed: Helsinki's trams as the fleet by dimension and as one object per vehicle |
 | [apps/prometheus](apps/prometheus/README.md) | A fleet of hosts over Prometheus: channels by configuration (PromQL and thresholds), the targets, Alertmanager's alerts with the silence as the action |
@@ -114,7 +114,7 @@ npm run dev:ha     # Home Assistant, http://127.0.0.1:5174; sign in with your Ho
                    # index of the demo homes: http://127.0.0.1:5174/gallery.html
 npm run collect    # the homelab collector, on the machine to watch: http://127.0.0.1:5180
 npm run dev:homelab  # homelab, http://127.0.0.1:5175; ?demo for the demo machine
-npm run dev:world    # world, http://127.0.0.1:5176; live from the feeds, ?demo for a recorded stormy day
+npm run dev:world    # world, http://127.0.0.1:5176; live from the feeds, ?demo for a recorded day of calamities
 npm run dev:signalk  # Signal K, http://127.0.0.1:5177; ?server=https://demo.signalk.org, ?demo for the recorded yacht
 npm run dev:fleet    # fleet, http://127.0.0.1:5178; live from HSL, ?demo for the recorded trams
 npm run dev:prometheus  # Prometheus, http://127.0.0.1:5179; ?server=http://host:9090, ?demo for the recorded hosts

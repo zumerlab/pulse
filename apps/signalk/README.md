@@ -14,11 +14,22 @@ plugin); otherwise a threshold any skipper would set.
 | System | Channels | Alerts |
 |---|---|---|
 | Navigation | Speed (with the course as a bearing), heading, depth | Shallow water: 3 m calls softly, 1.5 m loudly |
+| Traffic | Closest approach (a radar of the vessels around, each turned to its course with six minutes of way ahead), on the chart (the street map, to drag), nearest (an arrow on the ring pointing at it) | A vessel that will pass within 0.5 nm in the next 20 minutes calls softly; within 0.25 nm in 10 minutes, or already that close, loudly |
 | Wind | Apparent (angle as a bearing, the bow at the top), true, barometer, temperature | Apparent wind of 30 knots calls softly, 40 loudly |
 | Electrical | House battery, engine battery, solar | House bank at 30% calls softly, 15% loudly; engine battery under 12 V |
 | Tanks | Fuel, fresh water, holding tank | Fuel or water at 20% (10% loudly); holding tank at 80% (95% loudly) |
 | Engine | Revolutions, coolant, oil pressure | Coolant at 92°C (100 loudly); low oil pressure with the engine running |
 | Steering | Autopilot, target, rudder, anchor | The anchor dragging past its radius |
+
+The traffic is read as a skipper reads a chartplotter: not where each vessel
+is now but how close it will pass and when, the closest point of approach
+(CPA) and the time to it (TCPA), from both courses and speeds. A freighter
+three miles off on a crossing course calls; a fishing boat a few cables away
+and opening does not. Each vessel is an object of its own, opened from its
+row: how it passes, where, how it moves, and what its AIS says (MMSI, type,
+length, destination), with a way out to MarineTraffic. The vessels on the
+stream are gathered once a second, so a busy channel does not repaint the
+board for each ship.
 
 The autopilot is the one thing the boat is told: its state is a choice ring
 (standby, auto, wind, route) and its target a dial, both PUT to their Signal K

@@ -802,6 +802,33 @@ test('the list is a queue on two rings: what calls inside by urgency, the calm f
   await expect(current(page).locator('.sys-title')).toHaveText(first!);
 });
 
+test('in the list the center faces the system it shows; tapped again, that system opens; its measures are tuned in the gear', async ({ page }) => {
+  await page.goto(`${HA}?demo=home&mode=list`);
+  const rings = page.locator('.queue-rings');
+  const hand = rings.locator('.queue-hand');
+  await expect(hand).toHaveCount(1);
+  const first = await hand.evaluate((el) => (el as SVGGElement).style.rotate);
+  // Another system: the center shows it and the hand swings to it.
+  const name = await rings.locator('.queue-item:not(.is-focus) .queue-title').first().textContent();
+  const other = rings.locator('.queue-item', { has: page.locator('.queue-title', { hasText: name! }) });
+  await other.locator('[data-qitem]').click();
+  await expect(rings.locator('.list-center .face-name')).toHaveText(name!);
+  await expect(other).toHaveClass(/is-focus/);
+  expect(await hand.evaluate((el) => (el as SVGGElement).style.rotate)).not.toBe(first);
+  // The same system again: it opens.
+  await other.locator('[data-qitem]').click();
+  await expect(current(page).locator('.sys-title')).toHaveText(name!);
+  // The list's measures are in the gear's tuning, like the orbit's and the layers'.
+  await page.goto(`${HA}?demo=home&mode=list`);
+  await gearTo(page, 'tune');
+  const group = page.locator('.settings [data-tune-group="list"]');
+  await expect(group.locator('h3')).toHaveText('List');
+  await group.locator('input[data-key="listLink"]').fill('0');
+  await expect(rings.locator('.queue-hand')).toHaveCount(0);
+  await group.locator('[data-tune-reset="list"]').click();
+  await expect(rings.locator('.queue-hand')).toHaveCount(1);
+});
+
 test('while something calls the grid folds the calm into one tile, the orbit queues by urgency, and the choice to open them is kept', async ({ page }) => {
   await folded(page);
   await page.goto(`${HA}?demo=home&mode=grid`);
@@ -1012,7 +1039,7 @@ test("the orbit's center holds the most serious alert, or the home's pulse with 
   await expect(page.locator('.hub-slide .eyebrow')).toHaveText(/^Pulse · \d\d:\d\d$/);
 });
 
-test("a long choice scrolls in a circle: the sources along the ring, a curved scrollbar, the wheel and the keys move it, a tap picks", async ({ page }) => {
+test("a long choice scrolls in a circle: the sources as rows in the disc, a curved scrollbar, the wheel and the keys move it, a tap picks", async ({ page }) => {
   await page.goto(`${HA}?demo=arsaboo&mode=grid`);
   await page.locator('.tile[data-system="media"]').click();
   await current(page).locator('o-arc[data-pick="source"]').first().dispatchEvent('click');
@@ -1021,10 +1048,10 @@ test("a long choice scrolls in a circle: the sources along the ring, a curved sc
   await expect(list).toHaveAttribute('role', 'listbox');
   await expect(list.locator('[role="option"]')).toHaveCount(11);
   const thumb = list.locator('.scroll-thumb');
-  await expect(thumb).toHaveAttribute('aria-valuemax', '4');
+  await expect(thumb).toHaveAttribute('aria-valuemax', '6');
   await expect(thumb).toHaveAttribute('aria-valuenow', '0');
-  // Seven fit; the rest wait past the end.
-  await expect(list.locator('.scroll-orbit:not(.is-hidden)')).toHaveCount(7);
+  // Five fit, the next fades at the rim; the rest wait past the end.
+  await expect(list.locator('.scroll-item:not(.is-hidden)')).toHaveCount(6);
   const box = (await list.boundingBox())!;
   await page.mouse.move(box.x + box.width * 0.8, box.y + box.height / 2);
   await page.mouse.wheel(0, 160);
@@ -1033,6 +1060,9 @@ test("a long choice scrolls in a circle: the sources along the ring, a curved sc
   await page.waitForTimeout(1200);
   await expect(current(page).locator('.detail')).toBeVisible();
   await list.focus();
+  // The arrows move the focus and stay in the list: Zumly does not read ArrowDown as a zoom out.
+  await page.keyboard.press('ArrowDown');
+  await expect(current(page).locator('.detail')).toBeVisible();
   await page.keyboard.press('End');
   await expect(list.locator('.scroll-item.is-focus .sl-text')).toHaveText('Retro 70s and 80s');
   await page.keyboard.press('Enter');

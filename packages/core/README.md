@@ -57,15 +57,29 @@ has nothing to show. Readings describe one of three ring types:
 Readings also include the main value, a label and the entity ids they depend
 on. They can add alerts and detail content such as history, an image, a color
 control or a longer list. A reading with a `map` opens a detail where the map
-is big, follows the reading live and zooms with the wheel, a pinch or its
-buttons; a `link` adds a button out to the thing elsewhere. A picture with a
-`video` moves: a live stream (HLS, an `.m3u8`) or a video file plays muted in
-the face and the detail over its still, through `<pulse-video>`, an element
-that connects when it is seen and lets go when it is not (hls.js where the
-browser has Media Source, the browser's own HLS elsewhere), and keeps the
-still when the stream does not answer. A segment or a row
-can name a thing with its own object (`to`): with `objectOf(id)` the host
-makes it, and tapping the row zooms into it.
+is big, follows the reading live, zooms with the wheel, a pinch or its
+buttons and moves with a drag or the arrows; a `link` adds a button out to the
+thing elsewhere. A picture with a `video` moves: a live stream (HLS, an
+`.m3u8`) or a video file plays muted in the face and the detail over its
+still, through `<pulse-video>`, an element that connects when it is seen and
+lets go when it is not (hls.js where the browser has Media Source, the
+browser's own HLS elsewhere), and keeps the still when the stream does not
+answer. A segment or a row can name a thing with its own object
+(`to`): with `objectOf(id)` the host makes it, and tapping the row zooms into
+it; a reading about one thing can name it too (`Reading.to`), and its face
+opens that object instead of a detail. A reading's `plots` are a radar; a
+plot with a `course` is a mark turned that way with its `vector` ahead, and
+the reading's `radar` names the rings and gives the center its own course (a
+boat under way).
+
+The board writes what changed and nothing else (`morph`): an element that
+stays the same stays, so a wave keeps its rhythm, a dot glides to its new
+place and a control keeps the focus while a host sends a value every second.
+
+On the groups axis, past twelve objects the board climbs a level: one object
+per group of the gear, with the channels of the systems read within it
+(`ReadContext.groups`: a host reads only what is in them), each member one
+tap further. Past twelve still, the orbit shows eleven and turns a page.
 
 Actions belong to the host. The board sends them through `act`, tracks the
 ids they affect and waits for reported changes. An action that requires a

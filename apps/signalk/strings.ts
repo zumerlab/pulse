@@ -37,4 +37,18 @@ export const t = {
   oilLow: (bar: string) => `Oil pressure at ${bar} bar with the engine running`,
   dragging: (m: string, max: string) => `The anchor is dragging: ${m} m from the drop, ${max} m allowed`,
   autopilotStates: { standby: 'Standby', auto: 'Auto', wind: 'Wind', route: 'Route' } as Record<string, string>,
+
+  // Traffic: how close each vessel will pass, and when
+  clear: 'Clear',
+  opening: 'opening',
+  passes: (cpa: string, inMin: string) => `passes ${cpa} in ${inMin}`,
+  closestPass: (name: string, cpa: string, inMin: string) => `closest pass ${name}, ${cpa} in ${inMin}`,
+  noneClosing: (n: number) => `${n} ${n === 1 ? 'vessel' : 'vessels'} within 5 nm, none closing`,
+  cpaWhy: (name: string, cpa: string, inMin: string, now: string, dir: string, kts: string | null) => `${name} will pass ${cpa} from you in ${inMin}; now ${now} to the ${dir}${kts ? `, making ${kts} kn` : ''}`,
+  closeWhy: (name: string, now: string, dir: string) => `${name} is ${now} off to the ${dir}`,
+  vessels: (n: number) => `${n} ${n === 1 ? 'vessel' : 'vessels'}`,
+  thisBoat: 'this boat',
+  vessel: 'Vessel',
+  noDetails: 'no details on its AIS',
+  seeOn: (site: string) => `See it on ${site}`,
 };

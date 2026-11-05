@@ -9,8 +9,9 @@ import { LAND } from './land.ts';
 import { esc } from './markup.ts';
 import type { Tone } from './time.ts';
 
-// A thing on the globe: where, what, and how it is. `size` scales the dot (0..1, a count, a magnitude).
-export type GeoPlot = { lat: number; lon: number; label: string; id?: string; on?: boolean; tone?: Tone; size?: number };
+// A thing on the globe: where, what, and how it is. `size` scales the dot (0..1, a count, a magnitude);
+// `course` (degrees clockwise from north) turns it into a mark pointing where it goes, on a street map.
+export type GeoPlot = { lat: number; lon: number; label: string; id?: string; on?: boolean; tone?: Tone; size?: number; course?: number };
 export type GlobeSpec = { center?: { lat: number; lon: number }; plots: GeoPlot[]; land?: [number, number][][] };
 
 const R = 96, D = Math.PI / 180;

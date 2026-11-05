@@ -1,4 +1,5 @@
-import { listOf, num, type Alert, type GeoPlot, type Group, type Reading, type Seg } from '@zumer/pulse';
+import { listOf, num, type Action, type Alert, type GeoPlot, type Group, type Reading, type Seg } from '@zumer/pulse';
+import { modelOf, OPERATORS, type Photo } from './photos.ts';
 import type { Vehicle, Vehicles } from './source.ts';
 import { t } from './strings.ts';
 
@@ -26,7 +27,7 @@ const g = {
 };
 // A vehicle as a dot on the map: dim when stopped, in the alert's color when it calls.
 const plotOf = (v: Vehicle): GeoPlot | null => v.lat == null || v.long == null ? null
-  : { lat: v.lat, lon: v.long, label: `${nameOf(v)} → ${toOf(v)}${lateBy(v) >= LATE ? ` · ${t.late(mmss(lateBy(v)))}` : ''}`, id: VEH + v.id, on: (v.spd ?? 0) > 0.5,
+  : { lat: v.lat, lon: v.long, label: `${nameOf(v)} → ${toOf(v)}${lateBy(v) >= LATE ? ` · ${t.late(mmss(lateBy(v)))}` : ''}`, id: VEH + v.id, on: (v.spd ?? 0) > 0.5, course: v.hdg ?? undefined,
     tone: lateBy(v) >= VERY_LATE || !hasFix(v) ? 'critical' : lateBy(v) >= LATE || (v.occu ?? 0) >= CROWDED ? 'warn' : undefined };
 
 const clamp = (v: number) => Math.min(1, Math.max(0, v));
@@ -51,8 +52,9 @@ export const lineOf = (v: Vehicle) => v.desi || v.route || '?';
 const byLine = (a: Vehicle, b: Vehicle) => lineOf(a).localeCompare(lineOf(b), undefined, { numeric: true }) || a.veh - b.veh;
 const vehicles = (vs: Vehicles) => [...vs.values()].sort(byLine);
 const what = (vs: Vehicle[]) => { const modes = [...new Set(vs.map((v) => v.mode))]; return modes.length === 1 ? t.modes[modes[0]] ?? modes[0] : 'vehicles'; };
-// A member as a tick: on when fine; and as a line of the detail's list.
-const tick = (v: Vehicle, on: boolean, label: string): Seg => ({ label, on, id: VEH + v.id });
+// A member as a tick: on when fine; and as a row of the detail's list, its
+// name and a line under it; either opens the vehicle.
+const tick = (v: Vehicle, on: boolean, detail: string): Seg => ({ label: nameOf(v), detail, on, id: VEH + v.id, to: VEH + v.id });
 
 // ─── The fleet, by dimension ───
 
@@ -63,7 +65,7 @@ export const service: System = { id: 'service', title: 'Service', channels: [
     // The late ones first, the latest of them in front, so the painted ticks sit together.
     const ordered = [...all].sort((a, b) => lateBy(b) - lateBy(a) || byLine(a, b));
     const late = ordered.filter((v) => lateBy(v) >= LATE), very = late.filter((v) => lateBy(v) >= VERY_LATE);
-    const segs = ordered.map((v) => tick(v, lateBy(v) < LATE, `${lineOf(v)} · ${v.veh}${lateBy(v) >= 60 ? ` · +${mmss(lateBy(v))}` : earlyBy(v) >= 60 ? ` · −${mmss(earlyBy(v))}` : ''}`));
+    const segs = ordered.map((v) => tick(v, lateBy(v) < LATE, `to ${toOf(v)}${lateBy(v) >= 60 ? ` · +${mmss(lateBy(v))}` : earlyBy(v) >= 60 ? ` · −${mmss(earlyBy(v))}` : ' · on time'}`));
     const share = late.length / all.length, worst = late[0];
     return { kind: 's', segs, ids: all.map((v) => VEH + v.id), big: `${all.length - late.length} of ${all.length}`, list: segs,
       label: worst ? `on time · worst ${nameOf(worst)} ${t.late(mmss(lateBy(worst)))}` : `${what(all)} on time`,
@@ -78,7 +80,7 @@ export const service: System = { id: 'service', title: 'Service', channels: [
     const early = all.filter((v) => earlyBy(v) >= EARLY).sort((a, b) => earlyBy(b) - earlyBy(a));
     return { kind: 'p', v: clamp(early.length / Math.max(1, all.length) * 4), ids: early.map((v) => VEH + v.id).concat(early.length ? [] : [VEH + all[0].id]), big: `${early.length}`,
       label: early.length ? `ahead of the timetable · ${nameOf(early[0])} ${t.early(mmss(earlyBy(early[0])))}` : 'ahead of the timetable',
-      list: early.map((v) => tick(v, true, `${lineOf(v)} · ${v.veh} · −${mmss(earlyBy(v))}`)) };
+      list: early.map((v) => tick(v, true, `to ${toOf(v)} · −${mmss(earlyBy(v))}`)) };
   } },
 ] };
 
@@ -109,7 +111,7 @@ export const load: System = { id: 'load', title: 'Load', channels: [
     if (!all.length) return null;
     const ordered = [...all].sort((a, b) => (b.occu ?? 0) - (a.occu ?? 0) || byLine(a, b));
     const crowded = ordered.filter((v) => (v.occu ?? 0) >= CROWDED);
-    const segs = ordered.map((v) => tick(v, (v.occu ?? 0) < CROWDED, `${lineOf(v)} · ${v.veh} · ${num(v.occu ?? 0, 0)}%`));
+    const segs = ordered.map((v) => tick(v, (v.occu ?? 0) < CROWDED, `${num(v.occu ?? 0, 0)}% full · to ${toOf(v)}`));
     return { kind: 's', segs, ids: all.map((v) => VEH + v.id), big: `${crowded.length} crowded`, list: segs,
       label: crowded.length ? listOf(crowded.slice(0, 3).map(nameOf)) : `fullest ${nameOf(ordered[0])} at ${num(ordered[0].occu ?? 0, 0)}%`,
       alert: crowded.length >= 3 ? { level: 1, big: `${crowded.length} crowded`, label: what(all), key: 'crowded', fail: crowded.map((_, i) => i), why: t.fleetCrowded(crowded.length, listOf(crowded.slice(0, 4).map(nameOf))), verb: t.gotIt, acts: [] } : undefined };
@@ -129,7 +131,7 @@ export const fleet: System = { id: 'fleet', title: 'Fleet', channels: [
     const center = { lat: plots.reduce((a, p) => a + p.lat, 0) / plots.length, lon: plots.reduce((a, p) => a + p.lon, 0) / plots.length };
     const odd = plots.filter((p) => p.tone).length;
     return { kind: 'p', v: clamp(all.filter((v) => (v.spd ?? 0) > 0.5).length / all.length), ids: all.map((v) => VEH + v.id), big: `${all.length} ${what(all)}`,
-      label: odd ? `${odd} calling on the map` : 'on the map', map: { center, zoom: 10, plots }, list: all.map((v) => tick(v, lateBy(v) < LATE, `${lineOf(v)} · ${v.veh} → ${toOf(v)}`)) };
+      label: odd ? `${odd} calling on the map` : 'on the map', map: { center, zoom: 10, plots }, list: all.map((v) => tick(v, lateBy(v) < LATE, `to ${toOf(v)}${lateBy(v) >= LATE ? ` · ${t.late(mmss(lateBy(v)))}` : ''}`)) };
   } },
   { key: 'reporting', name: 'Reporting', glyph: g.tram, read: (vs) => {
     const all = vehicles(vs);
@@ -143,7 +145,7 @@ export const fleet: System = { id: 'fleet', title: 'Fleet', channels: [
     if (!all.length) return null;
     const ordered = [...all].sort((a, b) => Number(hasFix(a)) - Number(hasFix(b)) || byLine(a, b));
     const blind = ordered.filter((v) => !hasFix(v));
-    const segs = ordered.map((v) => tick(v, hasFix(v), `${lineOf(v)} · ${v.veh} · ${hasFix(v) ? v.loc : 'no fix'}`));
+    const segs = ordered.map((v) => tick(v, hasFix(v), `${hasFix(v) ? v.loc : 'no fix'} · to ${toOf(v)}`));
     return { kind: 's', segs, ids: all.map((v) => VEH + v.id), big: blind.length ? `${blind.length} without GPS` : 'All located', list: segs, label: blind.length ? listOf(blind.slice(0, 3).map(nameOf)) : `${all.length} ${what(all)} with a fix`,
       alert: blind.length >= 2 ? { level: 1, big: `${blind.length} blind`, label: what(all), key: 'blind', fail: blind.map((_, i) => i), why: t.fleetNoFix(blind.length, listOf(blind.slice(0, 4).map(nameOf))), verb: t.gotIt, acts: [] } : undefined };
   } },
@@ -152,7 +154,7 @@ export const fleet: System = { id: 'fleet', title: 'Fleet', channels: [
     if (!all.length) return null;
     const now = Date.now(), silent = all.filter((v) => now - v.seen > 60_000);
     return { kind: 'p', v: clamp(silent.length / all.length * 4), ids: silent.map((v) => VEH + v.id).concat(silent.length ? [] : [VEH + all[0].id]), big: `${silent.length}`, label: 'quiet for over a minute',
-      list: silent.map((v) => tick(v, false, `${nameOf(v)} · ${num((now - v.seen) / 60_000, 0)} min`)) };
+      list: silent.map((v) => tick(v, false, `quiet for ${num((now - v.seen) / 60_000, 0)} min · to ${toOf(v)}`)) };
   } },
 ] };
 
@@ -171,7 +173,8 @@ export function groupsOf(vs: Vehicles): Group[] {
 // A vehicle's channels, read from the vehicle itself. The keys carry the
 // system they belong to (`service/delay`), so the gear's choices hold on
 // both axes.
-const vehicleChannels: { key: string; name: string; glyph: string; read: (v: Vehicle) => Reading | null }[] = [
+type PhotoOf = (v: Vehicle) => Photo | null | undefined;
+const vehicleChannels: { key: string; name: string; glyph: string; read: (v: Vehicle, photoOf?: PhotoOf) => Reading | null }[] = [
   { key: 'service/delay', name: 'Timetable', glyph: g.clock, read: (v) => {
     if (v.dl == null) return null;
     const late = lateBy(v), early = earlyBy(v), id = VEH + v.id;
@@ -206,13 +209,26 @@ const vehicleChannels: { key: string; name: string; glyph: string; read: (v: Veh
     const id = VEH + v.id, open = v.drst === 1;
     return { kind: 's', segs: [{ label: 'Doors', on: open, id }], ids: [id], big: open ? 'Open' : 'Closed', label: open ? 'at a stop' : 'under way' };
   } },
+  // The vehicle itself: its model (a tram's or a metro's number tells it) or
+  // its operator, and a photo of it from Commons, or of its model, with its
+  // credit. Only where the source looks for photos: the live feed.
+  { key: 'fleet/vehicle', name: 'Vehicle', glyph: g.tram, read: (v, photoOf) => {
+    if (!photoOf) return null;
+    const photo = photoOf(v), model = modelOf(v), operator = OPERATORS[v.oper], id = VEH + v.id;
+    const what = model ? `${model.name} ${v.veh}` : `${operator ?? t.modeOne[v.mode] ?? v.mode} ${v.veh}`;
+    const credit = photo && t.photoBy(photo.author, photo.license);
+    return { kind: 'p', ids: [id], big: what,
+      label: photo === undefined ? t.lookingForPhoto : !photo ? t.noPhoto : photo.own ? credit! : `${t.another(model?.name ?? '')} · ${credit}`,
+      image: photo ? { src: photo.src, alt: photo.own ? nameOf(v) : t.photoOfModel(model?.long ?? ''), id } : undefined,
+      link: photo ? { label: t.onCommons, on: true, id, act: { ids: [], kind: 'open', url: photo.page } as Action } : undefined };
+  } },
 ];
 
 // One object per vehicle, the channels of the systems chosen read from it.
-export function vehicleSystems(vs: Vehicles, chosen: string[], hidden: (system: string, channel: string) => boolean): System[] {
+export function vehicleSystems(vs: Vehicles, chosen: string[], hidden: (system: string, channel: string) => boolean, photoOf?: PhotoOf): System[] {
   return vehicles(vs).map((v) => ({
     id: VEH + v.id, title: `${t.modeOne[v.mode] ?? v.mode} ${lineOf(v)} → ${toOf(v)}`,
     channels: vehicleChannels.filter((ch) => { const [sys, key] = ch.key.split('/'); return chosen.includes(sys) && !hidden(sys, key); })
-      .map((ch) => ({ key: ch.key, name: ch.name, glyph: ch.glyph, read: (all: Vehicles) => { const now = all.get(v.id); return now ? ch.read(now) : null; } })),
+      .map((ch) => ({ key: ch.key, name: ch.name, glyph: ch.glyph, read: (all: Vehicles) => { const now = all.get(v.id); return now ? ch.read(now, photoOf) : null; } })),
   }));
 }

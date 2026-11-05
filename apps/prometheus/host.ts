@@ -6,9 +6,21 @@ import type { Action, Changed, PulseHost, System } from '@zumer/pulse';
 import { groupsOf, hostSystems, systemsOf } from './model.ts';
 import { type Act, type PromSource, channelId } from './source.ts';
 
+// The fleet within the groups in force: the hosts the gear keeps (or one
+// job's, when the board reads it as an object of its own), their series,
+// targets and alerts; an alert of no host stays.
+function within(src: PromSource, groups: string[] | null): PromSource {
+  if (!groups) return src;
+  const keep = new Set(groups);
+  const series = new Map([...src.series].map(([key, m]) => [key, new Map([...m].filter(([host]) => keep.has(host)))]));
+  const targets = new Map([...src.targets].filter(([host]) => keep.has(host)));
+  const alerts = src.alerts.filter((a) => !a.host || keep.has(a.host));
+  return new Proxy(src, { get: (target, key) => (key === 'series' ? series : key === 'targets' ? targets : key === 'alerts' ? alerts : Reflect.get(target, key)) });
+}
+
 const bind = (src: PromSource, sys: { id: string; title: string; channels: { key: string; name: string; glyph: string; read: (s: PromSource) => ReturnType<System['channels'][number]['read']> }[] }): System => ({
   id: sys.id, title: sys.title,
-  channels: sys.channels.map((ch) => ({ key: ch.key, name: ch.name, glyph: ch.glyph, read: () => ch.read(src) })),
+  channels: sys.channels.map((ch) => ({ key: ch.key, name: ch.name, glyph: ch.glyph, read: (ctx) => ch.read(within(src, ctx?.groups ?? null)) })),
 });
 
 export function hostOf(src: PromSource): PulseHost {

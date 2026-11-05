@@ -187,20 +187,37 @@ export function listControls(el: HTMLElement, c: ListControls) {
 // into one quiet button while something calls, or each system there when
 // open. Every item is the same size; what calls is told by its ring's weight
 // and color and by a wave (see the CSS). The center is the item in `focus`
-// (listCenter): it opens it. The host handles `data-qitem` (focus an item)
-// and `data-calm` (fold or open the calm).
-export type QueueLook = { inner: number; outer: number; item: number; center: number };
-export const QUEUE_LOOK: QueueLook = { inner: 8, outer: 11, item: 3, center: 9 };
-export function queueRings(items: ListItem[], o: { focus: string; open: boolean; look?: QueueLook }) {
+// (listCenter): it opens it. A hand ties the center to the item it shows:
+// a notch on the center's rim and a line out to the item, in its color,
+// that swings to the next one picked (`near`: the hand's angle now, so it
+// turns the short way). The host handles `data-qitem` (focus an item; the
+// one in focus opens) and `data-calm` (fold or open the calm).
+// The measures, in Orbit's units (a ring N sits at N twelfths of the radius):
+// the two rings, the size of an item and of the center, the hand's stroke (0: none).
+export type QueueLook = { inner: number; outer: number; item: number; center: number; link: number };
+export const QUEUE_LOOK: QueueLook = { inner: 8, outer: 11, item: 3, center: 10.4, link: 1.5 };
+// The hand, drawn on a 240-unit square: Orbit's ring N is at N × 10 of its 120 radius.
+function queueHand(look: QueueLook, orbit: number, a: number, level: number) {
+  const rim = look.center * 5, from = rim + 1.5, to = orbit * 10 - look.item * 5 - 4;
+  if (!look.link) return '';
+  // The rim lit toward the item, 40° of it: the center faces what it shows.
+  const s = Math.sin((20 * Math.PI) / 180) * (rim + 0.4), c = -Math.cos((20 * Math.PI) / 180) * (rim + 0.4);
+  return `<svg class="queue-link${level ? ` level-${level}` : ''}" viewBox="-120 -120 240 240" aria-hidden="true"><g class="queue-hand" style="rotate:${a.toFixed(1)}deg">
+    <path class="queue-rim" d="M ${(-s).toFixed(2)} ${c.toFixed(2)} A ${(rim + 0.4).toFixed(2)} ${(rim + 0.4).toFixed(2)} 0 0 1 ${s.toFixed(2)} ${c.toFixed(2)}" style="stroke-width:${Math.max(1, look.link)}"></path>
+    <path class="queue-notch" d="M -4.5 ${(-from + 0.5).toFixed(1)} L 0 ${(-from - 5).toFixed(1)} L 4.5 ${(-from + 0.5).toFixed(1)} Z"></path>
+    ${to - from > 6 ? `<line class="queue-line" x1="0" y1="${(-from - 4).toFixed(1)}" x2="0" y2="${(-to).toFixed(1)}" style="stroke-width:${look.link}"></line>` : ''}</g></svg>`;
+}
+export function queueRings(items: ListItem[], o: { focus: string; open: boolean; look?: QueueLook; near?: number }) {
   const look = o.look ?? QUEUE_LOOK;
   const urgent = items.filter((it) => it.level), calm = items.filter((it) => !it.level);
   // Nothing calls: everything is fine and sits on the inner ring, nothing to fold.
   const inner = urgent.length ? urgent : calm, outer = urgent.length ? calm : [];
   const spread = (n: number, from: number, span: number) => Array.from({ length: n }, (_, i) =>
     n === 1 ? from + (urgent.length ? 0 : span / 2) : from + i * Math.min(urgent.length ? 40 : 360 / n, span / (n - 1)));
-  const innerAt = urgent.length ? spread(inner.length, 30, 140) : inner.map((_, i) => i * 360 / inner.length);
+  // What calls fills the right half; past five, the arc grows clockwise, 30° to each, rather than crowding them.
+  const innerAt = urgent.length ? spread(inner.length, 30, Math.max(140, Math.min(300, (inner.length - 1) * 30))) : inner.map((_, i) => i * 360 / inner.length);
   const outerAt = outer.length === 1 ? [270] : spread(outer.length, 205, 130);
-  const slot = (it: ListItem, a: number, orbit: number, side: 'start' | 'end') => {
+  const slot = (it: ListItem, a: number, orbit: number, side: 'start' | 'end' | 'below') => {
     const level = it.level ? ` level-${it.level}` : '', focus = it.id === o.focus;
     return `<div class="orbit-${orbit} queue-orbit" style="--o-range:0deg; rotate:${a.toFixed(1)}deg">
       <div class="satellite queue-item${focus ? ' is-focus' : ''}${level}" style="--o-size-ratio:${look.item}">
@@ -210,7 +227,8 @@ export function queueRings(items: ListItem[], o: { focus: string; open: boolean;
           <span class="queue-label is-${side}" aria-hidden="true"><span class="queue-title">${esc(it.title)}</span><span class="queue-big">${esc(it.big)}</span></span>
         </div></div></div>`;
   };
-  const sideOf = (a: number) => (((a % 360) + 360) % 360) < 180 ? 'start' : 'end';
+  // The name beside its item, toward the outside: right on the right half, left on the left, under it at the bottom.
+  const sideOf = (a: number) => { const d = ((a % 360) + 360) % 360; return d >= 150 && d <= 210 ? 'below' as const : d < 180 ? 'start' as const : 'end' as const; };
   const innerHtml = inner.map((it, i) => slot(it, innerAt[i], look.inner, sideOf(innerAt[i]))).join('');
   const outerHtml = !outer.length ? '' : o.open ? outer.map((it, i) => slot(it, outerAt[i], look.outer, 'end')).join('')
     : `<div class="orbit-${look.outer} queue-orbit" style="--o-range:0deg; rotate:270deg"><div class="satellite queue-fold" style="--o-size-ratio:${look.item}">
@@ -221,6 +239,13 @@ export function queueRings(items: ListItem[], o: { focus: string; open: boolean;
   const tracks = `<div class="orbit-${look.inner} queue-track" style="--o-size-ratio:.15"><o-arc style="--o-fill:var(--line)"></o-arc></div>${outer.length
     ? `<div class="orbit-${look.outer} queue-track" style="--o-size-ratio:.15; --o-from:${o.open ? 195 : 255}deg; --o-range:${o.open ? 150 : 30}deg"><o-arc style="--o-fill:var(--line)"></o-arc></div>` : ''}`;
   const f = items.find((it) => it.id === o.focus) ?? items[0];
-  return `<div class="bigbang queue-rings" role="group" aria-label="${esc(t.systems)}"><div class="gravity-spot">${tracks}${innerHtml}${outerHtml}
+  // Where the item in the center sits: on the inner ring, or on the outer one when the calm are open.
+  const fi = f ? inner.indexOf(f) : -1, fo = f && o.open ? outer.indexOf(f) : -1;
+  let hand = '';
+  if (f && (fi >= 0 || fo >= 0)) {
+    const at = fi >= 0 ? innerAt[fi] : outerAt[fo], near = o.near ?? at;
+    hand = queueHand(look, fi >= 0 ? look.inner : look.outer, at + 360 * Math.round((near - at) / 360), f.level ?? 0);
+  }
+  return `<div class="bigbang queue-rings" role="group" aria-label="${esc(t.systems)}">${hand}<div class="gravity-spot">${tracks}${innerHtml}${outerHtml}
     <div class="orbit-0 queue-center-orbit" style="--o-size-ratio:${look.center}">${f ? listCenter(f) : ''}</div></div></div>`;
 }

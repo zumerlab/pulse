@@ -9,6 +9,7 @@ export type Tune = {
   layerGrow: number; layerStep: number; layerZoom: number; layerOpacity: number;
   layerEase: number; layerStroke: number; layerBlur: number;
   timeGap: number; timeBar: number; timePointer: number; timeSplit: number;
+  listCenter: number; listInner: number; listOuter: number; listItem: number; listLink: number;
 };
 
 // The values the code uses today.
@@ -17,10 +18,11 @@ export const DEFAULTS: Tune = {
   layerGrow: 0.42, layerStep: -70, layerZoom: 1.1, layerOpacity: 0.6,
   layerEase: 0, layerStroke: 4, layerBlur: 0.5,
   timeGap: 22, timeBar: 14, timePointer: 9, timeSplit: 0.75,
+  listCenter: 10.4, listInner: 8, listOuter: 11, listItem: 3, listLink: 1.5,
 };
 
 export type Control = { key: keyof Tune; min: number; max: number; step: number; unit?: string };
-export type TuneGroup = 'orbit' | 'layers' | 'time';
+export type TuneGroup = 'orbit' | 'layers' | 'time' | 'list';
 export const GROUPS: [TuneGroup, Control[]][] = [
   ['orbit', [
     { key: 'orbit', min: 6, max: 12, step: 1 },
@@ -43,6 +45,13 @@ export const GROUPS: [TuneGroup, Control[]][] = [
     { key: 'layerStep', min: -150, max: 0, step: 5, unit: 'px' },
     { key: 'layerZoom', min: 0.7, max: 1.5, step: 0.05 },
     { key: 'layerOpacity', min: 0.2, max: 1, step: 0.05 },
+  ]],
+  ['list', [
+    { key: 'listCenter', min: 7, max: 12, step: 0.1 },
+    { key: 'listInner', min: 7, max: 10, step: 0.25 },
+    { key: 'listOuter', min: 9.5, max: 12, step: 0.25 },
+    { key: 'listItem', min: 2, max: 4, step: 0.1 },
+    { key: 'listLink', min: 0, max: 4, step: 0.25 },
   ]],
 ];
 export const CONTROLS = GROUPS.flatMap(([, c]) => c);

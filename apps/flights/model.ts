@@ -8,7 +8,9 @@ import { t } from './strings.ts';
 // departures, holds. Anomalies: what the stream alone can tell is odd, a fast
 // descent low down, a signal lost in the air, low and slow far from any
 // airport. The sky: OpenSky's count of the whole world, on the globe. On the
-// groups axis, one object per aircraft of the region, by category.
+// groups axis, one object per aircraft of the region, by phase of flight
+// (arriving, departing, holding, en route, on the ground): past twelve, one
+// object per phase, each aircraft one tap further.
 
 export type Channel = { key: string; name: string; glyph: string; read: (s: SkySource) => Reading | null };
 export type System = { id: string; title: string; channels: Channel[] };
@@ -81,7 +83,7 @@ const mapOf = (a: Aircraft): MapSpec | undefined => {
   if (a.lat == null || a.lon == null) return undefined;
   const zoom = Math.max(7, Math.min(14, Math.round(Math.log2((135_000 * Math.cos((a.lat * Math.PI) / 180)) / Math.max(10, a.gs ?? 0)))));
   const trail = a.trail.map((p): GeoPlot => ({ lat: p.lat, lon: p.lon, label: `${a.flight} · ${p.alt != null ? `${num(p.alt, 0)} ft` : 'on the ground'}`, on: false, size: 0 }));
-  return { center: { lat: a.lat, lon: a.lon }, zoom, plots: [...trail, { lat: a.lat, lon: a.lon, label: line(a), id: acId(a), size: 1, tone: oddness(a) }] };
+  return { center: { lat: a.lat, lon: a.lon }, zoom, plots: [...trail, { lat: a.lat, lon: a.lon, label: line(a), id: acId(a), size: 1, tone: oddness(a), course: a.ground ? undefined : a.track ?? undefined }] };
 };
 
 export const emergencies: System = { id: 'emergencies', title: 'Emergencies', channels: [
@@ -89,7 +91,7 @@ export const emergencies: System = { id: 'emergencies', title: 'Emergencies', ch
     const list = [...s.emergencies].map((hex) => s.aircraft.get(hex)).filter((a): a is Aircraft => !!a)
       .sort((a, b) => (a.squawk === '7700' || a.squawk === '7500' ? 0 : 1) - (b.squawk === '7700' || b.squawk === '7500' ? 0 : 1));
     const plots: GeoPlot[] = list.filter((a) => a.lat != null && a.lon != null).map((a) => ({ lat: a.lat!, lon: a.lon!, label: `${a.flight} · ${a.squawk}`, id: acId(a), size: 1, tone: a.squawk === '7600' ? 'warn' : 'critical' }));
-    if (!list.length) return { kind: 'p', v: 0, ids: ['emergencies'], big: 'None', label: 'squawking 7700, 7600 or 7500 anywhere', globe: { center: { lat: s.region.lat, lon: s.region.lon }, plots: [] } };
+    if (!list.length) return s.scoped ? null : { kind: 'p', v: 0, ids: ['emergencies'], big: '0', label: 'squawking 7700, 7600 or 7500 anywhere', globe: { center: { lat: s.region.lat, lon: s.region.lon }, plots: [] } };
     const worst = list[0], what = t.squawk[worst.squawk] ?? t.emergencies[worst.emergency] ?? worst.squawk;
     const segs = list.map((a) => seg(s, a, false, `${a.flight} · ${a.squawk} ${t.squawk[a.squawk] ?? ''} · ${ft(a)}`));
     return { kind: 's', segs, ids: ['emergencies', ...list.map(acId)], list: segs, big: `${list.length} squawking`, label: listOf(list.slice(0, 3).map((a) => `${a.flight} ${a.squawk}`)),
@@ -104,26 +106,31 @@ export const around = (s: SkySource): System => ({ id: 'region', title: s.region
     const list = regional(src);
     if (!list.length) return null;
     const up = list.filter(airborne), nearest = up[0] ?? list[0];
-    const plots: Plot[] = list.filter((a) => a.dir != null).map((a) => ({ bearing: a.dir!, range: a.dst! / src.region.nm, label: line(a), id: acId(a), on: airborne(a), tone: oddness(a) }));
-    return { kind: 'p', v: clamp(up.length / 120), ids: list.map(acId), big: `${up.length}`, label: `in the air within ${src.region.nm} nm · ${list.length - up.length} on the ground`, plots,
+    // Each aircraft in the air a mark turned to its track, six minutes of way ahead of it (a tenth of its ground speed, in nm).
+    const nm = src.region.nm, plots: Plot[] = list.filter((a) => a.dir != null).map((a) => ({ bearing: a.dir!, range: a.dst! / nm, label: line(a), id: acId(a), on: airborne(a), tone: oddness(a),
+      course: airborne(a) && a.track != null ? a.track : undefined, vector: airborne(a) && a.gs != null ? a.gs / 10 / nm : undefined }));
+    const rings = [1 / 3, 2 / 3, 1].map((at) => ({ at, label: at === 1 ? `${num(nm, 0)} nm` : num(nm * at, 0) }));
+    // Nothing in the air (a group of the ones on the ground): how many are down.
+    const big = up.length || !list.length ? `${up.length}` : `${list.length}`, label = up.length || !list.length ? `in the air within ${nm} nm · ${list.length - up.length} on the ground` : `on the ground within ${nm} nm`;
+    return { kind: 'p', v: clamp(up.length / 120), ids: list.map(acId), big, label, plots, radar: { rings },
       list: list.map((a) => seg(src, a, airborne(a), `${line(a)} · ${num(a.dst ?? 0, 0)} nm ${a.dir != null ? compass(a.dir) : ''}`)), name: nearest ? undefined : undefined };
   } },
   { key: 'arrivals', name: 'Arriving', glyph: g.down, read: (src) => {
     const list = regional(src).filter((a) => airborne(a) && a.alt! < 10_000 && a.rate != null && a.rate < -300);
     const all = regional(src);
-    if (!all.length) return null;
+    if (!all.length || (src.scoped && !list.length)) return null;
     return { kind: 'p', v: clamp(list.length / 30), ids: list.length ? list.map(acId) : [acId(all[0])], big: `${list.length}`, label: 'descending under 10,000 ft', list: list.map((a) => seg(src, a, true)) };
   } },
   { key: 'departures', name: 'Departing', glyph: g.up, read: (src) => {
     const list = regional(src).filter((a) => airborne(a) && a.alt! < 10_000 && a.rate != null && a.rate > 300);
     const all = regional(src);
-    if (!all.length) return null;
+    if (!all.length || (src.scoped && !list.length)) return null;
     return { kind: 'p', v: clamp(list.length / 30), ids: list.length ? list.map(acId) : [acId(all[0])], big: `${list.length}`, label: 'climbing under 10,000 ft', list: list.map((a) => seg(src, a, true)) };
   } },
   { key: 'holds', name: 'Holding', glyph: g.hold, read: (src) => {
     const list = regional(src).filter((a) => airborne(a) && holding(a));
     const all = regional(src);
-    if (!all.length) return null;
+    if (!all.length || (src.scoped && !list.length)) return null;
     return { kind: 'p', v: clamp(list.length / 10), ids: list.length ? list.map(acId) : [acId(all[0])], big: `${list.length}`, label: list.length ? `in a hold · ${listOf(list.slice(0, 3).map((a) => a.flight))}` : 'in a hold', list: list.map((a) => seg(src, a, true)) };
   } },
 ] });
@@ -132,25 +139,28 @@ export const anomalies: System = { id: 'anomalies', title: 'Anomalies', channels
   { key: 'descents', name: 'Fast descents', glyph: g.descent, read: (s) => {
     const all = regional(s);
     if (!all.length) return null;
+    if (s.scoped && !all.some(fastDescent)) return null;
     const list = all.filter(fastDescent).sort((a, b) => a.rate! - b.rate!);
     const segs = list.map((a) => seg(s, a, false, `${a.flight} · ${fpm(a.rate!)} at ${num(a.alt!, 0)} ft`));
-    return { kind: 's', segs, ids: list.length ? list.map(acId) : [acId(all[0])], list: segs, big: list.length ? `${list.length}` : 'None', label: 'over 4,000 ft/min below 10,000 ft',
+    return { kind: 's', segs, ids: list.length ? list.map(acId) : [acId(all[0])], list: segs, big: `${list.length}`, label: 'over 4,000 ft/min below 10,000 ft',
       alert: list.length ? got(2, fpm(list[0].rate!), 'fast descent', t.descentWhy(list[0].flight, Math.abs(Math.round(list[0].rate!)), Math.round(list[0].alt!)), [open(s, list[0])], t.seeOnMap, `descent:${list[0].hex}`) : undefined };
   } },
   { key: 'lost', name: 'Lost signal', glyph: g.lost, read: (s) => {
     const all = regional(s);
     if (!all.length) return null;
+    if (s.scoped && !all.some((a) => lostSignal(a))) return null;
     const list = all.filter((a) => lostSignal(a)).sort((a, b) => silent(b) - silent(a));
     const segs = list.map((a) => seg(s, a, false, `${a.flight} · ${num(silent(a), 0)} s · last at ${num(a.alt!, 0)} ft`));
-    return { kind: 's', segs, ids: list.length ? list.map(acId) : [acId(all[0])], list: segs, big: list.length ? `${list.length}` : 'None', label: 'quiet for over a minute while in the air',
+    return { kind: 's', segs, ids: list.length ? list.map(acId) : [acId(all[0])], list: segs, big: `${list.length}`, label: 'quiet for over a minute while in the air',
       alert: list.length ? got(1, `${num(silent(list[0]), 0)} s`, 'lost signal', t.lostWhy(list[0].flight, Math.round(silent(list[0])), Math.round(list[0].alt!)), [open(s, list[0])], t.seeOnMap, `lost:${list[0].hex}`) : undefined };
   } },
   { key: 'lowslow', name: 'Low and slow', glyph: g.low, read: (s) => {
     const all = regional(s);
     if (!all.length) return null;
+    if (s.scoped && !all.some(lowSlow)) return null;
     const list = all.filter(lowSlow);
     const segs = list.map((a) => seg(s, a, false, `${a.flight} · ${num(a.alt!, 0)} ft · ${num(a.gs!, 0)} kn · ${num(nearestAirportNm(a) ?? 0, 0)} nm from an airport`));
-    return { kind: 's', segs, ids: list.length ? list.map(acId) : [acId(all[0])], list: segs, big: list.length ? `${list.length}` : 'None', label: 'under 1,500 ft and 120 kn, far from any airport',
+    return { kind: 's', segs, ids: list.length ? list.map(acId) : [acId(all[0])], list: segs, big: `${list.length}`, label: 'under 1,500 ft and 120 kn, far from any airport',
       alert: list.length ? got(1, `${num(list[0].alt!, 0)} ft`, 'low and slow', t.lowSlowWhy(list[0].flight, Math.round(list[0].alt!), Math.round(list[0].gs!), Math.round(nearestAirportNm(list[0]) ?? 0)), [open(s, list[0])], t.seeOnMap, `lowslow:${list[0].hex}`) : undefined };
   } },
 ] };
@@ -175,11 +185,17 @@ export const systemsOf = (s: SkySource): System[] => [emergencies, around(s), an
 
 // ─── One object per aircraft of the region: the groups axis ───
 
-const CATEGORIES: Record<string, string> = { A1: 'Light', A2: 'Small', A3: 'Large', A4: 'Heavy (B757)', A5: 'Heavy', A6: 'High performance', A7: 'Rotorcraft', B1: 'Glider', B2: 'Lighter than air', B4: 'Ultralight', B6: 'Drone', C1: 'Vehicle', C2: 'Vehicle' };
+// What an aircraft of the region is doing, as a controller or a spotter
+// groups them: in a hold, coming down to an airport, climbing out of one,
+// on its way at height, or on the ground.
+export type Phase = 'holding' | 'arriving' | 'departing' | 'enroute' | 'ground';
+export const PHASES: Phase[] = ['holding', 'arriving', 'departing', 'enroute', 'ground'];
+export const phaseOf = (a: Aircraft): Phase => !airborne(a) ? 'ground' : holding(a) ? 'holding'
+  : a.alt! < 10_000 && a.rate != null && a.rate < -300 ? 'arriving' : a.alt! < 10_000 && a.rate != null && a.rate > 300 ? 'departing' : 'enroute';
 export function groupsOf(s: SkySource): Group[] {
-  const byCat = new Map<string, Aircraft[]>();
-  for (const a of regional(s)) { const c = CATEGORIES[a.category] ?? (a.category || t.noGroup); byCat.set(c, [...(byCat.get(c) ?? []), a]); }
-  return [...byCat.entries()].sort((a, b) => b[1].length - a[1].length).map(([title, list]) => ({ title, items: list.map((a) => ({ id: a.hex, name: `${a.flight}${a.type ? ` · ${a.type}` : ''}` })) }));
+  const by = new Map<Phase, Aircraft[]>();
+  for (const a of regional(s)) by.set(phaseOf(a), [...(by.get(phaseOf(a)) ?? []), a]);
+  return PHASES.filter((p) => by.has(p)).map((p) => ({ title: t.phases[p], items: by.get(p)!.map((a) => ({ id: a.hex, name: `${a.flight}${a.type ? ` · ${a.type}` : ''}` })) }));
 }
 
 const acChannels: { key: string; name: string; glyph: string; read: (s: SkySource, a: Aircraft) => Reading | null }[] = [

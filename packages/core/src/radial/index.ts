@@ -4,6 +4,7 @@
 
 export * from './sizes.ts';
 export * from './markup.ts';
+export * from './morph.ts';
 export * from './ring.ts';
 export * from './swarm.ts';
 export * from './radar.ts';
