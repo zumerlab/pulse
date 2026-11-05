@@ -45,7 +45,9 @@ export type Alert = {
 export type TrackSpec = { id: string; on: (state: string) => boolean; now: boolean; tone?: Tone; act?: Action };
 // A moment worth a word on the timeline: since the thing last changed.
 export type Event = { id: string; text: string; tone?: Tone };
-export type Picture = { src: string; alt: string; id: string; live?: boolean };   // live: ask again every few seconds
+// live: ask again every few seconds. video: a live stream of it (HLS, `.m3u8`) or a video file, played
+// muted in the face and the detail over the still, which stays when the stream does not answer.
+export type Picture = { src: string; alt: string; id: string; live?: boolean; video?: string };
 
 export type Reading = {
   kind: 'p' | 's' | 'c';            // the object's primitives: a band, switches, a choice

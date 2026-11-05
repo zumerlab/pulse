@@ -8,7 +8,7 @@ import { localeOf, num } from '../../i18n.ts';
 import { spansOf } from '../../history.ts';
 import {
   MAP_ZOOM_MAX, MAP_ZOOM_MIN, MAX_TRACKS, SCROLL_VISIBLE, colorArcs, dialControls, esc, hsCss, icon, mapControls, mapDetail, monthRing,
-  ringCenter, satColor, scrollControls, scrollList, timeRing, timeWindow, timeline, turnMap, type MapSpec,
+  ringCenter, satColor, scrollControls, scrollList, timeRing, timeWindow, timeline, turnMap, videoMarkup, type MapSpec,
 } from '../../radial/index.ts';
 import type { Board } from '../context.ts';
 import { dialBinding } from '../dials.ts';
@@ -84,7 +84,8 @@ export function detailView(b: Board, ctx: ViewContext) {
       const stream = r.image.live ? host.stream?.(r.image.id) : undefined;
       const img = imageOf(b, r)!;
       figure = `<figure class="detail-image${square ? ' is-square' : ''}">
-        <img src="${esc(live && stream ? stream : img.src)}" alt="${esc(img.alt)}"${img.key && !live ? ` data-image="${esc(img.key)}"` : ''}>
+        ${img.video ? videoMarkup({ src: img.video, poster: img.src, alt: img.alt, cls: 'detail-video' })
+          : `<img src="${esc(live && stream ? stream : img.src)}" alt="${esc(img.alt)}"${img.key && !live ? ` data-image="${esc(img.key)}"` : ''}>`}
         <figcaption><button class="plain" data-shape>${square ? t.showRound : t.showSquare}</button>
           ${stream ? `<button class="plain" data-live aria-pressed="${live}">${live ? t.snapshot : t.live}</button>` : ''}</figcaption></figure>`;
     } else if (r.map) figure = mapEl ? '<div class="detail-map-slot"></div>' : mapDetail(r.map, ch.name, mapAt(r.map));

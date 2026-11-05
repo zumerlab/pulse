@@ -9,6 +9,7 @@ export * from './swarm.ts';
 export * from './radar.ts';
 export * from './globe.ts';
 export * from './map.ts';
+export * from './video.ts';
 export * from './object.ts';
 export * from './keypad.ts';
 export * from './time.ts';

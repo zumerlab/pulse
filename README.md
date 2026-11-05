@@ -20,7 +20,8 @@ that reads a fleet of hosts with PromQL by configuration, a drones app that
 flies a swarm of ArduPilot vehicles through mavlink2rest, a flights app that
 reads the sky from the community ADS-B networks and OpenSky, an ISS app that
 reads the space station from NASA's public telemetry, a cameras app that reads
-London's roads and traffic cameras from TfL's open data, and a demo app
+the Bay Area's freeways (live camera streams, the CHP's incidents) and
+London's roads from their public feeds, and a demo app
 with simulated data. Each app connects its data and actions to the same interface.
 
 Site: [zumerlab.com/pulse](https://zumerlab.com/pulse/) (the pages are in
@@ -93,7 +94,7 @@ so you can try the interface without a Home Assistant instance.
 | [apps/prometheus](apps/prometheus/README.md) | A fleet of hosts over Prometheus: channels by configuration (PromQL and thresholds), the targets, Alertmanager's alerts with the silence as the action |
 | [apps/drones](apps/drones/README.md) | A swarm of ArduPilot drones through mavlink2rest: the swarm around home as a radar, each drone an object, arm, takeoff, mode and return as the actions |
 | [apps/flights](apps/flights/README.md) | The sky from the community ADS-B networks and OpenSky: emergencies anywhere on a globe, the traffic around a place and its anomalies, the whole sky |
-| [apps/cameras](apps/cameras/README.md) | London's roads from TfL's open data: the incidents with the nearest traffic camera's picture, the corridors and works, the cameras that watch an incident |
+| [apps/cameras](apps/cameras/README.md) | A city's roads with their traffic cameras, live where they stream: the Bay Area from Caltrans and the CHP, London from TfL |
 | [apps/iss](apps/iss/README.md) | The International Space Station from NASA's public telemetry: air, water, power, attitude and links as a flight controller would split them, its orbit, crew and the launches coming up |
 | `tests/` | Playwright tests |
 | `docs/` | Website, component reference and design documentation |
@@ -120,7 +121,7 @@ npm run dev:prometheus  # Prometheus, http://127.0.0.1:5179; ?server=http://host
 npm run dev:drones   # drones, http://127.0.0.1:5181; ?server=http://host:8088 (mavlink2rest), ?demo for the recorded swarm
 npm run dev:flights  # flights, http://127.0.0.1:5182; live from the networks, ?demo for the recorded sky
 npm run dev:iss      # ISS, http://127.0.0.1:5183; live from NASA's telemetry, ?demo for a recorded pass
-npm run dev:cameras  # cameras, http://127.0.0.1:5184; live from TfL, ?demo for a recorded evening
+npm run dev:cameras  # cameras, http://127.0.0.1:5184; the Bay Area live (?city=london for London), ?demo as recorded
 ```
 
 ```sh

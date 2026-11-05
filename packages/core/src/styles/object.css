@@ -196,3 +196,8 @@ o-arc.is-failed { --o-stroke: var(--critical); --o-stroke-width: 2; }
 .primary.level-1 { background: var(--minor); border-color: var(--minor); color: var(--bg); }
 .primary.level-2 { background: var(--critical); border-color: var(--critical); color: var(--bg); }
 
+
+/* A picture that moves (<pulse-video>): the still is its poster until the stream plays, and stays if it never does. */
+pulse-video { display: block; overflow: hidden; background: #000; }
+pulse-video video { display: block; width: 100%; height: 100%; object-fit: cover; border-radius: inherit; }
+pulse-video.face-image { position: absolute; inset: 0; border-radius: 50%; z-index: -1; }

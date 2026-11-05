@@ -58,7 +58,12 @@ Readings also include the main value, a label and the entity ids they depend
 on. They can add alerts and detail content such as history, an image, a color
 control or a longer list. A reading with a `map` opens a detail where the map
 is big, follows the reading live and zooms with the wheel, a pinch or its
-buttons; a `link` adds a button out to the thing elsewhere. A segment or a row
+buttons; a `link` adds a button out to the thing elsewhere. A picture with a
+`video` moves: a live stream (HLS, an `.m3u8`) or a video file plays muted in
+the face and the detail over its still, through `<pulse-video>`, an element
+that connects when it is seen and lets go when it is not (hls.js where the
+browser has Media Source, the browser's own HLS elsewhere), and keeps the
+still when the stream does not answer. A segment or a row
 can name a thing with its own object (`to`): with `objectOf(id)` the host
 makes it, and tapping the row zooms into it.
 

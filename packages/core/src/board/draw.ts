@@ -33,7 +33,8 @@ function ringReading(r: Reading): RingReading {
 export function imageOf(b: Board, r: Reading) {
   if (!r.image) return undefined;
   const src = b.host.url(r.image.src);
-  return { src: r.image.live ? `${src}${src.includes('?') ? '&' : '?'}t=${Math.floor(Date.now() / 8192)}` : src, alt: r.image.alt, key: r.image.live ? r.image.id : undefined };
+  return { src: r.image.live ? `${src}${src.includes('?') ? '&' : '?'}t=${Math.floor(Date.now() / 8192)}` : src, alt: r.image.alt, key: r.image.live ? r.image.id : undefined,
+    video: r.image.video ? b.host.url(r.image.video) : undefined };
 }
 
 // Principle: the disc opens a detail only when the detail adds something the

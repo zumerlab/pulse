@@ -121,3 +121,5 @@
 }
 .board-body { position: relative; min-height: 0; display: grid; place-items: center; }
 
+.detail-image pulse-video { width: min(100%, 320px); aspect-ratio: 1; border-radius: 50%; border: 1px solid var(--line); transition: border-radius .4s, width .4s; }
+.detail-image.is-square pulse-video { width: 100%; aspect-ratio: 16 / 9; border-radius: 10px; }

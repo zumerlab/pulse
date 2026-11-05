@@ -1,27 +1,55 @@
 # Pulse cameras
 
-London's roads as Pulse objects, from Transport for London's open data: what
-is happening on them now with the picture of the nearest traffic camera, the
-main corridors and the works, and the cameras themselves, above all the ones
-that watch an incident. Everything is read from the browser: no server, no
-key. Powered by TfL Open Data.
+A city's roads as Pulse objects: what is happening on them now with the
+nearest traffic camera, live where the camera streams; what the signs and
+the corridors say; and the cameras themselves, above all the ones that watch
+an incident. Two cities, from their public feeds, read from the browser:
 
-| System | Channels | Source | Alerts |
-|---|---|---|---|
-| Incidents | Worst (the worst unplanned disruption, with the still of the nearest camera within 600 m in the face and its last clip in the detail), on the map (the unplanned ones and their cameras), closures | `Road/all/Disruption`, every 2 min; the JamCams | TfL's severity, for what was not planned only: severe or serious loudly, moderate (or a closure) softly; works and events never call |
-| Corridors | The 24 corridors as switches, the works (planned, with how many bring delays) | `Road`, every 2 min | A corridor in serious status softly, closed or severe loudly |
-| Cameras | Watching (the cameras on an incident, each fresh, frozen, dark or off), available (the ~900 as ticks on a swarm ring), on the map | `Place/Type/JamCam`, every 30 min; each watched still's `Last-Modified`, every 2 min | A camera watching an incident that is off, does not answer, or has shown the same picture for over 20 minutes, softly |
+- **The Bay Area** (`?city=bayarea`, the default): Caltrans District 4's 773
+  cameras, about a quarter of them with a live stream (HLS, played in the
+  face), its freeway signs, and the incidents the California Highway Patrol
+  is working, from Caltrans QuickMap.
+- **London** (`?city=london`): Transport for London's ~890 JamCams (a still
+  every few minutes and a ten-second clip), its road disruptions and its
+  corridors. Powered by TfL Open Data.
 
-Within a severity the incidents are ordered by what happened before what
-broke: a collision or a hazard (a fire) before a breakdown, a breakdown before
-a faulty signal. Every camera is an object of its own: tap it in any list (or
-an incident, which opens the camera that watches it) and the board zooms into
-it: its picture, what is within a kilometre (calling when it is an incident),
-and where it is on the street map.
+| System | Channels | Alerts |
+|---|---|---|
+| Incidents | Worst (the worst unplanned incident, with the nearest camera within 600 m in the face: its stream, or its still), on camera (the worst incident a camera sees, a streaming one first at the same severity), on the map, closures | The severity of what was not planned: severe or serious loudly, moderate (or a closure) softly; works and events never call |
+| Roads | Signs (the Bay Area's: what they say, and whether one warns of a crash, a stall, a fire now), corridors (London's 24), works | A sign warning of something now softly; a London corridor in serious status softly, closed or severe loudly |
+| Cameras | Watching (the cameras on an incident: fresh, frozen, dark or off), live (the working stream nearest the worst incident, every streaming camera a row), available (all of them, ticks on a swarm ring), on the map | A camera watching an incident that is off, dark or frozen, softly |
 
-Nothing here looks inside the pictures: the alerts come from TfL's data and
-from the stills' own age, not from the image. The stills are TfL's public
-JamCams, 352 by 288 pixels.
+Every camera is an object of its own: tap it in any list (or an incident,
+which opens the camera that watches it) and the board zooms into it: its
+picture (its stream where it has one), what is within a kilometre, where it is
+on the street map.
+
+Nothing here looks inside the pictures: the alerts come from the feeds and
+from the stills themselves (their age, their size), not from the image.
+
+## The CHP's incidents
+
+The CHP's CAD feed as QuickMap publishes it is statewide KML; the app keeps
+the Bay Area (Gilroy to Cloverdale, short of Sacramento and Stockton) and only
+traffic, each code in words: 1179 a collision with an ambulance on its way
+and 1180 one with major injuries call loudly; 1181 and 1183 (minor or unknown
+injuries), a fire and a road closed softly; 1182 (no injuries), hit and runs,
+hazards, animals and the crews' assists are read, not called. The CHP's other
+calls (an alert for a missing person) are left out, and so are the officers'
+notes: an incident is its kind, its place and its time.
+
+## Live video
+
+A camera with a stream plays it in the face and in the detail through the
+core's `<pulse-video>` (`Picture.video`): muted, only while it is seen (a
+view behind, a hidden tab: paused, nothing downloaded), with hls.js where the
+browser has Media Source and the browser's own HLS elsewhere, its still as
+the poster and the still again if the stream does not answer. Caltrans'
+streams come and go: on November 5, 2026 about half of those tried answered
+404. For the cameras near an unplanned incident and the first live ones, the
+app checks both: a still under 16 kB is Caltrans' "Temporarily Unavailable"
+card, and a stream that answers with nothing is down; either makes the
+camera dark, chosen only when no other camera is near.
 
 ## Run locally
 
@@ -32,38 +60,42 @@ npm ci
 npm run dev:cameras
 ```
 
-Open [the app](http://127.0.0.1:5184). To explore without TfL, open
-[the recorded evening](http://127.0.0.1:5184/?demo).
+Open [the Bay Area](http://127.0.0.1:5184) or
+[London](http://127.0.0.1:5184/?city=london). To explore without the feeds,
+add `?demo`: each city as recorded.
 
 | Parameter | What it does |
 |---|---|
+| `?city=bayarea` or `?city=london` | Which city |
 | `?systems=incidents,cameras&mode=orbit` | What the page shows; the gear chooses within it |
-| `?start=incidents` | Open on one system |
-| `?demo` | The recorded evening instead of TfL |
+| `?start=cameras` | Open on one system |
+| `?demo` | The city as recorded instead of its feeds |
 
 ## The feeds
 
-TfL's Unified API (`api.tfl.gov.uk`) answers a page from any origin, without a
-key for this use: `Place/Type/JamCam` (some 890 cameras, each with its still
-and a ten-second clip on TfL's S3 bucket, a direction and whether it is
-switched on; about a megabyte, so it is asked every half hour),
-`Road/all/Disruption` (works, breakdowns, collisions, hazards, each with a
-point, a severity and whether it closes the road) and `Road` (the corridors'
-status). A still changes every few minutes; the app asks it again every two.
-For the cameras that watch an unplanned incident it also reads each still's
-`Last-Modified` with a GET (TfL's bucket allows GET from a page, not HEAD):
-that is how a frozen or dark camera is known.
+TfL's Unified API (`api.tfl.gov.uk`) and Caltrans' (`cwwp2.dot.ca.gov`)
+answer a page from any origin, without a key; QuickMap does not, so the dev
+server (and `vite preview`) asks it for the page at `/net/chp/…`
+(`vite.config.ts`); a static build needs a proxy of its own. The incidents,
+the signs and the corridors are asked every two minutes, the list of cameras
+every half hour (it is about a megabyte). A still changes every few minutes
+and is asked again every two. TfL's bucket allows a page's GET, not its HEAD:
+the stills' `Last-Modified` and size are read with a GET.
 
 ## The demo
 
-`demo/recording.json` is TfL's answer on November 5, 2026 at 17:50 London
-time, trimmed to the fields the parsers read, and `public/demo/` the stills of
-the eight cameras that watched an unplanned incident then, recorded by
-`demo/scripts/record.mjs` (`node apps/cameras/demo/scripts/record.mjs` from
-the root). Nothing is made up: a building fire closing Seven Sisters Road
-with the fire engines on the nearest camera, a breakdown on the A40, and a
-camera on Westhorne Avenue switched off over another breakdown. The stills of
-the other cameras, opened from a list, are asked of TfL.
+`demo/recording-<city>.json` is each city's answers, trimmed to the fields the
+parsers read, and `public/demo/<city>/` the stills of the cameras the app
+checks, both made by `demo/scripts/record.mjs` (`node
+apps/cameras/demo/scripts/record.mjs [bayarea|london]` from the root).
+Nothing is made up. London is November 5, 2026 at 17:50: a building fire
+closing Seven Sisters Road with the fire engines on the nearest camera, a
+breakdown on the A40, a camera on Westhorne Avenue switched off over another
+breakdown. The Bay Area is the same day at 13:24 Pacific: a collision with an
+ambulance on its way, two fires, four roads closed, most of the cameras near
+them dark. Its streams are not recorded: they play live when the demo is
+online, over the recorded stills.
 
 Contains public sector information licensed under the Open Government Licence
-v3.0; powered by TfL Open Data.
+v3.0; powered by TfL Open Data. Caltrans and CHP data through Caltrans
+QuickMap.

@@ -10,7 +10,8 @@ export const CAMERAS_URL = `${TFL}/Place/Type/JamCam`;
 export const DISRUPTIONS_URL = `${TFL}/Road/all/Disruption`;
 export const ROADS_URL = `${TFL}/Road`;
 
-export type Camera = { id: string; name: string; lat: number; lon: number; available: boolean; image: string; video: string; view: string };
+// `video` is a recorded clip (TfL's ten seconds); `stream`, a live one (Caltrans' HLS).
+export type Camera = { id: string; name: string; lat: number; lon: number; available: boolean; image: string; video: string; view: string; stream?: string };
 export type Disruption = {
   id: string; category: string; subCategory: string; severity: string; comments: string; update: string; location: string;
   lat: number; lon: number; start: number; end: number; modified: number; closure: boolean; corridors: string[];

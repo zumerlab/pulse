@@ -7,6 +7,7 @@ import { esc, icon } from './markup.ts';
 import { globe, type GlobeSpec } from './globe.ts';
 import { mapFace, type MapSpec } from './map.ts';
 import { radar, type Plot } from './radar.ts';
+import { videoMarkup } from './video.ts';
 import { GROW, LANE, PHONE } from './sizes.ts';
 
 export type Face = {
@@ -19,7 +20,7 @@ export type Face = {
   aria: string;
   extra?: string;                      // more markup inside the disc ("sending…")
   // A picture inside the disc (a camera, a cover, a plan, a map): the text sits over it.
-  image?: { src: string; alt: string; key?: string };
+  image?: { src: string; alt: string; key?: string; video?: string };   // video: it moves (a live stream), the still as its poster
   // Things around a point, as a radar behind the text: the center is here (home, the boat, you).
   plots?: Plot[];
   // Things on the Earth, the disc as a globe behind the text.
@@ -32,7 +33,8 @@ export type Face = {
 // which is the Zumly trigger of the next level when there is one (`to`).
 export function face(f: Face) {
   const props = Object.entries(f.props ?? {}).map(([k, v]) => ` data-${k}="${esc(v)}"`).join('');
-  const img = f.image ? `<img class="face-image" src="${esc(f.image.src)}" alt="${esc(f.image.alt)}"${f.image.key ? ` data-image="${esc(f.image.key)}"` : ''}>` : '';
+  const img = f.image?.video ? videoMarkup({ src: f.image.video, poster: f.image.src, alt: f.image.alt, cls: 'face-image' })
+    : f.image ? `<img class="face-image" src="${esc(f.image.src)}" alt="${esc(f.image.alt)}"${f.image.key ? ` data-image="${esc(f.image.key)}"` : ''}>` : '';
   const plots = f.map ? mapFace(f.map, f.name) : f.globe && (f.globe.plots.length || f.globe.center) ? globe(f.globe, f.name) : f.plots?.length ? radar(f.plots, f.name) : '';
   const opens = f.to ? ` role="button" tabindex="0" data-to="${f.to}"${props} aria-label="${esc(f.aria)}"` : '';
   return `<div class="orbit-0" style="--o-size-ratio:21.2"><div class="satellite at-center">

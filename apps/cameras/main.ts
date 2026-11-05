@@ -6,11 +6,13 @@ import './style.css';
 import { BOARD_MODES, esc, mountBoard, type BoardMode } from '@zumer/pulse';
 import { DemoSource } from './demo/source.ts';
 import { hostOf } from './host.ts';
-import { LiveSource, type CameraSource } from './source.ts';
+import { CITIES, LiveSource, type CameraSource, type City } from './source.ts';
 import { t } from './strings.ts';
 
-// The cameras app: London's roads from TfL's open data, the incidents with the
-// nearest camera's picture. No server, no key. `?demo` opens a recorded evening.
+// The cameras app: a city's roads, the incidents with the nearest camera, live
+// where it streams. `?city=bayarea` (the default: Caltrans and the CHP, the
+// CHP through the dev server) or `?city=london` (TfL). `?demo` opens the
+// city as recorded.
 
 const shell = document.querySelector<HTMLElement>('.shell')!;
 const canvas = document.querySelector<HTMLElement>('#canvas')!;
@@ -18,13 +20,14 @@ const connectSlot = document.querySelector<HTMLElement>('#connect')!;
 const query = new URLSearchParams(location.search);
 const listParam = (name: string) => { const v = query.get(name)?.split(',').map((s) => s.trim()).filter(Boolean); return v?.length ? v : undefined; };
 
-const demo = new DemoSource();
-let source: CameraSource = query.has('demo') ? demo : new LiveSource();
+const city: City = CITIES[query.get('city') as City['id']] ?? CITIES.bayarea;
+const demo = new DemoSource(city);
+let source: CameraSource = query.has('demo') ? demo : new LiveSource(city);
 
 function status() {
   const failing = source.failed.length && source.status === 'live' ? ` · <span class="conn-failing">${esc(source.failed.join(', '))} not answering</span>` : '';
   return `<span class="conn conn-${source.status}"><span class="conn-dot"></span>${esc(source.label)} · ${t.status[source.status]}${failing}
-    ${source === demo ? `<button class="plain" data-action="leave">${t.leaveDemo}</button>` : ''} · <a class="plain" href="https://tfl.gov.uk/info-for/open-data-users/" target="_blank" rel="noopener">${t.credit}</a></span>`;
+    ${source === demo ? `<button class="plain" data-action="leave">${t.leaveDemo}</button>` : ''} · <a class="plain" href="${esc(city.credit.url)}" target="_blank" rel="noopener">${esc(city.credit.label)}</a></span>`;
 }
 
 const modeParam = query.get('mode') as BoardMode | null;
@@ -33,7 +36,7 @@ const board = mountBoard(canvas, {
   systems: listParam('systems'),
   mode: modeParam && BOARD_MODES.includes(modeParam) ? modeParam : undefined,
   start: query.get('start') ?? undefined,
-  settings: 'pulse-cameras-settings',
+  settings: `pulse-cameras-settings-${city.id}`,
   // A traffic control room at night: graphite over a faint amber glow, glass faces, open dials with rounded ends.
   look: { theme: 'graphite', ground: 'glow', glow: '#3a2a10', faces: 'glass', dial: 'open', ends: 'rounded' },
   status,
@@ -54,7 +57,7 @@ function use(src: CameraSource) {
 function leaveDemo() {
   query.delete('demo');
   history.replaceState(null, '', `${location.pathname}${query.size ? `?${query}` : ''}`);
-  use(new LiveSource());
+  use(new LiveSource(city));
 }
 
 function paintPanel() {
