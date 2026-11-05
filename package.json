@@ -20,6 +20,7 @@
     "dev:prometheus": "npm run dev -w pulse-prometheus -- --port 5179",
     "dev:drones": "npm run dev -w pulse-drones -- --port 5181",
     "dev:flights": "npm run dev -w pulse-flights -- --port 5182",
+    "dev:iss": "npm run dev -w pulse-iss -- --port 5183",
     "collect": "node apps/homelab/collector/collector.mjs",
     "build": "tsc --noEmit && npm run build --workspaces --if-present",
     "build:card": "npm run build:card -w pulse-home-assistant",

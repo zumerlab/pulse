@@ -1,0 +1,15 @@
+{
+  "name": "pulse-iss",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Pulse over the International Space Station: its air, water, power, attitude and links from NASA's public telemetry, where it is and who is aboard, and the launches coming up, in the browser.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@zumer/pulse": "*"
+  }
+}
