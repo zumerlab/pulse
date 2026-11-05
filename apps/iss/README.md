@@ -15,11 +15,18 @@ the browser: no server, no key.
 | Attitude | CMG momentum, the four gyroscopes, the control mode | Telemetry | Momentum from 80% softly, from 95% loudly; fewer than four gyroscopes in use; free drift softly; a loss of attitude control loudly |
 | Station | Its mode, the crew, what is docked (eighteen ports), its mass | Telemetry, Launch Library 2's station and expedition | Survival or assured safe crew return mode loudly; a spacewalk under way softly |
 | Orbit | Position on the globe (with the track ahead, your place and the heading as a bearing), the ground track on the map (where it is in eight minutes, the next sunrise or sunset), from you (distance and bearing, above your horizon or not) | wheretheiss.at | None |
-| Links | Signal (whether the ground hears the station), the four Ku-band video downlinks, the S-band string | Telemetry | Loss of signal for over half an hour, softly |
-| Launches | Next launch (the countdown), the next to the station, this week | Launch Library 2 | A launch within the hour, or in flight, softly, with the webcast when there is one |
+| Links | Signal (whether the ground hears the station), the four Ku-band video downlinks (with a way out to NASA's live views), the S-band string | Telemetry | Loss of signal for over half an hour, softly |
+| Launches | Next launch (the countdown, its webcast), the next to the station, this week | Launch Library 2 | A launch within the hour, or in flight, softly, with the webcast as the action when there is one |
 
 Every launch is an object of its own: tap it in a list and the board zooms
 into it, its countdown, its pad on the street map, its mission.
+
+The video is not drawn in the object: the station's live views and the
+launches' webcasts are streams on NASA's page, YouTube or X, which a page can
+only embed as an `iframe`, and the core draws pictures, not frames. They are a
+way out instead: the Ku-band video channel and the crew (with "Watch it" on a
+spacewalk) open [NASA's live page](https://www.nasa.gov/live/), and a launch
+with a webcast opens it ("Watch it live" while it streams).
 
 The thresholds are this app's own, near the nominal values the stream shows;
 they are not NASA's flight rules. A reading that has not changed for six hours
@@ -70,7 +77,8 @@ apart, every five minutes.
 
 **The station, its crew and the launches** are Launch Library 2
 (`ll.thespacedevs.com`, version 2.3.0): the station and its expedition every
-half hour, the next twelve launches every fifteen minutes. It allows fifteen
+half hour, the next twelve launches every fifteen minutes (in its `detailed`
+mode, the only one that lists the webcasts). It allows fifteen
 questions an hour without a key, and answers 429 past that: the app keeps its
 answers in `localStorage` for as long as they are good, so a reload does not
 ask again, and an old one stands in when it says no.

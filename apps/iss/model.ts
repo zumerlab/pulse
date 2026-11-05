@@ -1,5 +1,5 @@
 import { listOf, num, type Alert, type GeoPlot, type MapSpec, type Plot, type ReadContext, type Reading, type Seg } from '@zumer/pulse';
-import type { Launch } from './feeds.ts';
+import { NASA_LIVE, type Launch } from './feeds.ts';
 import type { Act, IssSource } from './source.ts';
 import { PUIS, textOf, WINGS, type Sample } from './telemetry.ts';
 import { t } from './strings.ts';
@@ -47,6 +47,7 @@ const g = {
 };
 
 const clamp = (v: number) => Math.min(1, Math.max(0, v));
+const nasaLive: Act = { ids: [], kind: 'open', url: NASA_LIVE };
 const got = (level: 1 | 2, big: string, label: string, why: string, key: string, acts: Act[] = [], verb = t.gotIt): Alert => ({ level, big, label, why, key, verb, acts });
 const STALE = 6 * 3_600_000;
 const get = (s: IssSource, id: string) => s.samples.get(id);
@@ -235,7 +236,8 @@ export const station: System = { id: 'station', title: 'Station', channels: [
     const segs: Seg[] = st.crew.map((c) => ({ label: `${c.name} · ${c.role.toLowerCase()} · ${c.agency}`, on: true, id: 'crew' }));
     const walk = st.spacewalk, now = Date.now();
     return { kind: 's', segs, ids: ['crew'], list: segs, big: `${st.aboard || st.crew.length} aboard`, label: `${st.expedition}${st.started ? ` · day ${Math.floor((now - st.started) / 86_400_000) + 1}` : ''}`,
-      alert: walk ? got(1, 'EVA', 'spacewalk', t.walkWhy(walk.name, t.ago(now - walk.since)), `eva:${walk.since}`) : undefined };
+      link: { label: t.watchStation, on: true, id: 'crew', act: nasaLive },
+      alert: walk ? got(1, 'EVA', 'spacewalk', t.walkWhy(walk.name, t.ago(now - walk.since)), `eva:${walk.since}`, [nasaLive], t.watch) : undefined };
   } },
   { key: 'docked', name: 'Docked', glyph: g.dock, read: (s) => {
     const st = s.station;
@@ -311,7 +313,9 @@ export const links: System = { id: 'links', title: 'Links', channels: [
     if (!list.length) return null;
     const segs: Seg[] = list.map((x, i) => ({ label: `Channel ${i + 1} · ${textOf(x)}`, on: x.value === 1, id: x.id }));
     const ku = get(s, 'Z1000013');
-    return { kind: 's', segs, ids: list.map((x) => x.id), big: `${segs.filter((x) => x.on).length} of ${segs.length}`, label: `downlinks active${ku ? ` · transmit ${textOf(ku)}` : ''}` };
+    // The pictures themselves are NASA's to stream: the detail opens them there.
+    return { kind: 's', segs, ids: list.map((x) => x.id), big: `${segs.filter((x) => x.on).length} of ${segs.length}`, label: `downlinks active${ku ? ` · transmit ${textOf(ku)}` : ''}`,
+      link: { label: t.watchStation, on: true, id: list[0].id, act: nasaLive } };
   } },
   { key: 'sband', name: 'S-band', glyph: g.antenna, read: (s) => {
     const x = get(s, 'USLAB000092');
@@ -333,8 +337,8 @@ const launchSeg = (l: Launch, now = Date.now()): Seg => ({ label: `${t.countdown
 // A launch within the hour, or flying, calls: someone will want to watch it.
 const launchAlert = (l: Launch, now = Date.now()): Alert | undefined => {
   const soon = l.net - now;
-  if (l.statusId === 6) return got(1, 'in flight', l.rocket || 'launch', t.launchWhy(l.name, 'is flying', l.place), `launch:${l.id}:flight`, watch(l), l.webcast ? t.watch : t.gotIt);
-  if (soon > 0 && soon <= 3_600_000 && (l.statusId === 1 || l.statusId === 8)) return got(1, t.countdown(soon), l.rocket || 'launch', t.launchWhy(l.name, `in ${Math.max(1, Math.round(soon / 60_000))} min`, l.place), `launch:${l.id}`, watch(l), l.webcast ? t.watch : t.gotIt);
+  if (l.statusId === 6) return got(1, 'in flight', l.rocket || 'launch', t.launchWhy(l.name, 'is flying', l.place), `launch:${l.id}:flight`, watch(l), l.webcast ? t.watchLaunch(l.webcastLive) : t.gotIt);
+  if (soon > 0 && soon <= 3_600_000 && (l.statusId === 1 || l.statusId === 8)) return got(1, t.countdown(soon), l.rocket || 'launch', t.launchWhy(l.name, `in ${Math.max(1, Math.round(soon / 60_000))} min`, l.place), `launch:${l.id}`, watch(l), l.webcast ? t.watchLaunch(l.webcastLive) : t.gotIt);
   return undefined;
 };
 
@@ -343,7 +347,8 @@ export const launches: System = { id: 'launches', title: 'Launches', channels: [
     const list = coming(s), l = list[0], now = Date.now();
     if (!l) return null;
     return { kind: 'p', v: clamp(1 - (l.net - now) / 86_400_000), ids: ['launches', LAUNCH + l.id], big: t.countdown(l.net - now), label: `${l.name} · ${l.place.split(',')[0]}`,
-      list: list.map((x) => launchSeg(x, now)), alert: launchAlert(l, now) };
+      list: list.map((x) => launchSeg(x, now)), alert: launchAlert(l, now),
+      link: l.webcast ? { label: t.watchLaunch(l.webcastLive), on: true, id: LAUNCH + l.id, act: watch(l)[0] } : undefined };
   } },
   { key: 'station', name: 'To the station', glyph: g.dock, read: (s) => {
     const l = coming(s).find((x) => x.toStation), now = Date.now();
@@ -368,7 +373,7 @@ const launchChannels: { key: string; name: string; glyph: string; read: (s: IssS
     const now = Date.now(), id = LAUNCH + l.id;
     return { kind: 'p', v: clamp(1 - (l.net - now) / 86_400_000), ids: [id], big: t.countdown(l.net - now),
       label: `${statusOf(l)}${l.precision && l.precision !== 'Second' && l.precision !== 'Minute' ? ` · to the ${l.precision.toLowerCase()}` : ''}${l.probability != null ? ` · ${l.probability}% weather` : ''}`,
-      link: l.webcast ? { label: t.watch, on: true, id, act: watch(l)[0] } : undefined, alert: launchAlert(l, now) };
+      link: l.webcast ? { label: t.watchLaunch(l.webcastLive), on: true, id, act: watch(l)[0] } : undefined, alert: launchAlert(l, now) };
   } },
   { key: 'pad', name: 'Pad', glyph: g.pad, read: (_s, l) => {
     if (l.lat == null || l.lon == null) return null;

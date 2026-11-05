@@ -25,6 +25,8 @@ export const t = {
   // Readings
   gotIt: 'Got it',
   watch: 'Watch it',
+  watchStation: 'Watch the station live',
+  watchLaunch: (live: boolean) => (live ? 'Watch it live' : 'Watch the webcast'),
   asOf: (ago: string) => `as of ${ago} ago`,
   ago: (ms: number) => {
     const m = Math.round(ms / 60_000);

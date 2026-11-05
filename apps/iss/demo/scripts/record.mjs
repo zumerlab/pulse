@@ -53,13 +53,13 @@ const recording = {
     spacewalks: (expedition.spacewalks ?? []).map((w) => pick(w, ['name', 'start', 'end'])),
   },
   launches: { results: launches.results.map((l) => ({
-    ...pick(l, ['id', 'name', 'net', 'window_end', 'probability', 'weather_concerns']),
+    ...pick(l, ['id', 'name', 'net', 'window_end', 'probability', 'weather_concerns', 'webcast_live']),
     status: pick(l.status, ['id', 'name']), net_precision: l.net_precision && { name: l.net_precision.name },
     mission: l.mission && { name: l.mission.name, description: l.mission.description, orbit: l.mission.orbit && { abbrev: l.mission.orbit.abbrev } },
     pad: { name: l.pad.name, latitude: l.pad.latitude, longitude: l.pad.longitude, location: { name: l.pad.location.name } },
     rocket: { configuration: { full_name: l.rocket.configuration.full_name } },
     launch_service_provider: { name: l.launch_service_provider.name },
-    vid_urls: (l.vid_urls ?? []).slice(0, 2).map((v) => pick(v, ['priority', 'url'])),
+    vid_urls: (l.vid_urls ?? []).slice(0, 3).map((v) => pick(v, ['priority', 'url', 'live', 'title'])),
   })) },
 };
 writeFileSync(out, `${JSON.stringify(recording, null, 1)}\n`);

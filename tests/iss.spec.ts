@@ -118,3 +118,12 @@ test('the station names its crew and what is docked; a launch in a list opens it
   await current(page).locator('[data-pick="pad"]').first().dispatchEvent('click');
   await expect(current(page).locator('.layer-front .face-map')).toHaveAttribute('data-zoom', '13');
 });
+
+test('the pictures are NASA’s to stream: the Ku-band video opens them there', async ({ page }) => {
+  await page.goto(`${ISS}?demo&start=links`);
+  await current(page).locator('[data-pick="video"]').first().dispatchEvent('click');
+  await expect(current(page).locator('.layer-front .face-name')).toHaveText('Ku-band video');
+  await settled(page);
+  await current(page).locator('.layer-front .disc').click();
+  await expect(current(page).locator('[data-link]')).toHaveText('Watch the station live ↗');
+});

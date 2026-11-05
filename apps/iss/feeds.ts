@@ -9,7 +9,10 @@ export const WHERE_API = 'https://api.wheretheiss.at/v1/satellites/25544';
 export const LL2 = 'https://ll.thespacedevs.com/2.3.0';
 export const STATION_URL = `${LL2}/space_stations/4/`;
 export const expeditionUrl = (id: number) => `${LL2}/expeditions/${id}/`;
-export const LAUNCHES_URL = `${LL2}/launches/upcoming/?limit=12&mode=normal&hide_recent_previous=true`;
+// `detailed`: the only mode that lists a launch's webcasts (`vid_urls`); it costs the same question.
+export const LAUNCHES_URL = `${LL2}/launches/upcoming/?limit=12&mode=detailed&hide_recent_previous=true`;
+// NASA's live page: the station's own views (the HD Earth cameras, the interior) and its spacewalks.
+export const NASA_LIVE = 'https://www.nasa.gov/live/';
 // The track ahead: a point every eight minutes for an orbit and a half (wheretheiss takes ten at a time).
 export const trackUrl = (now: number) => `${WHERE_API}/positions?timestamps=${Array.from({ length: 10 }, (_, i) => Math.round(now / 1000) + (i + 1) * 480).join(',')}&units=kilometers`;
 
@@ -22,7 +25,7 @@ export type Station = { expedition: string; expeditionId: number | null; started
 export type Launch = {
   id: string; name: string; rocket: string; mission: string; provider: string; status: string; statusId: number;
   net: number; windowEnd: number; precision: string; pad: string; place: string; lat: number | null; lon: number | null;
-  orbit: string; toStation: boolean; webcast: string; info: string; probability: number | null; weather: string;
+  orbit: string; toStation: boolean; webcast: string; webcastLive: boolean; info: string; probability: number | null; weather: string;
 };
 
 const num = (x: unknown) => (typeof x === 'number' && Number.isFinite(x) ? x : typeof x === 'string' && x.trim() && Number.isFinite(Number(x)) ? Number(x) : null);
@@ -72,13 +75,14 @@ export function launchesOf(j: unknown): Launch[] {
     const mission = obj(l.mission), pad = obj(l.pad), place = obj(pad.location), rocket = obj(obj(l.rocket).configuration), status = obj(l.status);
     const orbit = [str(obj(mission.orbit).abbrev), str(obj(mission.orbit).name)].find((x) => x && x !== 'N/A' && x !== 'Unknown') ?? '';
     const text = `${str(l.name)} ${str(mission.name)} ${str(mission.description)}`;
-    const webcast = arr(l.vid_urls).sort((a, b) => (num(a.priority) ?? 9) - (num(b.priority) ?? 9))[0];
+    // The webcast to open: one live now before the rest, then by the list's own priority (lower first).
+    const webcast = arr(l.vid_urls).filter((v) => str(v.url)).sort((a, b) => Number(!!b.live) - Number(!!a.live) || (num(a.priority) ?? 99) - (num(b.priority) ?? 99))[0];
     return {
       id: str(l.id), name: str(l.name), rocket: str(rocket.full_name) || str(rocket.name), mission: str(mission.name), provider: str(obj(l.launch_service_provider).name),
       status: str(status.name), statusId: num(status.id) ?? 0, net: time(l.net), windowEnd: time(l.window_end), precision: str(obj(l.net_precision).name),
       pad: str(pad.name), place: str(place.name), lat: num(pad.latitude), lon: num(pad.longitude), orbit,
       toStation: /\b(ISS|International Space Station)\b/.test(text) || /\bCRS-\d|\bProgress MS|\bSoyuz MS|\bCrew-\d|\bAx-\d|\bCygnus|\bHTV/.test(text),
-      webcast: str(webcast?.url), info: str(l.url), probability: num(l.probability), weather: str(l.weather_concerns),
+      webcast: str(webcast?.url), webcastLive: l.webcast_live === true || webcast?.live === true, info: str(l.url), probability: num(l.probability), weather: str(l.weather_concerns),
     };
   }).filter((l) => l.id && l.net);
 }
