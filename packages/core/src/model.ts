@@ -14,10 +14,13 @@ export type Level = 1 | 2;
 // Something the host can do. The board only looks at `ids`: the things the
 // action touches, which beat ("sending") until the host reports them changed.
 // An action that `asks` for a code (an alarm, a lock) does not go until the
-// viewer enters one on the keypad: the board sends it again with `code`.
+// viewer enters one on the keypad: the board sends it again with `code`. One
+// that asks for `words` wants what the viewer has to say (a question to the
+// home, a message), in the open: an input instead of the keys, with the
+// action's `hint` as its prompt; the words come back in `code` too.
 // The rest is the host's own (a service call, an HTTP request).
-export type CodeFormat = 'number' | 'text';
-export type Action = { ids: string[]; asks?: CodeFormat; code?: string } & Record<string, unknown>;
+export type CodeFormat = 'number' | 'text' | 'words';
+export type Action = { ids: string[]; asks?: CodeFormat; code?: string; hint?: string } & Record<string, unknown>;
 
 // A segment of a ring, or a row of a list. `act` is what tapping it does; `to`
 // names a thing with an object of its own (`PulseHost.objectOf`: an aircraft,

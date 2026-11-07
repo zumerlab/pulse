@@ -8,11 +8,11 @@ import { CONTROLS, DEFAULTS, GROUPS, fmt, resetTune, setTune, tune, tuneText, tu
 import type { Board } from './context.ts';
 import { activeElement, setHTML } from './draw.ts';
 import {
-  STACK_DEFAULT, activeGroups, applyGround, frameGroups, hostGroups, keepPhoto, look, setSettings, stackShown, startId, uploadedPhoto,
+  STACK_DEFAULT, activeGroups, applyGround, artBackdrop, frameGroups, hostGroups, keepPhoto, lightGround, look, setSettings, stackShown, startId, uploadedPhoto,
 } from './settings.ts';
 import {
-  AXES, BOARD_MODES, DAYS, DIALS, ENDS, FACES, GROUNDS, LOOK_DEFAULT, MONTHS, SETTINGS_TABS, TIMES,
-  type Axis, type BoardMode, type Look, type Tab,
+  ARTS, AXES, BOARD_MODES, DAYS, DIALS, ENDS, FACES, GROUNDS, LOOK_DEFAULT, MONTHS, SETTINGS_TABS, TIMES,
+  type Art, type Axis, type BoardMode, type Look, type Tab,
 } from './types.ts';
 
 const COLOR_KEYS: (keyof Theme)[] = ['bg', 'ink', 'muted', 'dim', 'line', 'minor', 'critical'];
@@ -82,6 +82,8 @@ export function settingsPanel(b: Board) {
       <h3 class="settings-section">${t.groundSection}</h3>
       ${radios('ground', GROUNDS, t.groundLook, t.groundField)}
       <label class="settings-field settings-glow"><span>${t.glowField}</span><input type="color" name="glow"></label>
+      <fieldset class="settings-art"><legend>${t.artField}</legend>
+        <div class="art-grid">${ARTS.map((a) => `<label class="art-tile" data-art-tile="${a}"><input type="radio" name="art" value="${a}"><span class="art-swatch" data-art="${a}" aria-hidden="true"></span><span class="art-name">${t.artNames[a]}</span></label>`).join('')}</div></fieldset>
       <div class="settings-photo">
         <div class="photo-row"><label class="plain photo-pick">${t.photoPick}<input type="file" name="photo-file" accept="image/*"></label>
           <span class="photo-state" aria-live="polite"></span></div>
@@ -255,11 +257,11 @@ export function wireGear(b: Board, el: HTMLElement) {
       next.theme = field === 'color' ? 'custom' : target.value as Look['theme'];
       if (next.theme === (frame.look?.theme ?? LOOK_DEFAULT.theme)) delete next.theme;
       setSettings(b, { look: Object.keys(next).length ? next : undefined });
-    } else if (field === 'ground' || field === 'faces' || field === 'glow' || field === 'dim' || field === 'blur' || field === 'photo-url') {
+    } else if (field === 'ground' || field === 'art' || field === 'faces' || field === 'glow' || field === 'dim' || field === 'blur' || field === 'photo-url') {
       const v = field === 'dim' || field === 'blur' ? Number(target.value) : field === 'photo-url' ? target.value.trim() : target.value;
       const next: Look = { ...local.look, [field === 'photo-url' ? 'photo' : field]: v };
       if (field === 'photo-url' && v) next.ground = 'photo';
-      for (const k of ['ground', 'faces', 'glow', 'photo', 'dim', 'blur'] as const) if (next[k] === (frame.look?.[k] ?? LOOK_DEFAULT[k])) delete next[k];
+      for (const k of ['ground', 'art', 'faces', 'glow', 'photo', 'dim', 'blur'] as const) if (next[k] === (frame.look?.[k] ?? LOOK_DEFAULT[k])) delete next[k];
       setSettings(b, { look: Object.keys(next).length ? next : undefined });
     } else if (field === 'photo-file') {
       const file = (target as HTMLInputElement).files?.[0];
@@ -357,8 +359,12 @@ export function syncSettings(b: Board, form: HTMLFormElement) {
   for (const box of form.querySelectorAll<HTMLInputElement>('input[name="theme"]')) box.checked = box.value === lk.theme;
   form.querySelector<HTMLInputElement>('input[name="modes"]')!.checked = lk.modes === 'shown';
   // The ground: its fields only for the ground chosen.
-  for (const box of form.querySelectorAll<HTMLInputElement>('input[name="ground"], input[name="faces"]')) box.checked = lk[box.name as 'ground' | 'faces'] === box.value;
+  for (const box of form.querySelectorAll<HTMLInputElement>('input[name="ground"], input[name="art"], input[name="faces"]')) box.checked = lk[box.name as 'ground' | 'art' | 'faces'] === box.value;
   form.querySelector<HTMLElement>('.settings-glow')!.hidden = lk.ground !== 'glow';
+  form.querySelector<HTMLElement>('.settings-art')!.hidden = lk.ground !== 'art';
+  // Each tile painted with its ground over the theme in force, light or dark.
+  const light = lightGround(b);
+  for (const sw of form.querySelectorAll<HTMLElement>('.art-swatch')) sw.style.background = artBackdrop(sw.dataset.art as Art, light);
   form.querySelector<HTMLElement>('.settings-photo')!.hidden = lk.ground !== 'photo';
   form.querySelector<HTMLElement>('.settings-faces')!.hidden = lk.ground === 'flat';
   const glowIn = form.querySelector<HTMLInputElement>('input[name="glow"]')!;

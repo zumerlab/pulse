@@ -44,8 +44,9 @@ export type Look = { dial?: 'full' | 'open'; day?: 'plain' | 'marks'; ends?: 'fl
   // The switch between grid, orbit, layers and list on the board itself (the gear always has it).
   modes?: 'shown' | 'hidden';
   // The ground behind everything: the theme's flat color, a glow (a spherical gradient of `glow` into the ground),
+  // one of the three abstract grounds (`art`: drawn by the browser from the theme's own colors, so they weigh nothing),
   // or a photo (`photo`: an address, or 'upload' for the one chosen in this browser), dimmed toward the ground and blurred.
-  ground?: 'flat' | 'glow' | 'photo'; glow?: string; photo?: string; dim?: number; blur?: number;
+  ground?: 'flat' | 'glow' | 'art' | 'photo'; glow?: string; art?: Art; photo?: string; dim?: number; blur?: number;
   // Over a glow or a photo, the faces of the systems: solid, or glass (see-through and blurred).
   faces?: 'solid' | 'glass' };
 export type LookFull = Required<Omit<Look, 'colors'>> & Pick<Look, 'colors'>;
@@ -53,10 +54,13 @@ export type LookFull = Required<Omit<Look, 'colors'>> & Pick<Look, 'colors'>;
 export const SETTINGS_TABS = ['content', 'board', 'look', 'tune'] as const;
 export type Tab = typeof SETTINGS_TABS[number];
 export const DIALS = ['full', 'open'] as const, DAYS = ['plain', 'marks'] as const, ENDS = ['flat', 'rounded'] as const;
-export const GROUNDS = ['flat', 'glow', 'photo'] as const, FACES = ['solid', 'glass'] as const;
+export const GROUNDS = ['flat', 'glow', 'art', 'photo'] as const, FACES = ['solid', 'glass'] as const;
+// The abstract grounds: veils of color, fine lines from a corner, a vignette with film grain.
+export const ARTS = ['aurora', 'contours', 'grain'] as const;
+export type Art = typeof ARTS[number];
 export const TIMES = ['off', 'changes', 'clock', 'both'] as const, MONTHS = ['calendar', 'rolling'] as const;
 export const LOOK_DEFAULT: LookFull = { dial: 'full', day: 'plain', ends: 'flat', theme: DEFAULT_THEME, time: 'off', month: 'calendar', modes: 'hidden',
-  ground: 'flat', glow: '#4f7cac', photo: '', dim: 0.45, blur: 0, faces: 'glass' };
+  ground: 'flat', glow: '#4f7cac', art: 'aurora', photo: '', dim: 0.45, blur: 0, faces: 'glass' };
 
 export type Strings = typeof T;
 

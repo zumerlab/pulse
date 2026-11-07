@@ -134,6 +134,19 @@ export function openObject(b: Board, to: string, from: HTMLElement) {
   void b.app.zoomIn(from);
   return true;
 }
+// A view whose content has gone closes: a step back, once the view is current
+// and Zumly is free. Zumly drops a navigation asked for while another runs
+// (`blockEvents` while it animates) instead of queueing it, so the step
+// back waits for that too (noted in ../coordinacion/PENDIENTES.md, Zumly).
+export function zoomOutWhenCurrent(b: Board, el: HTMLElement) {
+  const app = b.app as typeof b.app & { blockEvents?: boolean };
+  const go = () => {
+    if (!el.isConnected) return;
+    if (el.closest('.is-current-view') && !app.blockEvents) void b.app.zoomOut();
+    else requestAnimationFrame(go);
+  };
+  go();
+}
 
 // ─── Actions to the host ───
 
@@ -186,7 +199,7 @@ export function askCode(b: Board, id: string, key: string, acts: Action[], title
   const asks = acts.find((a) => a.asks);
   if (!asks) { void send(b, acts); return; }
   const u = uiOf(b, id);
-  u.code = { key, acts, title, verb, format: asks.asks!, value: '', wrong: false, level };
+  u.code = { key, acts, title, verb, format: asks.asks!, value: '', wrong: false, level, hint: asks.hint };
   u.pick = key;
   repaint(b);
 }

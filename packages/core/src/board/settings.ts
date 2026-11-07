@@ -3,10 +3,10 @@
 // under the board's store; applied to the board as they change.
 
 import { PHONE, STACK_MAX } from '../radial/index.ts';
-import { DEFAULT_THEME, THEME_NAMES, applyColors, applyTheme } from '../themes.ts';
+import { DEFAULT_THEME, THEMES, THEME_NAMES, applyColors, applyTheme, isLight, type ThemeName } from '../themes.ts';
 import type { System } from '../model.ts';
 import type { Board } from './context.ts';
-import { AXES, BOARD_MODES, LOOK_DEFAULT, type BoardSettings, type LookFull } from './types.ts';
+import { AXES, BOARD_MODES, LOOK_DEFAULT, type Art, type BoardSettings, type LookFull } from './types.ts';
 
 export function loadSettings(store: string | null): BoardSettings {
   if (!store) return {};
@@ -135,7 +135,43 @@ export const stackShown = (b: Board) => { const n = b.local.stack ?? b.frame.sta
 // viewer opens it on demand, kept with the viewer's settings.
 export const calmOpen = (b: Board) => b.local.calm === 'open';
 
-// ─── The ground: a glow or a photo behind every view ───
+// ─── The ground: a glow, an abstract ground or a photo behind every view ───
+
+// The three abstract grounds, as CSS over the theme's own tokens: they weigh
+// nothing, stay sharp at any size and follow a light or a dark theme alike.
+// Aurora: three veils of color, teal and violet above, blue below (brighter
+// ones on a light ground, where a deep hue would go muddy). Contours: fine
+// concentric lines from beyond the bottom-right corner, in the ink, fading as
+// they go. Grain: a light from the top-left, a vignette (lighter on a light
+// ground) and film grain, an SVG noise tile the browser draws, gray so it
+// shows on either ground.
+const GRAIN = `url("data:image/svg+xml,${encodeURIComponent(
+  `<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='g'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .5 0 0 0 0 .5 0 0 0 0 .5 0 0 0 .3 0'/></filter><rect width='100%' height='100%' filter='url(#g)'/></svg>`)}")`;
+const veilOf = (color: string, p: number) => `color-mix(in srgb, ${color} ${p}%, transparent)`;
+export function artBackdrop(art: Art, light = false): string {
+  switch (art) {
+    case 'aurora': return [
+      `radial-gradient(60% 55% at 16% 10%, ${veilOf(light ? '#49d2de' : '#35b6c6', light ? 42 : 38)} 0%, transparent 72%)`,
+      `radial-gradient(55% 50% at 86% 14%, ${veilOf(light ? '#a394ff' : '#7f6cf0', light ? 40 : 34)} 0%, transparent 72%)`,
+      `radial-gradient(80% 60% at 50% 104%, ${veilOf(light ? '#7cc4f0' : '#2a6b9a', light ? 44 : 32)} 0%, transparent 72%)`,
+      'var(--bg)'].join(', ');
+    case 'contours': return [
+      `radial-gradient(circle at 78% 112%, transparent 30%, ${veilOf('var(--bg)', 100)} 95%)`,
+      `repeating-radial-gradient(circle at 78% 112%, transparent 0 42px, ${veilOf('var(--ink)', 10)} 42px 44px)`,
+      'var(--bg)'].join(', ');
+    case 'grain': return [
+      `${GRAIN} 0 0 / 240px 240px repeat`,
+      `radial-gradient(120% 100% at 50% 42%, transparent 38%, rgb(0 0 0 / ${light ? '.16' : '.6'}) 100%)`,
+      `linear-gradient(135deg, ${veilOf('var(--ink)', light ? 8 : 14)} 0%, transparent 55%)`,
+      'var(--bg)'].join(', ');
+  }
+}
+// Whether the ground in force is light: the theme's, or the viewer's own colors'.
+export function lightGround(b: Board) {
+  const lk = look(b);
+  const bg = lk.theme === 'custom' ? lk.colors?.bg ?? THEMES[DEFAULT_THEME].bg : (THEMES[lk.theme as ThemeName] ?? THEMES[DEFAULT_THEME]).bg;
+  return isLight(bg);
+}
 
 // On the mount as --backdrop (each view paints it, so it zooms with the view).
 const photoKey = (b: Board) => b.store ? `${b.store}-photo` : null;
@@ -144,13 +180,15 @@ const cssUrl = (u: string) => `url("${u.replace(/["\\\n]/g, (c) => encodeURIComp
 export function applyGround(b: Board) {
   const lk = look(b), st = b.canvas.style;
   const src = lk.ground === 'photo' ? (lk.photo === 'upload' ? uploadedPhoto(b) : lk.photo) : '';
-  const ground = lk.ground === 'glow' || (lk.ground === 'photo' && src) ? lk.ground : 'flat';
+  const ground = lk.ground === 'glow' || lk.ground === 'art' || (lk.ground === 'photo' && src) ? lk.ground : 'flat';
   b.canvas.dataset.ground = ground;
+  if (ground === 'art') b.canvas.dataset.art = lk.art; else delete b.canvas.dataset.art;
   b.canvas.dataset.faces = ground === 'flat' ? 'flat' : lk.faces;
   if (ground === 'flat') { for (const k of ['--backdrop', '--backdrop-blur']) st.removeProperty(k); return; }
   const veil = (p: number) => `color-mix(in srgb, var(--bg) ${Math.round(p * 100)}%, transparent)`;
   st.setProperty('--backdrop', ground === 'glow'
     ? `radial-gradient(130% 130% at 32% 22%, color-mix(in srgb, ${lk.glow} 62%, var(--bg)) 0%, color-mix(in srgb, ${lk.glow} 26%, var(--bg)) 36%, var(--bg) 78%)`
+    : ground === 'art' ? artBackdrop(lk.art, lightGround(b))
     : `linear-gradient(${veil(lk.dim)}, ${veil(lk.dim)}), ${cssUrl(src)} center / cover no-repeat, var(--bg)`);
   st.setProperty('--backdrop-blur', `${ground === 'photo' ? lk.blur : 0}px`);
 }

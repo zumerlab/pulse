@@ -3,6 +3,6 @@
 
 export { mountBoard } from './mount.ts';
 export {
-  AXES, BOARD_MODES, DAYS, DIALS, ENDS, FACES, GROUNDS, MONTHS, SETTINGS_TABS, TIMES,
-  type Axis, type BoardHandle, type BoardMode, type BoardOptions, type BoardSettings, type Look, type Strings,
+  ARTS, AXES, BOARD_MODES, DAYS, DIALS, ENDS, FACES, GROUNDS, MONTHS, SETTINGS_TABS, TIMES,
+  type Art, type Axis, type BoardHandle, type BoardMode, type BoardOptions, type BoardSettings, type Look, type Strings,
 } from './types.ts';

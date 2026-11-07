@@ -77,8 +77,12 @@ export const t = {
   codeWrong: 'not accepted, try again',
   nDigits: (n: number) => n ? count(n, 'digit') : 'no digits yet',
   deleteDigit: 'Delete the last digit',
+  // Words (a question to the home) instead of a code
+  enterWords: 'type, then send · Enter sends, Escape cancels',
+  wordsWrong: 'did not go through, try again',
   cancel: 'Cancel',
   codeLine: (channel: string, what: string) => `${channel}: the code for ${what}.`,
+  wordsLine: (channel: string, hint: string) => `${channel}: ${hint.replace(/^./, (c) => c.toLowerCase())}.`,
 
   // The board (board/). A shell may replace any of these with its own words
   // (what it calls its things, its groups, its errors): `strings` in BoardOptions.
@@ -144,8 +148,10 @@ export const t = {
   ringsSection: 'Rings',
   groundSection: 'Background',
   groundField: 'Behind the board',
-  groundLook: { flat: 'Flat', glow: 'Glow', photo: 'Photo' } as Record<string, string>,
+  groundLook: { flat: 'Flat', glow: 'Glow', art: 'Abstract', photo: 'Photo' } as Record<string, string>,
   glowField: 'Glow color',
+  artField: 'Which one',
+  artNames: { aurora: 'Aurora', contours: 'Contours', grain: 'Grain' } as Record<string, string>,
   photoPick: 'Choose a photo',
   photoUrl: 'Or its address',
   photoHint: 'A photo chosen here stays in this browser. An address works on every screen; in Home Assistant, a file in /config/www is /local/ followed by its name.',

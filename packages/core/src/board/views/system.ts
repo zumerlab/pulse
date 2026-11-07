@@ -8,11 +8,11 @@ import {
   DOT_LANES, LANE, LOCK_MS, PHONE, backLayer, calmStrip, dialControls, dots, esc, face, fitFor, keypad, labelAt, layerIndex,
   parallax, setViewToggle, sizes, strokeAt, systemShell, viewToggle,
 } from '../../radial/index.ts';
-import type { Board, Item } from '../context.ts';
+import type { Board, Code, Item } from '../context.ts';
 import { dialBinding } from '../dials.ts';
 import { activeElement, detailAdds, imageOf, ring, setHTML, startVisuals, visualFor } from '../draw.ts';
 import { stackShown } from '../settings.ts';
-import { askCode, failuresOf, isPending, live, openObject, order, repaint, retry, retryCard, sendCode, uiOf, whenCurrent, worst } from '../state.ts';
+import { askCode, failuresOf, isPending, live, openObject, order, repaint, retry, retryCard, sendCode, uiOf, whenCurrent, worst, zoomOutWhenCurrent } from '../state.ts';
 
 export function systemView(b: Board, ctx: ViewContext, id: string) {
   const { t } = b;
@@ -51,9 +51,20 @@ export function systemView(b: Board, ctx: ViewContext, id: string) {
   };
 
   let last = '';
+  let codeWas: Code | null = null;
+  // An object the board no longer has (its last channel went: the one notice,
+  // dismissed) closes, back to the board; one opened from a row stays.
+  let gone = false;
+  const leave = () => {
+    if (gone || order(b, id).length || b.objects.includes(id) || !el.closest('.is-current-view, .is-new-current-view')) return;
+    gone = true;
+    zoomOutWhenCurrent(b, el);
+  };
+  ctx.onActivate(() => { if (!order(b, id).length) leave(); });
   const paint = () => {
     if (dragging) return;              // repainting would cut the dial drag
     const ord = order(b, id), u = uiOf(b, id), map = b.readings[id] ?? new Map<string, Item>();
+    if (ord.length) gone = false;
     // The keypad only lives on the front layer: if its channel went behind (an alert came first), it closes.
     if (u.code && ord[0] !== u.code.key) u.code = null;
     // Repaint only if something of this system changed.
@@ -106,16 +117,19 @@ export function systemView(b: Board, ctx: ViewContext, id: string) {
     // The keypad over the object while a code is being entered; the object waits behind.
     const front = map.get(ord[0]);
     setHTML(stage.querySelector<HTMLElement>('.keypad-slot')!, u.code && front
-      ? keypad({ name: front.ch.name, title: u.code.title, verb: u.code.verb, format: u.code.format, value: u.code.value, wrong: u.code.wrong, glyph: front.ch.glyph, level: u.code.level })
+      ? keypad({ name: front.ch.name, title: u.code.title, verb: u.code.verb, format: u.code.format, value: u.code.value, wrong: u.code.wrong, glyph: front.ch.glyph, level: u.code.level, hint: u.code.hint })
       : '');
     obj.classList.toggle('is-waiting', !!u.code);
+    // A code of letters or words: its input takes the focus the moment the keypad opens (not the control tapped).
+    const opened = !!u.code && u.code !== codeWas && u.code.format !== 'number';
+    codeWas = u.code;
     // Beside the object, the channels front to back, each a button; past the stack, hollow.
     setHTML(stage.querySelector<HTMLElement>('.layer-index-slot')!, layerIndex(ord.map((key, i) => {
       const { ch, r } = map.get(key)!, shown = r.alert && !u.seen.has(key) ? r.alert : r;
       return { id: key, title: ch.name, big: shown.big, level: r.alert && !u.seen.has(key) ? r.alert.level : 0, off: i >= SZ.length };
     }), 'data-pick'));
 
-    if (!front) { setHTML(strip, esc(t.noEntities)); return; }
+    if (!front) { setHTML(strip, esc(t.noEntities)); leave(); return; }
     const hidden = ord.slice(SZ.length).map((k) => ({ key: k, name: map.get(k)!.ch.name }));
     const fa = front.r.alert && !u.seen.has(ord[0]) ? front.r.alert : null;
     // An object opened from a row has no neighbours to swipe to: no dots.
@@ -126,7 +140,7 @@ export function systemView(b: Board, ctx: ViewContext, id: string) {
       }), id));
     }
     setHTML(strip, b.toast ? `<span class="error">${esc(b.toast)}</span>`
-      : u.code ? `<span>${esc(t.codeLine(front.ch.name, u.code.title))}</span> <button class="plain" data-code="cancel">${t.cancel}</button>`
+      : u.code ? `<span>${esc(u.code.format === 'words' ? t.wordsLine(front.ch.name, u.code.hint ?? u.code.title) : t.codeLine(front.ch.name, u.code.title))}</span> <button class="plain" data-code="cancel">${t.cancel}</button>`
       : failuresOf(b, front.r).length ? retryCard(b, front.r)
       : fa ? `<strong>${front.ch.name}:</strong> ${esc(fa.why)}.
           ${fa.busy ? `<span class="face-wait">${t.inProgress}</span>` : `<button class="primary level-${fa.level}" data-resolve="${ord[0]}">${esc(fa.verb)}</button>
@@ -134,7 +148,8 @@ export function systemView(b: Board, ctx: ViewContext, id: string) {
           ${waiting.length ? `<span class="how">${t.moreWaiting(waiting.length)}</span>` : ''}`
       : calmStrip(sys.title, front.ch.name, hidden));
 
-    if (focusSel) el.querySelector<HTMLElement>(focusSel)?.focus({ preventScroll: true });
+    if (opened) stage.querySelector<HTMLInputElement>('.code-input')?.focus({ preventScroll: true });
+    else if (focusSel) el.querySelector<HTMLElement>(focusSel)?.focus({ preventScroll: true });
   };
 
   // The selector that finds a control again after a repaint.
@@ -248,6 +263,8 @@ export function systemView(b: Board, ctx: ViewContext, id: string) {
     if (e.key === 'Escape') { u.code = null; repaint(b); }
     else if (e.key === 'Enter' && (inInput || !target.matches('button, o-arc'))) void sendCode(b, id);
     else if (inInput) return;
+    // Words typed with the focus elsewhere go to the input (the key lands there once it has the focus).
+    else if (u.code.format === 'words') { if (e.key.length === 1 && !e.metaKey && !e.ctrlKey) el.querySelector<HTMLInputElement>('.code-input')?.focus({ preventScroll: true }); return; }
     else if (/^[0-9]$/.test(e.key)) typeCode(e.key);
     else if (e.key === 'Backspace') typeCode(null);
     else return;

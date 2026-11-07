@@ -15,7 +15,7 @@ import type { Board } from '../context.ts';
 import { dialBinding } from '../dials.ts';
 import { activeElement, imageOf, ring, scrollState, setHTML } from '../draw.ts';
 import { look } from '../settings.ts';
-import { PENDING_MS, failuresOf, openObject, repaint, retry, retryCard, send, uiOf, whenCurrent } from '../state.ts';
+import { PENDING_MS, failuresOf, openObject, repaint, retry, retryCard, send, uiOf, whenCurrent, zoomOutWhenCurrent } from '../state.ts';
 import { MONTH_MS, ROLLING_DAYS, loadMonth, monthKey } from '../time.ts';
 
 // The detail's ring: about 11 px of stroke on its 260 px universe.
@@ -37,11 +37,21 @@ export function detailView(b: Board, ctx: ViewContext) {
   // chooses others (a zoom, a drag); the way back to the center is a button.
   let mapEl: HTMLElement | null = null, mapZoom: number | null = null, mapCenter: { lat: number; lon: number } | null = null;
   const mapAt = (m: MapSpec) => ({ radius: MAP_RADIUS, zoom: mapZoom ?? m.zoom, center: mapCenter ?? undefined });
+  // What the detail shows can go while it is open (the last notice, dismissed
+  // from its row): the detail then closes, back to the object.
+  let gone = false;
+  const leave = () => {
+    if (gone || !el.closest('.is-current-view, .is-new-current-view')) return;
+    gone = true;
+    zoomOutWhenCurrent(b, el);
+  };
+  ctx.onActivate(() => { if (!b.readings[id]?.get(key)) leave(); });
   const paint = () => {
     if (dragging) return;              // repainting would cut the drag
     const { host } = b;
     const item = b.readings[id]?.get(key);
-    if (!item) return;
+    if (!item) { leave(); return; }
+    gone = false;
     const { ch, r } = item;
     const history = r.history ? b.histories.get(r.history) : undefined;
     const trackIds = r.tracks?.length && host.changes ? r.tracks.map((x) => x.id).join(' ') : '';

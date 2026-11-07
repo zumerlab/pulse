@@ -1,7 +1,7 @@
-/* ─── The ground: a glow or a photo behind every view ─────────────── */
+/* ─── The ground: a glow, an abstract ground or a photo behind every view ── */
 /* Each view paints it (it zooms with the view, like the rest of it); blurred in a layer of its own. */
-[data-ground="glow"] .z-view, [data-ground="photo"] .z-view { background: none; isolation: isolate; }
-[data-ground="glow"] .z-view::before, [data-ground="photo"] .z-view::before {
+[data-ground="glow"] .z-view, [data-ground="art"] .z-view, [data-ground="photo"] .z-view { background: none; isolation: isolate; }
+[data-ground="glow"] .z-view::before, [data-ground="art"] .z-view::before, [data-ground="photo"] .z-view::before {
   content: ""; position: absolute; inset: calc(-2 * var(--backdrop-blur, 0px)); z-index: -1; pointer-events: none;
   background: var(--backdrop); filter: blur(var(--backdrop-blur, 0px));
 }
@@ -26,7 +26,16 @@
 /* The gear's background fields. */
 .settings-glow input[type="color"] { width: 48px; height: 32px; padding: 0; border: 1px solid var(--line); border-radius: 8px; background: none; cursor: pointer; }
 .settings-photo { display: grid; gap: 10px; }
-.settings-photo[hidden], .settings-glow[hidden], .settings-faces[hidden] { display: none !important; }
+.settings-photo[hidden], .settings-glow[hidden], .settings-art[hidden], .settings-faces[hidden] { display: none !important; }
+/* The three abstract grounds as tiles, each painted with its own CSS over the theme in force. */
+.art-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.settings .art-tile { position: relative; display: grid; gap: 6px; padding: 6px; border: 1px solid var(--line); border-radius: 10px; min-height: 0; cursor: pointer; }
+.art-tile input { position: absolute; opacity: 0; pointer-events: none; }
+.art-tile:hover { border-color: var(--dim); }
+.art-tile:has(input:checked) { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
+.art-tile:has(input:focus-visible) { outline: 2px solid var(--ink); outline-offset: 2px; }
+.art-swatch { display: block; height: 54px; border-radius: 7px; box-shadow: inset 0 0 0 1px var(--line); }
+.art-name { font-size: 12px; line-height: 1.2; text-align: center; }
 .photo-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .settings .photo-pick { position: relative; min-height: 0; padding: 8px 14px; font-size: 13px; border-radius: 999px; display: inline-flex; }
 .photo-pick input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }

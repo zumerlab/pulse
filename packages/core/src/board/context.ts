@@ -22,7 +22,7 @@ export type Frame = {
 };
 
 // A code being entered for actions that ask for one: the keypad is over the object meanwhile.
-export type Code = { key: string; acts: Action[]; title: string; verb: string; format: CodeFormat; value: string; wrong: boolean; level?: 1 | 2 };
+export type Code = { key: string; acts: Action[]; title: string; verb: string; format: CodeFormat; value: string; wrong: boolean; level?: 1 | 2; hint?: string };
 // What a system's view remembers between paints.
 export type Ui = {
   pick: string | null;                 // channel chosen by hand
