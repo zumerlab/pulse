@@ -1,22 +1,68 @@
 {
-  "name": "pulse-workspace",
-  "version": "0.1.0",
-  "private": true,
+  "name": "@zumer/pulse",
+  "version": "0.0.0",
+  "description": "A radial interface for monitoring and controlling systems: one object per system, its readings and controls as layers, the urgent one in front. Built on Orbit and Zumly.",
+  "keywords": [
+    "radial",
+    "ui",
+    "dashboard",
+    "monitoring",
+    "control",
+    "zoomable",
+    "orbit",
+    "zumly",
+    "home-assistant"
+  ],
+  "license": "MIT",
+  "author": "Juan Martin Muda - Zumerlab",
+  "homepage": "https://zumerlab.com/pulse/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zumerlab/pulse.git"
+  },
+  "bugs": {
+    "url": "https://github.com/zumerlab/pulse/issues"
+  },
   "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./style.css": "./dist/style.css",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist/",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "engines": {
     "node": "^22.18.0 || >=24.0.0"
   },
-  "workspaces": [
-    "packages/*",
-    "apps/*"
-  ],
   "scripts": {
-    "dev": "npm run dev -w pulse-demo -- --port 5173",
-    "build": "tsc --noEmit && npm run build --workspaces --if-present",
+    "dev": "vite --port 5173",
+    "compile": "rm -rf dist && tsc -p tsconfig.build.json && vite build -c vite.lib.config.ts && cp src/style.css dist/style.css && cp -R src/styles dist/styles",
+    "check": "npm run lint && npm run typecheck && npm run compile",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "playwright test",
-    "test:ui": "playwright test --ui"
+    "test": "npm run check && playwright test",
+    "test:ui": "playwright test --ui",
+    "bump:dry": "npx @zumerbox/bump -d",
+    "bump": "npx @zumerbox/bump && npx @zumerbox/changelog",
+    "release": "git add CHANGELOG.md && git commit -m \"Bumped version\" && git push --follow-tags",
+    "prepack": "npm run compile"
+  },
+  "peerDependencies": {
+    "@zumer/orbit": "^2.2.0",
+    "zumly": "^1.2.2"
+  },
+  "dependencies": {
+    "hls.js": "1.7.3"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

@@ -1,12 +1,9 @@
 node_modules/
 dist/
-.DS_Store
+*.tgz
 *.tsbuildinfo
-.pulse/
-.env
-.env.*
-!.env.example
 test-results/
 playwright-report/
-dist-card/
+.DS_Store
 .claude/
+.pulse/

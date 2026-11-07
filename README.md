@@ -61,18 +61,120 @@ of hosts over Prometheus, a swarm of drones, the sky from ADS-B, the space
 station from NASA's telemetry and a city's traffic cameras, private while they
 mature.
 
+## Install
+
+```sh
+npm install @zumer/pulse @zumer/orbit zumly
+```
+
+Four stylesheets and two runtimes, then the board:
+
+```ts
+import 'zumly/style.css';
+import '@zumer/orbit/style';
+import '@zumer/orbit';
+import '@zumer/pulse/style.css';
+import { mountBoard } from '@zumer/pulse';
+
+const board = mountBoard(canvas, {
+  host,
+  settings: 'my-settings',
+  strings: { things: 'Sensors' },
+});
+
+// When removing the interface:
+board.destroy();
+```
+
+Here, `canvas` is the element inside your page's shell and `host` implements
+`PulseHost`. For the page structure and a complete adapter, follow
+[In your project](docs/adapt.html).
+
+## Your own source
+
+A host supplies systems, reports changes and runs actions. It also provides
+names and state labels for the data. Optional methods supply history, camera
+streams, statistics and groups such as rooms. The `PulseHost` interface is
+defined in [src/model.ts](src/model.ts).
+
+Each system has channels. A channel returns a `Reading`, or `null` when it
+has nothing to show. Readings describe one of three ring types:
+
+| Kind | Display and interaction |
+|---|---|
+| `'p'` | Progress band; an optional dial or range makes it adjustable |
+| `'s'` | Segments representing switches |
+| `'c'` | Named options with one selected |
+
+Readings also include the main value, a label and the entity ids they depend
+on. They can add alerts and detail content such as history, an image, a color
+control or a longer list. A reading with a `map` opens a detail where the map
+is big, follows the reading live, zooms with the wheel, a pinch or its
+buttons and moves with a drag or the arrows; a `link` adds a button out to the
+thing elsewhere. A picture with a `video` plays muted over its still, in the
+face and in the detail: a live HLS stream or a video file. A segment or a row
+can name a thing with its own object (`to`): with `objectOf(id)` the host
+makes it, and tapping the row zooms into it. A reading's `plots` are a radar,
+its `globe` the disc as the Earth, its `map` a window on a tiled map.
+
+Actions belong to the host. The board sends them through `act`, tracks the
+ids they affect and waits for reported changes. An action that requires a
+code opens a keypad first; one that asks for words opens an input instead.
+
+Start with [Your own source](docs/sources.html) for the data model and
+[In your project](docs/adapt.html) for the setup. The component gallery at
+`demo/elements.html` shows individual components with sample data under each
+of the seven built-in themes.
+
+## Board options and lifecycle
+
+`mountBoard(canvas, options)` returns a handle for updating and removing the
+interface. Options include available systems and groups, initial view,
+starting system, appearance, layer counts, status text and translated strings.
+
+Browser preferences are saved under the key supplied as `settings`.
+Set `settings: false` to disable the settings panel and saved preferences.
+
+Use `setHost` to change data sources, `setSettings` to update display choices,
+`repaint` to refresh the views and `destroy` to release the board's resources.
+The `ready` promise tracks initialization. See
+[src/board/types.ts](src/board/types.ts) for the full options and handle types.
+
 ## Layout
 
 | Directory | Contents |
 |---|---|
-| [packages/core](packages/core/README.md) | Shared board, radial components, controls, themes and host interface |
-| [apps/demo](apps/demo/README.md) | Simulated systems and a component gallery |
-| `tests/` | Playwright tests of the demo |
-| `docs/` | Website, component reference and design documentation |
+| [src/](src/) | The package: the contract, the board, the radial components, the themes, the strings, the stylesheet |
+| [demo/](demo/README.md) | Simulated systems and a component gallery; `npm run dev` serves it |
+| `tests/` | Playwright tests, run against the demo |
+| [docs/](docs/) | Website, component reference and design documentation |
+| `scripts/` | `land.mjs`, which generates the globe's coasts |
 
-The apps on the core live in their own repositories and, while the core is
-not on npm, link it from a checkout next to theirs
-(`"@zumer/pulse": "file:../pulse/packages/core"`).
+Inside `src/`:
+
+| Module | Responsibility |
+|---|---|
+| [model.ts](src/model.ts) | Host, system, channel, reading and action contracts |
+| [board/](src/board/) | Board state, settings, commands, views and lifecycle |
+| [radial/](src/radial/) | Visual components, gestures, dimensions and Zumly setup |
+| [themes.ts](src/themes.ts) | Seven themes and helpers for applying colors |
+| [tune.ts](src/tune.ts) | Layout parameters exposed by the Tuning tab |
+| [history.ts](src/history.ts) | Hourly aggregation and state-change helpers |
+| [i18n.ts](src/i18n.ts) | Shared interface text and locale formatting |
+| [style.css](src/style.css) | Entry stylesheet, importing the modules in `styles/` |
+
+Inside `board/`, `mount.ts` handles setup and cleanup, `context.ts` defines the
+shared state, and separate modules handle settings, actions, drawing, history,
+dials and the settings panel. `views/` contains system, detail and change
+views, with a module for each board layout.
+
+Inside `radial/`, components are grouped by family: rings, objects, keypads,
+color controls, time displays and lists. You can use these independently of
+`mountBoard`; the [demo](demo/README.md) does this.
+
+The base stylesheet uses Graphite. Other built-in themes are Paper, Deep,
+Slate, Mist, Fog and Night. `applyTheme` selects one; `applyColors` supplies
+custom colors.
 
 ## Run
 
@@ -80,35 +182,39 @@ Requires Node.js 22.18+ or 24+ and npm.
 
 ```sh
 npm ci
-npm run dev        # demo, http://127.0.0.1:5173; the component gallery at /elements.html
+npm run dev        # the demo, http://127.0.0.1:5173; the component gallery at /elements.html
+npm test           # lint, types, the build, then Playwright over the demo
+npm run compile    # the package into dist/: index.js, its types, the stylesheet
 ```
+
+## Release
+
+Commits follow [Conventional Commits](https://www.conventionalcommits.org/)
+(`feat:`, `fix:`, `docs:`, `refactor:`, `chore:`): the version bump and the
+changelog read them.
 
 ```sh
-npm run typecheck   # TypeScript, whole workspace
-npm run lint        # ESLint
-npm test            # Playwright: the demo app
-npm run build       # typecheck and build the demo
+npm test
+npm run bump       # suggests the next version from the commits, tags it, writes CHANGELOG.md
+npm run release    # commits the changelog and pushes with the tag
+npm publish        # compiles first
 ```
 
-## Your own source
+## Data
 
-A host supplies systems and readings, reports changes, runs actions and provides
-names for the data. The `PulseHost` interface is defined in
-`packages/core/src/model.ts`.
-
-A system has channels. Each channel returns a ring, a value and a label, with
-optional alerts and detail content.
-
-Start with [Your own source](docs/sources.html) for the data model and
-[In your project](docs/adapt.html) for setup. The component gallery at
-`apps/demo/elements.html` shows individual components with sample data under
-each of the seven built-in themes.
+The globe's coasts (`src/radial/land.ts`) are Natural Earth's land at
+1:110,000,000, public domain, taken from the
+[world-atlas](https://github.com/topojson/world-atlas) package and decimated
+by `scripts/land.mjs`. The map face loads tiles from
+[OpenStreetMap](https://www.openstreetmap.org/copyright) by default
+(© OpenStreetMap contributors), whose tile policy asks for light use; a host
+passes its own `tiles` template for anything heavier.
 
 ## Language
 
 Everything in the repository is in English: code, comments, commits and docs.
-Shared interface strings live in `packages/core/src/i18n.ts`, each app adds its own
-in `strings.ts`; numbers and times follow the language the source reports.
+Shared interface strings live in `src/i18n.ts`, each app adds its own in
+`strings.ts`; numbers and times follow the language the source reports.
 Translations can be added through those dictionaries.
 
 ## License

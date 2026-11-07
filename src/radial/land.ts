@@ -2,7 +2,7 @@
 // world-atlas package, as rings of [longitude, latitude] in tenths of a degree, flat: each
 // ring is lon, lat, lon, lat… Decimated to what a disc of 240 px can show (points closer
 // than 0.45° to the last kept are dropped); lakes are left out, a disc shows coasts.
-// Regenerate with `node packages/core/scripts/land.mjs <land-110m.json> packages/core/src/radial/land.ts`; do not edit by hand.
+// Regenerate with `node scripts/land.mjs <land-110m.json> src/radial/land.ts`; do not edit by hand.
 const RAW: number[][] = [
   [-596,-800,-599,-805,-602,-810,-623,-809,-645,-809,-657,-806,-663,-803,-640,-803,-619,-804,-611,-800,-606,-796,-596,-800],
   [-1592,-795,-1611,-796,-1624,-793,-1630,-789,-1637,-786,-1631,-782,-1612,-784,-1602,-787,-1595,-790,-1592,-795],

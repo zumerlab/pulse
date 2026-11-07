@@ -48,25 +48,22 @@ Screen width is checked when the page loads.
 | [elements.ts](elements.ts) | Component gallery with sample data |
 | [strings.ts](strings.ts) | Demo interface text |
 
-This app uses the core's radial components directly and builds its own small
-board. The Home Assistant and homelab apps use the core's `mountBoard` instead.
-The demo is useful as an example of working with the lower-level components.
+The demo uses the core's radial components directly and builds its own small
+board; the apps on the core, Pulse for Home Assistant among them, use the
+core's `mountBoard` instead. The demo is useful as an example of working with
+the lower-level components.
 
 Orbit handles the rings and layer depth. Zumly handles navigation between
 the board, a system and its detail. Pulse connects the readings, controls and
-alert behavior. See the [core README](../../packages/core/README.md) for the
-shared components and the [Elements page](../../docs/elements.html) for their
-parameters.
+alert behavior. See the [README](../README.md) for the shared components and
+the [Elements page](../docs/elements.html) for their parameters.
 
 ## Development and checks
 
 From the repository root:
 
 ```sh
-npm run typecheck
-npm run lint
 npm test
-npm run build -w pulse-demo
 ```
 
 The Playwright suite exercises this demo, including layer selection, direct

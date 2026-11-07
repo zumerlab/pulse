@@ -19,7 +19,7 @@
       <p class="lede">To use Pulse with your own data, describe your systems and write a host adapter that supplies readings and runs actions. Then mount the board on your page. Every host built so far followed the same steps; this guide walks them with a machine as the example.</p>
 
       <h2>1. Install and import</h2>
-      <p>The core is <code>@zumer/pulse</code>, with Orbit and Zumly beside it. It is not on npm yet: a project links it from a checkout of this repository next to its own (<code>"@zumer/pulse": "file:../pulse/packages/core"</code>). Four stylesheets and two runtimes, then the board.</p>
+      <p>The core is <code>@zumer/pulse</code>, with Orbit and Zumly beside it. <code>npm install @zumer/pulse @zumer/orbit zumly</code>. Four stylesheets and two runtimes, then the board.</p>
 <pre><code>import 'zumly/style.css';
 import '@zumer/orbit/style';
 import '@zumer/orbit';
@@ -136,7 +136,7 @@ setLocale(source.language);</code></pre>
       <p>The board decides on load. Under 600 px wide it shows two layers instead of three, less growth between them, the systems as dots under the object, a lateral swipe between them, and opens inside the system that calls the most. Nothing to set.</p>
 
       <h2>Lower down: the primitives</h2>
-      <p>The board is one way to use the core. Under it are the primitives, each a function that returns markup for an Orbit universe: <code>ring</code>, <code>face</code>, <code>backLayer</code>, <code>layerIndex</code>, <code>keypad</code>, the day and month rings, the lists, the color wheel, and the gestures that go with them. The demo app, <code>apps/demo/</code>, builds its own small board from them, and <a href="elements.html">Elements</a> draws each one alone with what it takes.</p>
+      <p>The board is one way to use the core. Under it are the primitives, each a function that returns markup for an Orbit universe: <code>ring</code>, <code>face</code>, <code>backLayer</code>, <code>layerIndex</code>, <code>keypad</code>, the day and month rings, the lists, the color wheel, and the gestures that go with them. The demo, <code>demo/</code>, builds its own small board from them, and <a href="elements.html">Elements</a> draws each one alone with what it takes.</p>
     </article>
     <nav data-pager></nav>
   </main>

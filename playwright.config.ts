@@ -1,8 +1,8 @@
 import { defineConfig, devices } from '@playwright/test';
 
-// The tests run against the demo app (simulated data). Pulse for Home
-// Assistant (../pulse-home) and the other apps (../pulse-apps) carry their
-// own suites, each over its recordings.
+// The tests run against the demo (demo/, simulated data) on the dev server.
+// Pulse for Home Assistant (../pulse-home) and the other apps (../pulse-apps)
+// carry their own suites, each over its recordings.
 export const DEMO = 'http://127.0.0.1:5173';
 
 export default defineConfig({
