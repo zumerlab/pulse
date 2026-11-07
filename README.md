@@ -11,18 +11,14 @@ When an alert appears, Pulse brings that layer to the front. Once the alert is
 resolved, the layer moves behind the active one. You can see what needs
 attention while keeping the other readings and controls within reach.
 
-Home Assistant is the most complete integration so far. There is also a homelab
-app that reads a Mac or Linux machine through a small collector, a world app
-that reads the calamities of the world (earthquakes, cyclones, floods,
-wildfires, volcanoes) from public feeds with no server at all, a Signal K app that reads a boat, a fleet app
-that follows the trams of Helsinki from a public MQTT feed, a Prometheus app
-that reads a fleet of hosts with PromQL by configuration, a drones app that
-flies a swarm of ArduPilot vehicles through mavlink2rest, a flights app that
-reads the sky from the community ADS-B networks and OpenSky, an ISS app that
-reads the space station from NASA's public telemetry, a cameras app that reads
-the Bay Area's freeways (live camera streams, the CHP's incidents) and
-London's roads from their public feeds, and a demo app
-with simulated data. Each app connects its data and actions to the same interface.
+This repository is the core, `@zumer/pulse`, with a demo of simulated data.
+Each source is an app on it that converts its data and actions into the same
+interface. Home Assistant is the most complete one so far:
+[Pulse for Home Assistant](https://github.com/zumerlab/pulse-home) is a custom
+card, a dashboard, a section or a standalone app, in its own repository. Other
+sources (a machine, the world's calamities, a boat, a fleet of trams, a fleet
+of hosts, a swarm of drones, the sky, the space station, a city's traffic
+cameras) are apps on the same core, private while they mature.
 
 Site: [zumerlab.com/pulse](https://zumerlab.com/pulse/) (the pages are in
 [`docs/`](docs/)). Rings and layers are [Orbit](https://zumerlab.com/orbit/);
@@ -69,16 +65,18 @@ determine which controls appear.
 Use Pulse in Home Assistant as a custom card, a dashboard or section strategy,
 or a standalone app for a kiosk or wall tablet.
 
-The eight systems cover lights, climate, security, openings, media, energy,
-scenes and maintenance. Alerts can combine readings across systems, such as
+The ten systems cover lights, climate, security, people, openings, media,
+energy, scenes, maintenance and Assist. Alerts can combine readings across systems, such as
 heating with a window open or motion while the alarm is armed. Numbers and
 times follow your Home Assistant profile's language; entity states use Home
 Assistant's translated labels where available.
 
-Install, options and troubleshooting:
-[`apps/home-assistant/card/README.md`](apps/home-assistant/card/README.md).
-The repository includes six interactive homes from demo.home-assistant.io,
-so you can try the interface without a Home Assistant instance.
+It lives in its own repository,
+[zumerlab/pulse-home](https://github.com/zumerlab/pulse-home): why it exists,
+how to install it from the Marketplace or by hand, the four ways to use it,
+and the reference of options, entities and alerts. It includes six
+interactive homes from demo.home-assistant.io, so you can try the interface
+without a Home Assistant instance.
 
 ## Layout
 
@@ -86,22 +84,12 @@ so you can try the interface without a Home Assistant instance.
 |---|---|
 | [packages/core](packages/core/README.md) | Shared board, radial components, controls, themes and host interface |
 | [apps/demo](apps/demo/README.md) | Simulated systems and a component gallery |
-| [apps/home-assistant](apps/home-assistant/README.md) | Standalone Home Assistant app, demo homes, card and dashboard strategies |
-| [apps/homelab](apps/homelab/README.md) | Machine monitoring app and a Node.js collector for Mac and Linux |
-| [apps/world](apps/world/README.md) | The world's calamities from public feeds (USGS, GDACS, NASA EONET): earthquakes, cyclones, floods, wildfires, volcanoes; live in the browser, no server |
-| [apps/signalk](apps/signalk/README.md) | A boat over a Signal K server: navigation, wind, batteries, tanks, engine, autopilot |
-| [apps/fleet](apps/fleet/README.md) | A fleet over HSL's public MQTT feed: Helsinki's trams as the fleet by dimension and as one object per vehicle |
-| [apps/prometheus](apps/prometheus/README.md) | A fleet of hosts over Prometheus: channels by configuration (PromQL and thresholds), the targets, Alertmanager's alerts with the silence as the action |
-| [apps/drones](apps/drones/README.md) | A swarm of ArduPilot drones through mavlink2rest: the swarm around home as a radar, each drone an object, arm, takeoff, mode and return as the actions |
-| [apps/flights](apps/flights/README.md) | The sky from the community ADS-B networks and OpenSky: emergencies anywhere on a globe, the traffic around a place and its anomalies, the whole sky |
-| [apps/cameras](apps/cameras/README.md) | A city's roads with their traffic cameras, live where they stream: the Bay Area from Caltrans and the CHP, London from TfL |
-| [apps/iss](apps/iss/README.md) | The International Space Station from NASA's public telemetry: air, water, power, attitude and links as a flight controller would split them, its orbit, crew and the launches coming up |
-| `tests/` | Playwright tests |
+| `tests/` | Playwright tests of the demo |
 | `docs/` | Website, component reference and design documentation |
 
-Each app converts its source data into the core's systems and readings and
-runs the actions the interface requests. The apps depend on the core through
-the npm workspace.
+The apps on the core live in their own repositories and, while the core is
+not on npm, link it from a checkout next to theirs
+(`"@zumer/pulse": "file:../pulse/packages/core"`).
 
 ## Run
 
@@ -109,28 +97,14 @@ Requires Node.js 22.18+ or 24+ and npm.
 
 ```sh
 npm ci
-npm run dev        # demo, http://127.0.0.1:5173
-npm run dev:ha     # Home Assistant, http://127.0.0.1:5174; sign in with your Home Assistant account
-                   # index of the demo homes: http://127.0.0.1:5174/gallery.html
-npm run collect    # the homelab collector, on the machine to watch: http://127.0.0.1:5180
-npm run dev:homelab  # homelab, http://127.0.0.1:5175; ?demo for the demo machine
-npm run dev:world    # world, http://127.0.0.1:5176; live from the feeds, ?demo for a recorded day of calamities
-npm run dev:signalk  # Signal K, http://127.0.0.1:5177; ?server=https://demo.signalk.org, ?demo for the recorded yacht
-npm run dev:fleet    # fleet, http://127.0.0.1:5178; live from HSL, ?demo for the recorded trams
-npm run dev:prometheus  # Prometheus, http://127.0.0.1:5179; ?server=http://host:9090, ?demo for the recorded hosts
-npm run dev:drones   # drones, http://127.0.0.1:5181; ?server=http://host:8088 (mavlink2rest), ?demo for the recorded swarm
-npm run dev:flights  # flights, http://127.0.0.1:5182; live from the networks, ?demo for the recorded sky
-npm run dev:iss      # ISS, http://127.0.0.1:5183; live from NASA's telemetry, ?demo for a recorded pass
-npm run dev:cameras  # cameras, http://127.0.0.1:5184; the Bay Area live (?city=london for London), ?demo as recorded
+npm run dev        # demo, http://127.0.0.1:5173; the component gallery at /elements.html
 ```
 
 ```sh
 npm run typecheck   # TypeScript, whole workspace
 npm run lint        # ESLint
-npm test            # Playwright: the demo app, the Home Assistant app over its demo homes, the homelab, world, Signal K, fleet, Prometheus, drones, flights, ISS and cameras apps over their demos
-npm run build:card  # the Home Assistant card + strategies as one module: apps/home-assistant/dist-card/zumer-pulse.js
-                    # install and options: apps/home-assistant/card/README.md; bench without HA: http://127.0.0.1:5174/card.html
-npm run build       # typecheck and build the apps
+npm test            # Playwright: the demo app
+npm run build       # typecheck and build the demo
 ```
 
 ## Your own source
@@ -140,12 +114,9 @@ names for the data. The `PulseHost` interface is defined in
 `packages/core/src/model.ts`.
 
 A system has channels. Each channel returns a ring, a value and a label, with
-optional alerts and detail content. The homelab app provides a small working
-adapter; the world app one over polled public feeds; the Signal K app one over
-a WebSocket stream of a vessel's paths; the fleet app one over MQTT, with the
-vehicles as the board's second axis; the Prometheus app one from
-configuration, every channel a PromQL query; the Home Assistant app adds registries,
-rooms and richer history.
+optional alerts and detail content. Pulse for Home Assistant's
+[host.ts](https://github.com/zumerlab/pulse-home/blob/main/host.ts) is a
+complete adapter, with registries, rooms and richer history.
 
 Start with [Your own source](docs/sources.html) for the data model and
 [In your project](docs/adapt.html) for setup. The component gallery at

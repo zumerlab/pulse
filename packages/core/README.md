@@ -86,9 +86,8 @@ ids they affect and waits for reported changes. An action that requires a
 code opens a keypad first.
 
 The types are defined in [model.ts](src/model.ts). See
-[the homelab host](../../apps/homelab/host.ts) for a small adapter or
-[the Home Assistant host](../../apps/home-assistant/host.ts) for one with
-rooms, registries and richer history.
+[the Home Assistant host](https://github.com/zumerlab/pulse-home/blob/main/host.ts)
+for a complete adapter, with rooms, registries and richer history.
 
 ## Board options and lifecycle
 

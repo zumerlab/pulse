@@ -16,10 +16,10 @@
     <article class="prose">
       <p class="eyebrow">In use</p>
       <h1>In your project</h1>
-      <p class="lede">To use Pulse with your own data, describe your systems and write a host adapter that supplies readings and runs actions. Then mount the board on your page. The homelab app in <code>apps/homelab/</code> is a small working example. This guide follows the same steps.</p>
+      <p class="lede">To use Pulse with your own data, describe your systems and write a host adapter that supplies readings and runs actions. Then mount the board on your page. Pulse for Home Assistant (<a href="https://github.com/zumerlab/pulse-home">zumerlab/pulse-home</a>) is a complete example, its adapter in <code>host.ts</code>. This guide follows the same steps.</p>
 
       <h2>1. Install and import</h2>
-      <p>The core is <code>@zumer/pulse</code>, with Orbit and Zumly beside it. It is not on npm yet: today it lives in the repository's workspace, and a project starts from a clone of it. Four stylesheets and two runtimes, then the board.</p>
+      <p>The core is <code>@zumer/pulse</code>, with Orbit and Zumly beside it. It is not on npm yet: a project links it from a checkout of this repository next to its own (<code>"@zumer/pulse": "file:../pulse/packages/core"</code>), as Pulse for Home Assistant does. Four stylesheets and two runtimes, then the board.</p>
 <pre><code>import 'zumly/style.css';
 import '@zumer/orbit/style';
 import '@zumer/orbit';
@@ -128,7 +128,7 @@ export const t = { ...core, things: 'Sensors behind this reading', noGroup: 'No 
 setLocale(source.language);</code></pre>
 
       <h2>9. Inside a shadow root</h2>
-      <p>A custom element, like the Home Assistant card, mounts the same board on an element of its own shadow root: adopt the four stylesheets there, keep the tokens on <code>:host</code>, and call <code>mountBoard</code> with that element. Orbit registers its properties itself. The card's source is <code>apps/home-assistant/card/</code>.</p>
+      <p>A custom element, like the Home Assistant card, mounts the same board on an element of its own shadow root: adopt the four stylesheets there, keep the tokens on <code>:host</code>, and call <code>mountBoard</code> with that element. Orbit registers its properties itself. The card's source is <code>card/</code> in <a href="https://github.com/zumerlab/pulse-home">zumerlab/pulse-home</a>.</p>
 
       <h2>On a phone</h2>
       <p>The board decides on load. Under 600 px wide it shows two layers instead of three, less growth between them, the systems as dots under the object, a lateral swipe between them, and opens inside the system that calls the most. Nothing to set.</p>
