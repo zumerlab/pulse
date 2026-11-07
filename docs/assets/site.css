@@ -78,7 +78,7 @@ img { height: auto; }
 .site-nav ul { list-style: none; margin: 0; padding: 0; }
 .site-nav a { display: block; padding: 4px 10px; margin-left: -10px; border-radius: 6px; color: var(--soft); text-decoration: none; }
 .site-nav a:hover { color: var(--text); background: var(--panel-2); }
-.site-nav a[aria-current] { color: var(--text); background: var(--panel-2); box-shadow: inset 2px 0 var(--minor); }
+.site-nav a[aria-current] { color: var(--text); font-weight: 500; }
 .site-nav .nav-foot { margin: 28px 0 0; padding-top: 16px; border-top: 1px solid var(--line); }
 .site-nav .nav-foot a { display: inline; padding: 0; margin: 0; color: var(--muted); }
 .home-nav { display: none; }
