@@ -11,14 +11,9 @@ When an alert appears, Pulse brings that layer to the front. Once the alert is
 resolved, the layer moves behind the active one. You can see what needs
 attention while keeping the other readings and controls within reach.
 
-This repository is the core, `@zumer/pulse`, with a demo of simulated data.
-Each source is an app on it that converts its data and actions into the same
-interface. Home Assistant is the most complete one so far:
-[Pulse for Home Assistant](https://github.com/zumerlab/pulse-home) is a custom
-card, a dashboard, a section or a standalone app, in its own repository. Other
-sources (a machine, the world's calamities, a boat, a fleet of trams, a fleet
-of hosts, a swarm of drones, the sky, the space station, a city's traffic
-cameras) are apps on the same core, private while they mature.
+This repository is the core, `@zumer/pulse`: the object, the board and the
+contract a source fills, with a demo of simulated data. The sources are apps
+on it, each in its own repository (see [Sources](#sources)).
 
 Site: [zumerlab.com/pulse](https://zumerlab.com/pulse/) (the pages are in
 [`docs/`](docs/)). Rings and layers are [Orbit](https://zumerlab.com/orbit/);
@@ -44,17 +39,6 @@ the zoom between levels is [Zumly](https://zumerlab.com/zumly/).
   pending and settles when the source reports back. A rejected command leaves
   a red outline and a Retry option.
 
-Read about the [design decisions](docs/principles.html),
-[object structure](docs/object.html), [components](docs/elements.html)
-and [board views](docs/board.html).
-
-## Home Assistant
-
-Pulse reads the states Home Assistant already pushes to the dashboard. There is
-no entity list to write: each channel picks its entities by domain, device class
-or capability. Channels with nothing to show stay out, so the available entities
-determine which controls appear.
-
 | | |
 |---|---|
 | ![Climate: a thermostat dial in front, the mode and a fan behind](docs/images/system-climate.png) | ![A battery alert in front, in amber, with its action](docs/images/system-alert.png) |
@@ -62,21 +46,20 @@ determine which controls appear.
 | ![The board by room](docs/images/board-rooms.png) | ![The gear: what each screen chooses](docs/images/gear.png) |
 | The same home by room, each area an object. | Settings for this screen, saved in this browser. |
 
-Use Pulse in Home Assistant as a custom card, a dashboard or section strategy,
-or a standalone app for a kiosk or wall tablet.
+Read about the [design decisions](docs/principles.html),
+[object structure](docs/object.html), [components](docs/elements.html)
+and [board views](docs/board.html).
 
-The ten systems cover lights, climate, security, people, openings, media,
-energy, scenes, maintenance and Assist. Alerts can combine readings across systems, such as
-heating with a window open or motion while the alarm is armed. Numbers and
-times follow your Home Assistant profile's language; entity states use Home
-Assistant's translated labels where available.
+## Sources
 
-It lives in its own repository,
-[zumerlab/pulse-home](https://github.com/zumerlab/pulse-home): why it exists,
-how to install it from the Marketplace or by hand, the four ways to use it,
-and the reference of options, entities and alerts. It includes six
-interactive homes from demo.home-assistant.io, so you can try the interface
-without a Home Assistant instance.
+The object is the same whatever feeds it. Each source is an app on the core,
+in its own repository: a home through
+[Home Assistant](https://github.com/zumerlab/pulse-home) (a custom card, a
+dashboard, a section or a standalone app); a machine, the world's calamities
+from public feeds, a boat over Signal K, a fleet of trams over MQTT, a fleet
+of hosts over Prometheus, a swarm of drones, the sky from ADS-B, the space
+station from NASA's telemetry and a city's traffic cameras, private while they
+mature.
 
 ## Layout
 
@@ -114,9 +97,7 @@ names for the data. The `PulseHost` interface is defined in
 `packages/core/src/model.ts`.
 
 A system has channels. Each channel returns a ring, a value and a label, with
-optional alerts and detail content. Pulse for Home Assistant's
-[host.ts](https://github.com/zumerlab/pulse-home/blob/main/host.ts) is a
-complete adapter, with registries, rooms and richer history.
+optional alerts and detail content.
 
 Start with [Your own source](docs/sources.html) for the data model and
 [In your project](docs/adapt.html) for setup. The component gallery at

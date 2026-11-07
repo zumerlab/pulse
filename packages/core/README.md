@@ -6,7 +6,7 @@ front, and alerts can bring another channel forward.
 
 The core handles rendering, interactions, navigation and command feedback.
 Each app supplies readings and runs actions through a `PulseHost` adapter.
-The Home Assistant and homelab apps use the complete board; the demo builds
+The apps on the core use the complete board; the demo builds
 its own board from the radial components.
 
 [Orbit](https://github.com/zumerlab/orbit) provides rings and layer depth.
@@ -85,9 +85,9 @@ Actions belong to the host. The board sends them through `act`, tracks the
 ids they affect and waits for reported changes. An action that requires a
 code opens a keypad first.
 
-The types are defined in [model.ts](src/model.ts). See
-[the Home Assistant host](https://github.com/zumerlab/pulse-home/blob/main/host.ts)
-for a complete adapter, with rooms, registries and richer history.
+The types are defined in [model.ts](src/model.ts); the site's
+[Your own source](../../docs/sources.html) explains the data model and
+[In your project](../../docs/adapt.html) the setup.
 
 ## Board options and lifecycle
 
