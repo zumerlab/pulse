@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Your own source · Pulse</title>
-  <meta name="description" content="Pulse over something that is not Home Assistant: a machine, a car, a boat. The object is the same; a host is a small contract.">
+  <meta name="description" content="Pulse over your own source: a home, a machine, a boat, a fleet, the sky. The object is the same; a host is a small contract.">
   <link rel="preload" href="assets/roboto-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="assets/site.css">
 </head>
@@ -16,7 +16,7 @@
     <article class="prose">
       <p class="eyebrow">In use</p>
       <h1>Your own source</h1>
-      <p class="lede">You can connect Pulse to other sources through a host adapter. The homelab app reads a Mac or Linux machine through a small collector. The world app reads the calamities of the world (earthquakes, cyclones, floods, wildfires, volcanoes) from public feeds, with no server at all. The Signal K app reads a boat. The fleet app follows the trams of Helsinki from a public MQTT feed, the fleet as one object per dimension and one per vehicle. The Prometheus app reads a fleet of hosts with PromQL by configuration. The drones app flies a swarm of ArduPilot vehicles through mavlink2rest. The flights app reads the sky from the community ADS-B networks and OpenSky, the emergencies on a globe. The demo app uses simulated readings for a home, a car, a pet and a server. Each uses the same rings, layers and controls.</p>
+      <p class="lede">The object is the same whatever feeds it. A host adapter hands it systems and readings and runs its actions; everything else, the rings, the layers, the alerts, the detail, is the core's. Hosts built so far: a home through Home Assistant; a machine through a small collector; the world's calamities from public feeds, with no server at all; a boat over Signal K; a fleet of trams over MQTT, one object per dimension and one per vehicle; a fleet of hosts over Prometheus, by configuration; a swarm of drones over MAVLink; the sky from the ADS-B networks, the emergencies on a globe; the space station from NASA's telemetry; a city's roads with their cameras. The demo in this repository uses simulated readings for a home, a car, a pet and a server.</p>
 
       <figure class="shot">
         <img src="images/demo-car.png" alt="A car as a Pulse object: the battery in front, the tires behind" loading="lazy">
@@ -36,7 +36,7 @@
       <p>Two to four channels that compete for attention, ordered front to back, make a good system. More than that is usually two systems.</p>
 
       <h2>What a host is</h2>
-      <p>A host hands the board its systems, tells it when a thing changes, runs the actions the board hands back, and names the things. In the core it is one interface, <code>PulseHost</code>. The Home Assistant app makes one out of a source with three implementations (the WebSocket, the card's <code>hass</code> object, the demo homes); the homelab app makes one out of its collector; the world app out of public feeds it polls on their own clocks; the Signal K app out of a vessel's paths over a WebSocket stream; the fleet app out of vehicles over MQTT, with the vehicles as the board's second axis; the Prometheus app out of a configuration, every channel a query with its thresholds; the drones app out of a MAVLink stream, with commands back; the flights app out of the ADS-B networks, each question on its own clock.</p>
+      <p>A host hands the board its systems, tells it when a thing changes, runs the actions the board hands back, and names the things. In the core it is one interface, <code>PulseHost</code>. A host is made out of whatever the source speaks: a WebSocket of states, a collector polled every few seconds, public feeds on their own clocks, a stream of a vessel's paths, vehicles over MQTT with the vehicles as the board's second axis, a configuration where every channel is a query with its thresholds, a MAVLink stream with commands back.</p>
       <table>
         <tr><th>The host gives</th><th>So that</th></tr>
         <tr><td>systems, and a change event</td><td>the object repaints only what changed</td></tr>
@@ -48,10 +48,10 @@
       </table>
 
       <h2>Where it runs</h2>
-      <p>The core is a plain module that mounts on an element and draws with CSS and a little SVG. It works inside a shadow root, which is what a Home Assistant card is, and on a round screen, which is what a boat's helm or a wall panel may be. The repository has nine examples: the Home Assistant app, the homelab app over a Mac or a Linux box, the world app over public feeds, the Signal K app over a boat, the fleet app over Helsinki's trams, the Prometheus app over a fleet of hosts, the drones app over a swarm, the flights app over the sky, and the demo app over made-up data. The steps, from the imports to the theme: <a href="adapt.html">In your project</a>.</p>
+      <p>The core is a plain module that mounts on an element and draws with CSS and a little SVG. It works inside a shadow root, which is what a Home Assistant card is, and on a round screen, which is what a boat's helm or a wall panel may be. This repository carries the core and the demo; each host above is an app in its own repository, Pulse for Home Assistant the first to be published. The steps, from the imports to the theme: <a href="adapt.html">In your project</a>.</p>
 
       <h2>Open</h2>
-      <p>Pulse is MIT. The Signal K app covers boats, and Victron through its Signal K plugin; the world app shows what a source with nothing to command looks like; the fleet app what many of one thing look like; the Prometheus app what a host built from configuration looks like; the drones app what a swarm with real commands looks like; the flights app what the globe is for. Next on the list: Moonraker for 3D printers.</p>
+      <p>Pulse is MIT. The hosts so far show what the object can take: a source with nothing to command (the world's feeds), many of one thing (a fleet, a swarm), a host built from configuration (Prometheus), real commands with a code or a word (a home), the globe and the map (the sky, a city). Next on the list: Moonraker for 3D printers.</p>
     </article>
     <nav data-pager></nav>
   </main>

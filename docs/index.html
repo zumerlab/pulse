@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Pulse · Monitor and control systems with rings and layers</title>
-  <meta name="description" content="Pulse is a radial interface for monitoring and controlling systems. Explore the Home Assistant integration, the homelab app and the components for your own data.">
+  <meta name="description" content="Pulse is a radial interface for monitoring and controlling systems: a core any source can feed, with the components, the board and the guides to build your own.">
   <link rel="preload" href="assets/roboto-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="assets/site.css">
 </head>
@@ -18,7 +18,7 @@
       <p class="lede">Pulse shows each system as a circular object with layers for its readings and controls. A thermostat, for example, has a temperature dial in front and its mode and fan controls behind it. Drag the ring to adjust the temperature, or tap another layer to use it. When an alert appears, its layer moves to the front until it is resolved.</p>
       <div class="actions">
         <a class="button primary" href="principles.html">Why it is round</a>
-        <a class="button" href="home-assistant.html">See it on Home Assistant</a>
+        <a class="button" href="adapt.html">Build your own</a>
       </div>
     </div>
     <figure class="shot">
@@ -46,8 +46,8 @@
   <p class="lede">Pulse orders alerts by urgency and draws only a few layers at a time. The other channels remain accessible by name. Color, a heavier ring and a wave mark the part that needs attention; systems without alerts stay in the background.</p>
   <p>Read about the design decisions and alert behavior in <a href="principles.html">Why</a>.</p>
 
-  <h2>Start with Home Assistant</h2>
-  <p class="lede">Home Assistant is the most complete integration so far. You can use Pulse as a custom card, a dashboard strategy or a standalone app. It finds channels from your existing entities, so the controls you see depend on the devices in your home. The homelab app uses the same interface to show readings from a Mac or Linux machine.</p>
+  <h2>Sources</h2>
+  <p class="lede">Pulse is a core: a host hands it systems and readings, and the object does the rest. Home Assistant is one source, in its own repository; a machine, the world's calamities, a boat, a fleet, a swarm of drones, the sky, the space station and a city's cameras are others on the same core.</p>
   <ul class="cards">
     <li><a class="card" href="home-assistant.html"><img src="images/board-rooms.png" alt="" loading="lazy"><strong>Home Assistant</strong><span>The card, the strategies, the app. By system or by room.</span></a></li>
     <li><a class="card" href="sources.html"><img src="images/demo-car.png" alt="" loading="lazy"><strong>Your own source</strong><span>Connect your own readings and actions through the host interface.</span></a></li>

@@ -16,7 +16,7 @@
     <article class="prose">
       <p class="eyebrow">In use</p>
       <h1>Home Assistant</h1>
-      <p class="lede">Pulse connects to the states Home Assistant already sends to your dashboard. Each channel finds its entities by domain, device class or capability, so you do not need to write an entity list. Channels appear when there is something to show. This is the most complete Pulse integration so far.</p>
+      <p class="lede">Pulse connects to the states Home Assistant already sends to your dashboard. Each channel finds its entities by domain, device class or capability, so you do not need to write an entity list. Channels appear when there is something to show. It is the most complete source so far, in its own repository: <a href="https://github.com/zumerlab/pulse-home">zumerlab/pulse-home</a>.</p>
 
       <figure class="shot">
         <img src="images/board-orbit.png" alt="The orbit of a Home Assistant home" loading="lazy">
@@ -36,12 +36,14 @@
         <tr><th>System</th><th>What it looks for</th></tr>
         <tr><td>Lights</td><td>Every light as a segment; the first dimmable one as a dial, in its color, with a color wheel in the detail; switches as plugs</td></tr>
         <tr><td>Climate</td><td>The thermostat as a dial; its mode and its preset as choices; a second thermostat; a fan; a comfort range with a knob at each end; the humidity with its day</td></tr>
-        <tr><td>Security</td><td>The alarm as a choice, with a keypad when the panel asks for a code; cameras in the face, live in the detail; sirens, locks; doors, windows, smoke, gas, water, motion</td></tr>
+        <tr><td>Security</td><td>The alarm as a choice, with a keypad when the panel asks for a code; each camera an object of its own, live in its detail; sirens, locks; doors, windows, smoke, gas, water, motion</td></tr>
+        <tr><td>People</td><td>Who is home: every person and the device trackers no person follows, a map around home; each person an object of its own</td></tr>
         <tr><td>Openings</td><td>Covers with a position as dials; the garage door; valves</td></tr>
         <tr><td>Media</td><td>Players, with the artwork of what plays; a source list; the volume</td></tr>
         <tr><td>Energy</td><td>Power, with its day; carbon monoxide; the water heater; the meter's month in the detail</td></tr>
         <tr><td>Scenes</td><td>Every scene on a ring, the last activated marked; tapping one activates it</td></tr>
-        <tr><td>Maintenance</td><td>Updates to install, vacuums, batteries running low, devices reporting a problem, the repairs Home Assistant raised</td></tr>
+        <tr><td>Maintenance</td><td>Updates to install, vacuums, batteries running low, devices reporting a problem, the repairs Home Assistant raised, the notifications of the bell (a tap dismisses)</td></tr>
+        <tr><td>Assist</td><td>About the home as a whole: the questions every home understands on a ring, your own words through the keypad, the answers kept in the detail</td></tr>
       </table>
       <p>By room, each area of the registry is one object with those channels read within it, floor by floor; a scene counts in a room when something it sets is there.</p>
 
