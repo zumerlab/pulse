@@ -2,11 +2,11 @@
 :root, :host {
   color-scheme: dark;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --bg: #242930;
+  --bg: #1a1e25;
   --ink: #f2f3f5;
   --muted: #9aa0a8;
-  --dim: #4b5058;
-  --line: #383c43;
+  --dim: #42474f;
+  --line: #2f333a;
   --minor: #ffb020;      /* level 1 alert */
   --critical: #ff5a4f;   /* level 2 alert */
   background: var(--bg);

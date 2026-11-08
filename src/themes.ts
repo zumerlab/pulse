@@ -8,7 +8,7 @@
 export type Theme = { bg: string; ink: string; muted: string; dim: string; line: string; minor: string; critical: string };
 
 export const THEMES = {
-  graphite: { bg: '#242930', ink: '#f2f3f5', muted: '#9aa0a8', dim: '#4b5058', line: '#383c43', minor: '#ffb020', critical: '#ff5a4f' },
+  graphite: { bg: '#1a1e25', ink: '#f2f3f5', muted: '#9aa0a8', dim: '#42474f', line: '#2f333a', minor: '#ffb020', critical: '#ff5a4f' },
   paper: { bg: '#f3f0e9', ink: '#1d1b18', muted: '#6c665c', dim: '#cfc7b8', line: '#e2dccf', minor: '#c46a00', critical: '#cf3a2d' },
   deep: { bg: '#0b1220', ink: '#e8eefb', muted: '#8ea0c2', dim: '#2a3a56', line: '#1a2740', minor: '#ffc452', critical: '#ff6e66' },
   slate: { bg: '#e4e9ef', ink: '#1e2a38', muted: '#4f5e71', dim: '#b4bfcc', line: '#d3dae3', minor: '#4d6580', critical: '#1d3654' },
