@@ -12,7 +12,6 @@ const NAV = [
   ['In use', [
     ['Home Assistant', 'home-assistant.html'],
     ['openHAB', 'openhab.html'],
-    ['Your own source', 'sources.html'],
     ['Tutorial', 'tutorial.html'],
     ['In your project', 'adapt.html'],
   ]],
@@ -210,41 +209,47 @@ async function copy(text) {
   area.remove();
 }
 
-function codeBlocks(root = document) {
-  for (const pre of root.querySelectorAll('pre:not([data-code])')) {
-    pre.dataset.code = '';
-    let code = pre.querySelector('code');
-    if (!code) {
-      code = document.createElement('code');
-      code.append(...pre.childNodes);
-      pre.append(code);
-    }
-    const lang = pre.dataset.lang || (code.className.match(/language-(\w+)/) || [])[1]
-      || (pre.dataset.file || '').split('.').pop();
-    if (!pre.hasAttribute('data-plain')) code.innerHTML = highlight(code.textContent, lang);
-    const wrap = document.createElement('div');
-    wrap.className = 'code';
-    pre.replaceWith(wrap);
-    wrap.append(pre);
-    const button = document.createElement('button');
-    button.className = 'copy';
-    button.type = 'button';
-    button.textContent = 'Copy';
-    button.setAttribute('aria-label', 'Copy the code');
-    button.addEventListener('click', async () => {
-      try {
-        await copy(code.textContent);
-        button.textContent = 'Copied';
-      } catch {
-        button.textContent = 'Select and copy';
-      }
-      setTimeout(() => { button.textContent = 'Copy'; }, 1400);
-    });
-    wrap.append(button);
+function codeBlock(pre) {
+  pre.dataset.code = '';
+  let code = pre.querySelector('code');
+  if (!code) {
+    code = document.createElement('code');
+    code.append(...pre.childNodes);
+    pre.append(code);
   }
+  const lang = pre.dataset.lang || (code.className.match(/language-(\w+)/) || [])[1]
+    || (pre.dataset.file || '').split('.').pop();
+  if (!pre.hasAttribute('data-plain')) code.innerHTML = highlight(code.textContent, lang);
+  const wrap = document.createElement('div');
+  wrap.className = 'code';
+  pre.replaceWith(wrap);
+  wrap.append(pre);
+  const button = document.createElement('button');
+  button.className = 'copy';
+  button.type = 'button';
+  button.textContent = 'Copy';
+  button.setAttribute('aria-label', 'Copy the code');
+  button.addEventListener('click', async () => {
+    try {
+      await copy(code.textContent);
+      button.textContent = 'Copied';
+    } catch {
+      button.textContent = 'Select and copy';
+    }
+    setTimeout(() => { button.textContent = 'Copy'; }, 1400);
+  });
+  wrap.append(button);
 }
 
 header();
 nav();
 pager();
-codeBlocks();
+// The code blocks one per task, so that no task runs long on a slow phone.
+const pending = [...document.querySelectorAll('pre:not([data-code])')];
+const next = () => {
+  const pre = pending.shift();
+  if (!pre) return;
+  codeBlock(pre);
+  (window.requestIdleCallback || setTimeout)(next);
+};
+next();

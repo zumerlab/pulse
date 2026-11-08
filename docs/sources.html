@@ -2,60 +2,10 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Your own source · Pulse</title>
-  <meta name="description" content="Pulse over your own source: a home, a machine, a boat, a fleet, the sky. The object is the same; a host is a small contract.">
-  <link rel="preload" href="assets/roboto-latin.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="assets/site.css">
+  <title>In your project · Pulse</title>
+  <meta name="robots" content="noindex">
+  <link rel="canonical" href="https://zumerlab.com/pulse/adapt.html">
+  <meta http-equiv="refresh" content="0; url=adapt.html">
 </head>
-<body>
-<header data-site-head></header>
-<div class="site">
-  <nav class="site-nav" data-site-nav></nav>
-  <main class="page">
-    <article class="prose">
-      <p class="eyebrow">In use</p>
-      <h1>Your own source</h1>
-      <p class="lede">The object is the same whatever feeds it. A host adapter hands it systems and readings and runs its actions; everything else, the rings, the layers, the alerts, the detail, is the core's. Hosts built so far: a home through Home Assistant, and a home through openHAB's semantic model; a machine through a small collector; the world's calamities from public feeds, with no server at all; a boat over Signal K; a fleet of trams over MQTT, one object per dimension and one per vehicle; a fleet of hosts over Prometheus, by configuration; a swarm of drones over MAVLink; the sky from the ADS-B networks, the emergencies on a globe; the space station from NASA's telemetry; a city's roads with their cameras. The demo in this repository uses simulated readings for a home, a car, a pet and a server.</p>
-
-      <figure class="shot">
-        <img src="images/demo-car.png" alt="A car as a Pulse object: the battery in front, the tires behind" loading="lazy">
-        <figcaption>The demo app: a car, from simulated data. Same object, same rules.</figcaption>
-      </figure>
-
-      <h2>What a system is</h2>
-      <p>A system is a title and a few channels. A channel reads the host's state and returns a reading, or nothing when there is nothing for it. A reading is one of three rings, a big value, one line, the things it depends on, and sometimes an alert with its actions. That is the whole contract between a host and the object.</p>
-<pre><code>{
-  kind: 'p',                  // a band ('p'), switches ('s') or a choice ('c')
-  v: 0.74,                    // the band's progress
-  dial: { min: 0, max: 100, step: 1, unit: '%', label: 'charge', value: 74, id: 'battery', set: (v) =&gt; action },
-  big: '74%', label: '310 km',
-  ids: ['battery'],
-  alert: { level: 1, big: '12%', label: 'battery', why: 'Not enough charge for tomorrow', verb: 'Schedule charging', acts: [action] },
-}</code></pre>
-      <p>Two to four channels that compete for attention, ordered front to back, make a good system. More than that is usually two systems.</p>
-
-      <h2>What a host is</h2>
-      <p>A host hands the board its systems, tells it when a thing changes, runs the actions the board hands back, and names the things. In the core it is one interface, <code>PulseHost</code>. A host is made out of whatever the source speaks: a WebSocket of states, a collector polled every few seconds, public feeds on their own clocks, a stream of a vessel's paths, vehicles over MQTT with the vehicles as the board's second axis, a configuration where every channel is a query with its thresholds, a MAVLink stream with commands back.</p>
-      <table>
-        <tr><th>The host gives</th><th>So that</th></tr>
-        <tr><td>systems, and a change event</td><td>the object repaints only what changed</td></tr>
-        <tr><td><code>act(action)</code></td><td>a control on the ring does something, and the object waits for the confirmation</td></tr>
-        <tr><td>a name and a state for each thing</td><td>the log and the detail say what they are reading</td></tr>
-        <tr><td>groups, and a way to read the systems within one</td><td>the board can filter by room, and be one object per room</td></tr>
-        <tr><td>the viewer's language</td><td>numbers and times read as the viewer expects</td></tr>
-        <tr><td>optionally: a history, a day of changes, a picture, a stream, statistics</td><td>a detail can show a day, a timeline, a camera, a month</td></tr>
-      </table>
-
-      <h2>Where it runs</h2>
-      <p>The core is a plain module that mounts on an element and draws with CSS and a little SVG. It works inside a shadow root, which is what a Home Assistant card is, and on a round screen, which is what a boat's helm or a wall panel may be. This repository carries the core and the demo; each host above is an app in its own repository, Pulse for Home Assistant the first to be published. The steps, from the imports to the theme: <a href="adapt.html">In your project</a>.</p>
-
-      <h2>Open</h2>
-      <p>Pulse is MIT. The hosts so far show what the object can take: a source with nothing to command (the world's feeds), many of one thing (a fleet, a swarm), a host built from configuration (Prometheus), real commands with a code or a word (a home), the globe and the map (the sky, a city). Next on the list: Moonraker for 3D printers.</p>
-    </article>
-    <nav data-pager></nav>
-  </main>
-</div>
-<script src="assets/site.js"></script>
-</body>
+<body><p>This page moved to <a href="adapt.html">In your project</a>.</p></body>
 </html>

@@ -20,7 +20,7 @@ The site, with the full documentation, is
 [Orbit](https://zumerlab.com/orbit/); the zoom between levels is
 [Zumly](https://zumerlab.com/zumly/).
 
-![The board of a home: the pulse in the center, the systems around it](docs/images/board-orbit.png)
+![The board of a home: the pulse in the center, the systems around it](docs/images/board-orbit.webp)
 
 ## How it works
 
@@ -42,9 +42,9 @@ The site, with the full documentation, is
 
 | | |
 |---|---|
-| ![Climate: a thermostat dial in front, the mode and a fan behind](docs/images/system-climate.png) | ![A battery alert in front, in amber, with its action](docs/images/system-alert.png) |
+| ![Climate: a thermostat dial in front, the mode and a fan behind](docs/images/system-climate.webp) | ![A battery alert in front, in amber, with its action](docs/images/system-alert.webp) |
 | Drag the front ring to adjust the thermostat. | A battery alert moves to the front, with an action below. |
-| ![The board by room](docs/images/board-rooms.png) | ![The gear: what each screen chooses](docs/images/gear.png) |
+| ![The board by room](docs/images/board-rooms.webp) | ![The gear: what each screen chooses](docs/images/gear.webp) |
 | The same home by room, each area an object. | Settings for this screen, saved in this browser. |
 
 Read about the [design decisions](https://zumerlab.com/pulse/principles.html),
@@ -120,8 +120,8 @@ Actions belong to the host. The board sends them through `act`, tracks the
 ids they affect and waits for reported changes. An action that requires a
 code opens a keypad first; one that asks for words opens an input instead.
 
-Start with [Your own source](https://zumerlab.com/pulse/sources.html) for the data model and
-[In your project](https://zumerlab.com/pulse/adapt.html) for the setup. The [Tutorial](https://zumerlab.com/pulse/tutorial.html)
+Start with [In your project](https://zumerlab.com/pulse/adapt.html) for the setup.
+The [Tutorial](https://zumerlab.com/pulse/tutorial.html)
 builds one from zero, with screens: a simulated greenhouse as three objects,
 whose code is in [demo/greenhouse/](demo/greenhouse/). The component gallery at
 `demo/elements.html` shows individual components with sample data under each

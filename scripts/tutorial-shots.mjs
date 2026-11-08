@@ -1,6 +1,7 @@
 // Development: the screens of the tutorial (docs/tutorial.html), taken with
 // Playwright from the greenhouse in demo/greenhouse/, into docs/images/ as
-// tutorial-*.jpg, 2400×1600 like the rest of the site's, as JPEG: the ground is a gradient, which a PNG makes heavy. Starts the dev server
+// tutorial-*.webp (with a -1200 for phones), 2400×1600 like the rest of the
+// site's, through scripts/webp.mjs. Starts the dev server
 // on PULSE_PORT (5173) unless one answers already. Each screen sets the
 // viewer's choices in localStorage before the page loads (what the gear would
 // keep: which systems, which channels, which view) and nudges the greenhouse
@@ -10,6 +11,7 @@
 import { chromium } from 'playwright';
 import { spawn } from 'node:child_process';
 import { mkdirSync } from 'node:fs';
+import { writeWebp } from './webp.mjs';
 
 const out = process.argv[2] ?? 'docs/images';
 const PORT = process.env.PULSE_PORT ?? '5173';
@@ -26,6 +28,7 @@ if (!(await answers())) {
 }
 
 const browser = await chromium.launch();
+const encoder = await browser.newPage();  // where webp.mjs encodes the shots
 
 // One screen: the board's choices, then what to do on the page, then the shot.
 const shot = async (name, settings, act = async () => {}) => {
@@ -49,9 +52,8 @@ const shot = async (name, settings, act = async () => {}) => {
     threeD: async () => { await page.locator('.z-view.is-current-view [data-act="view"]').click(); await page.waitForTimeout(900); },
   };
   await act(t);
-  await page.screenshot({ path: `${out}/tutorial-${name}.jpg`, type: 'jpeg', quality: 90 });
+  console.log(await writeWebp(encoder, await page.screenshot({ type: 'png' }), `${out}/tutorial-${name}`));
   if (errors.length) console.log(`${name}: page errors: ${errors.join(' · ')}`);
-  console.log(`tutorial-${name}.jpg`);
   await context.close();
 };
 

@@ -5,6 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>openHAB · Pulse</title>
   <meta name="description" content="Pulse on openHAB: a page your openHAB serves itself, or a standalone app, over the items of your semantic model, with nothing to list by hand.">
+  <link rel="canonical" href="https://zumerlab.com/pulse/openhab.html">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="openHAB · Pulse">
+  <meta property="og:description" content="Pulse on openHAB: a page your openHAB serves itself, or a standalone app, over the items of your semantic model, with nothing to list by hand.">
+  <meta property="og:url" content="https://zumerlab.com/pulse/openhab.html">
+  <meta property="og:image" content="https://zumerlab.com/pulse/images/openhab-orbit.webp">
+  <meta name="twitter:card" content="summary_large_image">
   <link rel="preload" href="assets/roboto-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="assets/site.css">
 </head>
@@ -19,7 +27,7 @@
       <p class="lede">Pulse reads the items openHAB already has, through the semantic model: a Location, the Equipment in it, the Points of each and what they are about. Nothing is listed by hand; a home modeled under Settings › Model is ready. It lives in its own repository, with Pulse for Home Assistant: <a href="https://github.com/zumerlab/pulse-home">zumerlab/pulse-home</a>.</p>
 
       <figure class="shot">
-        <img src="images/openhab-orbit.png" alt="The orbit of an openHAB home" loading="lazy">
+        <img src="images/openhab-orbit.webp" srcset="images/openhab-orbit-1200.webp 1200w, images/openhab-orbit.webp 2400w" sizes="(min-width: 901px) min(760px, calc(100vw - 352px)), calc(100vw - 40px)" alt="The orbit of an openHAB home" width="2400" height="1600" fetchpriority="high">
         <figcaption>The openHAB project's demo house, as Pulse sees it: the heating on in the living room while its window is open.</figcaption>
       </figure>
 
@@ -47,7 +55,7 @@
       <h2>Alerts are rules over states</h2>
       <p>The interesting ones cross systems. Heating with that room's window open. A door open, or a lock unlocked, at night: night is the sun below the horizon as your home computes it. A room under sixteen degrees. More than four kilowatts from the grid, the home battery under fifteen percent. A device's alarm, a weather warning by its severity. Each alert comes with its action, a real command: turn that heating off, lock, or just "Got it".</p>
       <figure class="shot">
-        <img src="images/openhab-alert.png" alt="The heating alert, in amber, with Turn off heating under the object" loading="lazy">
+        <img src="images/openhab-alert.webp" srcset="images/openhab-alert-1200.webp 1200w, images/openhab-alert.webp 2400w" sizes="(min-width: 901px) min(760px, calc(100vw - 352px)), calc(100vw - 40px)" alt="The heating alert, in amber, with Turn off heating under the object" width="2400" height="1600" loading="lazy">
       </figure>
 
       <h2>Command feedback</h2>
@@ -56,13 +64,13 @@
       <h2>Try it without openHAB</h2>
       <p>Pulse for the home carries the openHAB project's demo house, as it stood on demo.openhab.org one evening, as an interactive demo source: a light that turns on, a heating that turns off, a speaker that pauses. The tests run over it, and so can you: <code>npm run dev</code> in its repository, then open the gallery.</p>
       <figure class="shot">
-        <img src="images/openhab-rooms.png" alt="The demo house by room: a floor per object" loading="lazy">
+        <img src="images/openhab-rooms.webp" srcset="images/openhab-rooms-1200.webp 1200w, images/openhab-rooms.webp 2400w" sizes="(min-width: 901px) min(760px, calc(100vw - 352px)), calc(100vw - 40px)" alt="The demo house by room: a floor per object" width="2400" height="1600" loading="lazy">
         <figcaption>The demo house by room: each floor an object of its rooms.</figcaption>
       </figure>
     </article>
     <nav data-pager></nav>
   </main>
 </div>
-<script src="assets/site.js"></script>
+<script src="assets/site.js" defer></script>
 </body>
 </html>

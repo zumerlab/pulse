@@ -5,6 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Home Assistant · Pulse</title>
   <meta name="description" content="Pulse on Home Assistant: a custom card, a dashboard strategy and a standalone app over your own entities, with no entity list to write.">
+  <link rel="canonical" href="https://zumerlab.com/pulse/home-assistant.html">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Home Assistant · Pulse">
+  <meta property="og:description" content="Pulse on Home Assistant: a custom card, a dashboard strategy and a standalone app over your own entities, with no entity list to write.">
+  <meta property="og:url" content="https://zumerlab.com/pulse/home-assistant.html">
+  <meta property="og:image" content="https://zumerlab.com/pulse/images/board-orbit.webp">
+  <meta name="twitter:card" content="summary_large_image">
   <link rel="preload" href="assets/roboto-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="assets/site.css">
 </head>
@@ -19,7 +27,7 @@
       <p class="lede">Pulse connects to the states Home Assistant already sends to your dashboard. Each channel finds its entities by domain, device class or capability, so you do not need to write an entity list. Channels appear when there is something to show. It lives in its own repository, with Pulse for openHAB: <a href="https://github.com/zumerlab/pulse-home">zumerlab/pulse-home</a>.</p>
 
       <figure class="shot">
-        <img src="images/board-orbit.png" alt="The orbit of a Home Assistant home" loading="lazy">
+        <img src="images/board-orbit.webp" srcset="images/board-orbit-1200.webp 1200w, images/board-orbit.webp 2400w" sizes="(min-width: 901px) min(760px, calc(100vw - 352px)), calc(100vw - 40px)" alt="The orbit of a Home Assistant home" width="2400" height="1600" fetchpriority="high">
         <figcaption>One of the demo homes of demo.home-assistant.io, as Pulse sees it.</figcaption>
       </figure>
 
@@ -50,7 +58,7 @@
       <h2>Alerts are rules over states</h2>
       <p>The interesting ones cross systems. Motion, or something open, with the alarm armed. Heating with a window open. The garage open at night. A lock that did not finish locking. A battery under twenty percent. Carbon monoxide past a threshold. Each alert comes with its action, a real service call: lock it, close the windows, disarm, install, or just "Got it".</p>
       <figure class="shot">
-        <img src="images/system-alert.png" alt="A battery alert, in amber, with its action under the object" loading="lazy">
+        <img src="images/system-alert.webp" srcset="images/system-alert-1200.webp 1200w, images/system-alert.webp 2400w" sizes="(min-width: 901px) min(760px, calc(100vw - 352px)), calc(100vw - 40px)" alt="A battery alert, in amber, with its action under the object" width="2400" height="1600" loading="lazy">
       </figure>
 
       <h2>Command feedback</h2>
@@ -59,13 +67,13 @@
       <h2>Try it without Home Assistant</h2>
       <p>Pulse for the home carries the six homes of demo.home-assistant.io as an interactive demo source: lights that turn on, a thermostat that heats, a scene that activates. The tests run over them, and so can you: <code>npm run dev</code> in its repository, then open the gallery.</p>
       <figure class="shot">
-        <img src="images/system-scenes.png" alt="The scenes of a demo home on a ring: Movie Time, Morning Lights" loading="lazy">
+        <img src="images/system-scenes.webp" srcset="images/system-scenes-1200.webp 1200w, images/system-scenes.webp 2400w" sizes="(min-width: 901px) min(760px, calc(100vw - 352px)), calc(100vw - 40px)" alt="The scenes of a demo home on a ring: Movie Time, Morning Lights" width="2400" height="1600" loading="lazy">
         <figcaption>The scenes of one of the demo homes. Movie Time was just activated.</figcaption>
       </figure>
     </article>
     <nav data-pager></nav>
   </main>
 </div>
-<script src="assets/site.js"></script>
+<script src="assets/site.js" defer></script>
 </body>
 </html>

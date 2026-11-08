@@ -5,6 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Pulse · Monitor and control systems with rings and layers</title>
   <meta name="description" content="Pulse is a radial interface for monitoring and controlling systems: a core any source can feed, with the components, the board and the guides to build your own.">
+  <link rel="canonical" href="https://zumerlab.com/pulse/">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Pulse · Monitor and control systems with rings and layers">
+  <meta property="og:description" content="Pulse is a radial interface for monitoring and controlling systems: a core any source can feed, with the components, the board and the guides to build your own.">
+  <meta property="og:url" content="https://zumerlab.com/pulse/">
+  <meta property="og:image" content="https://zumerlab.com/pulse/images/board-orbit.webp">
+  <meta name="twitter:card" content="summary_large_image">
   <link rel="preload" href="assets/roboto-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="assets/site.css">
 </head>
@@ -22,7 +30,7 @@
       </div>
     </div>
     <figure class="shot">
-      <img src="images/board-orbit.png" alt="The board of a home: the pulse in the center, seven systems around it, one of them calling in amber" width="2400" height="1600">
+      <img src="images/board-orbit.webp" srcset="images/board-orbit-1200.webp 1200w, images/board-orbit.webp 2400w" sizes="(min-width: 1120px) 536px, (min-width: 901px) calc(52vw - 50px), calc(100vw - 32px)" alt="The board of a home: the pulse in the center, seven systems around it, one of them calling in amber" width="2400" height="1600" fetchpriority="high">
     </figure>
   </section>
 
@@ -36,10 +44,10 @@
 
   <h2>From the board to a single reading</h2>
   <div class="shots">
-    <figure class="shot"><img src="images/board-layers.png" alt="The board as one object: each system a layer, named front to back on the left" loading="lazy"><figcaption>The board in layers view. Systems are ordered by urgency, with their names listed on the left.</figcaption></figure>
-    <figure class="shot"><img src="images/system-climate.png" alt="The climate system: a temperature dial in front, the mode and a fan behind" loading="lazy"><figcaption>The climate system. Drag the front ring to adjust the thermostat.</figcaption></figure>
-    <figure class="shot"><img src="images/system-alert.png" alt="A battery alert in front, in amber, with its action under the object" loading="lazy"><figcaption>A battery alert moves to the front, with an action below it.</figcaption></figure>
-    <figure class="shot"><img src="images/detail-humidity.png" alt="The detail of a humidity sensor: the last 24 hours as a ring" loading="lazy"><figcaption>The detail view adds information, such as the last 24 hours of humidity readings.</figcaption></figure>
+    <figure class="shot"><img src="images/board-layers.webp" srcset="images/board-layers-1200.webp 1200w, images/board-layers.webp 2400w" sizes="(min-width: 1120px) 525px, (min-width: 901px) calc(50vw - 59px), calc(100vw - 32px)" alt="The board as one object: each system a layer, named front to back on the left" width="2400" height="1600" loading="lazy"><figcaption>The board in layers view. Systems are ordered by urgency, with their names listed on the left.</figcaption></figure>
+    <figure class="shot"><img src="images/system-climate.webp" srcset="images/system-climate-1200.webp 1200w, images/system-climate.webp 2400w" sizes="(min-width: 1120px) 525px, (min-width: 901px) calc(50vw - 59px), calc(100vw - 32px)" alt="The climate system: a temperature dial in front, the mode and a fan behind" width="2400" height="1600" loading="lazy"><figcaption>The climate system. Drag the front ring to adjust the thermostat.</figcaption></figure>
+    <figure class="shot"><img src="images/system-alert.webp" srcset="images/system-alert-1200.webp 1200w, images/system-alert.webp 2400w" sizes="(min-width: 1120px) 525px, (min-width: 901px) calc(50vw - 59px), calc(100vw - 32px)" alt="A battery alert in front, in amber, with its action under the object" width="2400" height="1600" loading="lazy"><figcaption>A battery alert moves to the front, with an action below it.</figcaption></figure>
+    <figure class="shot"><img src="images/detail-humidity.webp" srcset="images/detail-humidity-1200.webp 1200w, images/detail-humidity.webp 2400w" sizes="(min-width: 1120px) 525px, (min-width: 901px) calc(50vw - 59px), calc(100vw - 32px)" alt="The detail of a humidity sensor: the last 24 hours as a ring" width="2400" height="1600" loading="lazy"><figcaption>The detail view adds information, such as the last 24 hours of humidity readings.</figcaption></figure>
   </div>
 
   <h2>When several things need attention</h2>
@@ -49,12 +57,11 @@
   <h2>Sources</h2>
   <p class="lede">Pulse is a core: a host hands it systems and readings, and the object does the rest. A home is one source, through Home Assistant or openHAB, in its own repository; a machine, the world's calamities, a boat, a fleet, a swarm of drones, the sky, the space station and a city's cameras are others on the same core.</p>
   <ul class="cards">
-    <li><a class="card" href="home-assistant.html"><img src="images/board-rooms.png" alt="" loading="lazy"><strong>Home Assistant</strong><span>The card, the strategies, the app. By system or by room.</span></a></li>
-    <li><a class="card" href="openhab.html"><img src="images/openhab-rooms.png" alt="" loading="lazy"><strong>openHAB</strong><span>The page your openHAB serves, the app. By system or by room.</span></a></li>
-    <li><a class="card" href="sources.html"><img src="images/demo-car.png" alt="" loading="lazy"><strong>Your own source</strong><span>Connect your own readings and actions through the host interface.</span></a></li>
-    <li><a class="card" href="tutorial.html"><img src="images/tutorial-layers.jpg" alt="" loading="lazy"><strong>Tutorial</strong><span>A greenhouse from zero: the source, the systems, the host, the board.</span></a></li>
-    <li><a class="card" href="elements.html"><img src="images/el-color-arcs.png" alt="" loading="lazy"><strong>Elements</strong><span>See each component with sample data and its parameters.</span></a></li>
-    <li><a class="card" href="adapt.html"><img src="images/el-themes.png" alt="" loading="lazy"><strong>In your project</strong><span>Describe your systems, write a host, mount the board, set a theme.</span></a></li>
+    <li><a class="card" href="home-assistant.html"><img src="images/board-rooms.webp" srcset="images/board-rooms-1200.webp 1200w, images/board-rooms.webp 2400w" sizes="(min-width: 1140px) 206px, (min-width: 901px) calc(33vw - 25px), calc(100vw - 32px)" alt="" width="2400" height="1600" loading="lazy"><strong>Home Assistant</strong><span>The card, the strategies, the app. By system or by room.</span></a></li>
+    <li><a class="card" href="openhab.html"><img src="images/openhab-rooms.webp" srcset="images/openhab-rooms-1200.webp 1200w, images/openhab-rooms.webp 2400w" sizes="(min-width: 1140px) 206px, (min-width: 901px) calc(33vw - 25px), calc(100vw - 32px)" alt="" width="2400" height="1600" loading="lazy"><strong>openHAB</strong><span>The page your openHAB serves, the app. By system or by room.</span></a></li>
+    <li><a class="card" href="tutorial.html"><img src="images/tutorial-layers.webp" srcset="images/tutorial-layers-1200.webp 1200w, images/tutorial-layers.webp 2400w" sizes="(min-width: 1140px) 206px, (min-width: 901px) calc(33vw - 25px), calc(100vw - 32px)" alt="" width="2400" height="1600" loading="lazy"><strong>Tutorial</strong><span>A greenhouse from zero: the source, the systems, the host, the board.</span></a></li>
+    <li><a class="card" href="elements.html"><img src="images/el-color-arcs.webp" alt="" width="620" height="684" loading="lazy"><strong>Elements</strong><span>See each component with sample data and its parameters.</span></a></li>
+    <li><a class="card" href="adapt.html"><img src="images/el-themes.webp" srcset="images/el-themes-1036.webp 1036w, images/el-themes.webp 2072w" sizes="(min-width: 1140px) 206px, (min-width: 901px) calc(33vw - 25px), calc(100vw - 32px)" alt="" width="2072" height="2764" loading="lazy"><strong>In your project</strong><span>Describe your systems, write a host, mount the board, set a theme.</span></a></li>
   </ul>
 
   <h2>Built on two small libraries</h2>
@@ -63,6 +70,6 @@
   <p class="closing">Pulse is open source, MIT. Made by <a href="https://zumerlab.com">ZumerLab</a>. Source on <a href="https://github.com/zumerlab/pulse">GitHub</a>.</p>
 </main>
 
-<script src="assets/site.js"></script>
+<script src="assets/site.js" defer></script>
 </body>
 </html>

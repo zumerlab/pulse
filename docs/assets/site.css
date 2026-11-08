@@ -47,6 +47,8 @@ img { height: auto; }
 
 /* ─── Frame ─────────────────────────────────────────────── */
 
+/* The header's height holds before site.js fills it, so nothing below it shifts. */
+[data-site-head] { height: 60px; }
 .site-head {
   position: sticky; top: 0; z-index: 20;
   display: flex; align-items: center; gap: 18px;
@@ -80,7 +82,7 @@ img { height: auto; }
 .site-nav a:hover { color: var(--text); background: var(--panel-2); }
 .site-nav a[aria-current] { color: var(--text); font-weight: 500; }
 .site-nav .nav-foot { margin: 28px 0 0; padding-top: 16px; border-top: 1px solid var(--line); }
-.site-nav .nav-foot a { display: inline; padding: 0; margin: 0; color: var(--muted); }
+.site-nav .nav-foot a { display: inline-block; padding: 5px 0; margin: -4px 0; color: var(--muted); }  /* inline, yet 24 px tall to the touch */
 .home-nav { display: none; }
 
 .page { min-width: 0; padding: 48px 56px 96px; }
@@ -126,7 +128,7 @@ pre {
 .hl-var { color: #d6e4f2; }
 .hl-string { color: #a9c7e8; }
 .hl-number { color: #e6cf8a; }
-.hl-comment { color: #6b7785; font-style: italic; }
+.hl-comment { color: #76838f; font-style: italic; }
 .hl-punct { color: #7d8996; }
 
 table { width: 100%; border-collapse: collapse; margin: 0 0 24px; font-size: 14.5px; }

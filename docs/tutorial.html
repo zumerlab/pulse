@@ -5,6 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Tutorial · Pulse</title>
   <meta name="description" content="Pulse from zero: a greenhouse made up in a few lines, simulated in the browser, built into three objects step by step, with a screen at each step.">
+  <link rel="canonical" href="https://zumerlab.com/pulse/tutorial.html">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Tutorial · Pulse">
+  <meta property="og:description" content="Pulse from zero: a greenhouse made up in a few lines, simulated in the browser, built into three objects step by step, with a screen at each step.">
+  <meta property="og:url" content="https://zumerlab.com/pulse/tutorial.html">
+  <meta property="og:image" content="https://zumerlab.com/pulse/images/tutorial-board-orbit.webp">
+  <meta name="twitter:card" content="summary_large_image">
   <link rel="preload" href="assets/roboto-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="assets/site.css">
 </head>
@@ -19,7 +27,7 @@
       <p class="lede">Pulse over a source that does not exist: a greenhouse made up in a few lines and simulated in the browser, built into three objects one step at a time. Each step adds a file or a field and shows what the board does with it. Nothing here needs a server, a device or an account.</p>
 
       <figure class="shot">
-        <img src="images/tutorial-board-orbit.jpg" alt="The greenhouse on the board, in the orbit view: Light, Water and Climate around the pulse, the tank calling in the center" loading="lazy">
+        <img src="images/tutorial-board-orbit.webp" srcset="images/tutorial-board-orbit-1200.webp 1200w, images/tutorial-board-orbit.webp 2400w" sizes="(min-width: 901px) min(760px, calc(100vw - 352px)), calc(100vw - 40px)" alt="The greenhouse on the board, in the orbit view: Light, Water and Climate around the pulse, the tank calling in the center" width="2400" height="1600" fetchpriority="high">
         <figcaption>Where this ends: Climate, Water and Light around the pulse, the tank calling. Four files, about two hundred lines.</figcaption>
       </figure>
 
@@ -47,7 +55,7 @@ npm install -D vite typescript</code></pre>
   &lt;div id="canvas" class="zumly-canvas"&gt;&lt;/div&gt;
 &lt;/div&gt;
 &lt;script type="module" src="./main.ts"&gt;&lt;/script&gt;</code></pre>
-      <p>The script starts with the four stylesheets and the two runtimes, then the board and our own two files, which do not exist yet.</p>
+      <p>The script starts with the three stylesheets and the two runtimes, then the board and our own two files, which do not exist yet.</p>
 <pre data-file="demo/greenhouse/main.ts"><code>import 'zumly/style.css';
 import '@zumer/orbit/style';
 import '@zumer/orbit';
@@ -196,8 +204,8 @@ const board = mountBoard(document.querySelector&lt;HTMLElement&gt;('#canvas')!, 
 await board.ready;
 greenhouse.start();</code></pre>
       <div class="shots">
-        <figure class="shot"><img src="images/tutorial-one-board.jpg" alt="The board with a single object, Climate, as one tile: a ring and the value 23.4°" loading="lazy"><figcaption>The board with one object. The tile shows the front channel's ring and its value, and the line at the bottom left says the greenhouse is live.</figcaption></figure>
-        <figure class="shot"><img src="images/tutorial-one-object.jpg" alt="Inside Climate: one ring, the temperature; the band is the heater's target with a knob, the face reads 23.4° and target 24°" loading="lazy"><figcaption>Tap the tile: the object. The band is the heater's target with its knob at 24°; the face says what the air is at. One channel, one layer.</figcaption></figure>
+        <figure class="shot"><img src="images/tutorial-one-board.webp" srcset="images/tutorial-one-board-1200.webp 1200w, images/tutorial-one-board.webp 2400w" sizes="(min-width: 1300px) 350px, (min-width: 901px) calc(50vw - 185px), calc(100vw - 40px)" alt="The board with a single object, Climate, as one tile: a ring and the value 23.4°" width="2400" height="1600" loading="lazy"><figcaption>The board with one object. The tile shows the front channel's ring and its value, and the line at the bottom left says the greenhouse is live.</figcaption></figure>
+        <figure class="shot"><img src="images/tutorial-one-object.webp" srcset="images/tutorial-one-object-1200.webp 1200w, images/tutorial-one-object.webp 2400w" sizes="(min-width: 1300px) 350px, (min-width: 901px) calc(50vw - 185px), calc(100vw - 40px)" alt="Inside Climate: one ring, the temperature; the band is the heater's target with a knob, the face reads 23.4° and target 24°" width="2400" height="1600" loading="lazy"><figcaption>Tap the tile: the object. The band is the heater's target with its knob at 24°; the face says what the air is at. One channel, one layer.</figcaption></figure>
       </div>
       <p>Drag the knob, or focus the ring and use the arrows. On release the board calls <code>dial.set</code>, hands the action to the host, and marks <code>air.target</code> as sending: the ring beats. Four hundred milliseconds later the greenhouse changes the thing, the host reports it, and the ring settles on the new value. If <code>act</code> had thrown, the ring would keep a red outline and the strip would offer Retry with the message.</p>
 
@@ -222,7 +230,7 @@ const flip = (g: Greenhouse, id: string, on: string): Seg =&gt; {
     } },</code></pre>
       <p><code>names</code> is one line over the core's <code>listOf</code>: "north vent and roof vent". The <code>history</code> field names the thing whose day the detail shows; step 7 comes back to it.</p>
       <figure class="shot">
-        <img src="images/tutorial-layers.jpg" alt="Climate with three layers in 3D: the temperature in front, the humidity and the vents behind, named along their rings and listed on the left" loading="lazy">
+        <img src="images/tutorial-layers.webp" srcset="images/tutorial-layers-1200.webp 1200w, images/tutorial-layers.webp 2400w" sizes="(min-width: 901px) min(760px, calc(100vw - 352px)), calc(100vw - 40px)" alt="Climate with three layers in 3D: the temperature in front, the humidity and the vents behind, named along their rings and listed on the left" width="2400" height="1600" loading="lazy">
         <figcaption>Climate with three channels, as layers. The temperature in front; humidity and vents behind, named along their rings and listed at the left. The toggle at the bottom right shows them flat or in depth.</figcaption>
       </figure>
       <p>The front layer is the channel that calls the most; with nothing calling, the one the viewer last picked; otherwise the first. Tap a ring behind, or its name in the list, to bring it forward. Three layers are drawn on a desktop and two on a phone; the rest are named under the object and come forward the same way. Two to four channels that compete for attention make a good system. More than that is usually two systems.</p>
@@ -242,7 +250,7 @@ const flip = (g: Greenhouse, id: string, on: string): Seg =&gt; {
       };
     } },</code></pre>
       <figure class="shot">
-        <img src="images/tutorial-alert.jpg" alt="Water with the tank at 9% in front: the band in the brightest tone, the strip under the object says why and offers Refill and Mute" loading="lazy">
+        <img src="images/tutorial-alert.webp" srcset="images/tutorial-alert-1200.webp 1200w, images/tutorial-alert.webp 2400w" sizes="(min-width: 901px) min(760px, calc(100vw - 352px)), calc(100vw - 40px)" alt="Water with the tank at 9% in front: the band in the brightest tone, the strip under the object says why and offers Refill and Mute" width="2400" height="1600" loading="lazy">
         <figcaption>The tank at 9 %. Its layer comes to the front, zoomed; the band takes the theme's most urgent tone; the strip says why and offers the verb. Mute marks it as seen and does nothing.</figcaption>
       </figure>
       <p>Press Refill: the board sends the action, the tank beats, the greenhouse fills it, the alert goes, and the layer settles back where it was. On the board the same alert reaches the tile, the orbit's center and the list, in that tone, with the count in the headline. The beds are watering, so the tank empties on its own in about a minute and a half; to hurry it, the page leaves the greenhouse on the console:</p>
@@ -277,7 +285,7 @@ const chosen = (g: Greenhouse, id: string, options: [string, string][]) =&gt;
       big: chosen(g, 'water.when', WATERING), label: 'every day', ids: ['water.when'],
     }) },</code></pre>
       <figure class="shot">
-        <img src="images/tutorial-choice.jpg" alt="Watering as a choice in front: Off, Dawn, Dusk and Dawn and dusk along the ring, Dawn on; the tank and the zones behind" loading="lazy">
+        <img src="images/tutorial-choice.webp" srcset="images/tutorial-choice-1200.webp 1200w, images/tutorial-choice.webp 2400w" sizes="(min-width: 901px) min(760px, calc(100vw - 352px)), calc(100vw - 40px)" alt="Watering as a choice in front: Off, Dawn, Dusk and Dawn and dusk along the ring, Dawn on; the tank and the zones behind" width="2400" height="1600" loading="lazy">
         <figcaption>Watering as a choice: the options along the ring, the chosen one on. Tap another and the segment beats until the greenhouse confirms it.</figcaption>
       </figure>
       <p>Light, the third system, is the same two shapes again, in twelve lines: the lamps as switches, the growth stage as a choice.</p>
@@ -315,7 +323,7 @@ const chosen = (g: Greenhouse, id: string, options: [string, string][]) =&gt;
   }</code></pre>
       <p>The host already passes it on (<code>history: async (id, hours) =&gt; g.history(id, hours)</code>) and the temperature, the humidity and the tank already name their thing. A real source would query its database here; the core's <code>hourly</code> turns rows of (value, time) into the hours.</p>
       <figure class="shot">
-        <img src="images/tutorial-detail.jpg" alt="The detail of Temperature: the last 24 hours as a ring of bars around 23.6 °C, and under it the heater's dial, large" loading="lazy">
+        <img src="images/tutorial-detail.webp" srcset="images/tutorial-detail-1200.webp 1200w, images/tutorial-detail.webp 2400w" sizes="(min-width: 901px) min(760px, calc(100vw - 352px)), calc(100vw - 40px)" alt="The detail of Temperature: the last 24 hours as a ring of bars around 23.6 °C, and under it the heater's dial, large" width="2400" height="1600" loading="lazy">
         <figcaption>Tap the temperature's disc: its detail. The last 24 hours as a ring, now at the top; the dial large under it, the same control with more room; the things behind the reading, folded.</figcaption>
       </figure>
       <p>A detail opens only when it adds something: a day, a picture, a long list, a color, several things to name. The other things a reading can ask for are in <a href="adapt.html">In your project</a>: a picture or a live stream, a color wheel, a month of a meter, a radar, a globe, a map.</p>
@@ -323,8 +331,8 @@ const chosen = (g: Greenhouse, id: string, options: [string, string][]) =&gt;
       <h2>8. The board</h2>
       <p>Three systems make a board. It has four views and the viewer picks one from the gear: a grid of tiles, the orbit with the pulse in the center, the systems as layers of one object, or a list by urgency. What calls comes first in all of them; what is calm folds away while something calls.</p>
       <div class="shots">
-        <figure class="shot"><img src="images/tutorial-board-grid.jpg" alt="The grid: three tiles, Climate, Water and Light, each with its ring and value, all calm" loading="lazy"><figcaption>The grid, all calm: one tile per system, the front channel's ring and value on each.</figcaption></figure>
-        <figure class="shot"><img src="images/tutorial-gear.jpg" alt="The orbit view with the gear open on its Look tab: eight themes, the ground behind the board, the dial's shape" loading="lazy"><figcaption>The gear, Look tab. The theme, the ground, how the rings are drawn: each screen chooses its own, kept in that browser.</figcaption></figure>
+        <figure class="shot"><img src="images/tutorial-board-grid.webp" srcset="images/tutorial-board-grid-1200.webp 1200w, images/tutorial-board-grid.webp 2400w" sizes="(min-width: 1300px) 350px, (min-width: 901px) calc(50vw - 185px), calc(100vw - 40px)" alt="The grid: three tiles, Climate, Water and Light, each with its ring and value, all calm" width="2400" height="1600" loading="lazy"><figcaption>The grid, all calm: one tile per system, the front channel's ring and value on each.</figcaption></figure>
+        <figure class="shot"><img src="images/tutorial-gear.webp" srcset="images/tutorial-gear-1200.webp 1200w, images/tutorial-gear.webp 2400w" sizes="(min-width: 1300px) 350px, (min-width: 901px) calc(50vw - 185px), calc(100vw - 40px)" alt="The orbit view with the gear open on its Look tab: eight themes, the ground behind the board, the dial's shape" width="2400" height="1600" loading="lazy"><figcaption>The gear, Look tab. The theme, the ground, how the rings are drawn: each screen chooses its own, kept in that browser.</figcaption></figure>
       </div>
       <p>None of this is in our code. The board, the views, the gear, the detail, the log of changes, the phone layout: they come with <code>mountBoard</code>. What our code decides is the frame the viewer chooses within, and that is the last step.</p>
 
@@ -351,7 +359,7 @@ greenhouse.start();</code></pre>
 
       <h2>Where to go from here</h2>
       <ul>
-        <li><strong>A real source.</strong> Keep the surface of <code>Greenhouse</code> and fill it from the wire: things from a first read, <code>set</code> from each message, <code>act</code> as a request, <code>history</code> from a database. <code>model.ts</code> and <code>host.ts</code> do not change. The apps on Pulse do this over a collector, public feeds, Signal K, MQTT, Prometheus, MAVLink; <a href="sources.html">Your own source</a> names them.</li>
+        <li><strong>A real source.</strong> Keep the surface of <code>Greenhouse</code> and fill it from the wire: things from a first read, <code>set</code> from each message, <code>act</code> as a request, <code>history</code> from a database. <code>model.ts</code> and <code>host.ts</code> do not change. The apps on Pulse do this over a collector, public feeds, Signal K, MQTT, Prometheus, MAVLink.</li>
         <li><strong>Groups.</strong> With benches or beds as groups, <code>groups()</code> lets the gear filter by them and <code>byGroup()</code> gives the board a second axis, one object per bed with the systems' channels read within it. A home does this with its rooms.</li>
         <li><strong>One object per thing.</strong> <code>objectOf(id)</code> makes a thing a segment names into an object of its own, zoomed into from the ring: a bed, a plant, an aircraft.</li>
         <li><strong>The contract.</strong> <code>PulseHost</code>, <code>System</code>, <code>Channel</code>, <code>Reading</code> and <code>Action</code> are in <code>src/model.ts</code> of the repository, commented; <a href="adapt.html">In your project</a> walks the options of <code>mountBoard</code>, the themes, the strings and a shadow root; <a href="elements.html">Elements</a> shows each primitive alone with what it takes.</li>
@@ -360,6 +368,6 @@ greenhouse.start();</code></pre>
     <nav data-pager></nav>
   </main>
 </div>
-<script src="assets/site.js"></script>
+<script src="assets/site.js" defer></script>
 </body>
 </html>

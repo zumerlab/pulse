@@ -5,6 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>In your project · Pulse</title>
   <meta name="description" content="How to put Pulse over your own data: describe your systems, write a host, mount the board, wire the actions, set a theme and your strings.">
+  <link rel="canonical" href="https://zumerlab.com/pulse/adapt.html">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="In your project · Pulse">
+  <meta property="og:description" content="How to put Pulse over your own data: describe your systems, write a host, mount the board, wire the actions, set a theme and your strings.">
+  <meta property="og:url" content="https://zumerlab.com/pulse/adapt.html">
+  <meta property="og:image" content="https://zumerlab.com/pulse/images/el-themes.webp">
+  <meta name="twitter:card" content="summary_large_image">
   <link rel="preload" href="assets/roboto-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="assets/site.css">
 </head>
@@ -19,7 +27,7 @@
       <p class="lede">To use Pulse with your own data, describe your systems and write a host adapter that supplies readings and runs actions. Then mount the board on your page. Every host built so far followed the same steps; this guide walks them with a machine as the example.</p>
 
       <h2>1. Install and import</h2>
-      <p>The core is <code>@zumer/pulse</code>, with Orbit and Zumly beside it. <code>npm install @zumer/pulse @zumer/orbit zumly</code>. Four stylesheets and two runtimes, then the board.</p>
+      <p>The core is <code>@zumer/pulse</code>; Orbit and Zumly are its peer dependencies, so that an app with its own copies does not get two. npm installs them along with it, but your app imports them itself, so name them: <code>npm install @zumer/pulse @zumer/orbit zumly</code>. Three stylesheets and two runtimes (the core brings Zumly's), then the board.</p>
 <pre><code>import 'zumly/style.css';
 import '@zumer/orbit/style';
 import '@zumer/orbit';
@@ -119,7 +127,7 @@ import { mountBoard, type PulseHost, type Reading } from '@zumer/pulse';</code><
   --critical: #ff5a4f;  /* a level 2 alert */
 }</code></pre>
       <figure class="shot">
-        <img src="images/el-themes.png" alt="The same object under the seven themes" loading="lazy">
+        <img src="images/el-themes.webp" srcset="images/el-themes-1036.webp 1036w, images/el-themes.webp 2072w" sizes="(min-width: 901px) min(760px, calc(100vw - 352px)), calc(100vw - 40px)" alt="The same object under the seven themes" width="2072" height="2764" loading="lazy">
         <figcaption>The same object under each theme: the seven tokens, nothing else.</figcaption>
       </figure>
 
@@ -130,7 +138,7 @@ export const t = { ...core, things: 'Sensors behind this reading', noGroup: 'No 
 setLocale(source.language);</code></pre>
 
       <h2>9. Inside a shadow root</h2>
-      <p>A custom element, like a Home Assistant card, mounts the same board on an element of its own shadow root: adopt the four stylesheets there, keep the tokens on <code>:host</code>, and call <code>mountBoard</code> with that element. Orbit registers its properties itself. The card of Pulse for Home Assistant does this: <code>card/</code> in <a href="https://github.com/zumerlab/pulse-home">zumerlab/pulse-home</a>.</p>
+      <p>A custom element, like a Home Assistant card, mounts the same board on an element of its own shadow root: adopt the three stylesheets there, keep the tokens on <code>:host</code>, and call <code>mountBoard</code> with that element. Orbit registers its properties itself. The card of Pulse for Home Assistant does this: <code>card/</code> in <a href="https://github.com/zumerlab/pulse-home">zumerlab/pulse-home</a>.</p>
 
       <h2>On a phone</h2>
       <p>The board decides on load. Under 600 px wide it shows two layers instead of three, less growth between them, the systems as dots under the object, a lateral swipe between them, and opens inside the system that calls the most. Nothing to set.</p>
@@ -141,6 +149,6 @@ setLocale(source.language);</code></pre>
     <nav data-pager></nav>
   </main>
 </div>
-<script src="assets/site.js"></script>
+<script src="assets/site.js" defer></script>
 </body>
 </html>
