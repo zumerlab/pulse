@@ -107,6 +107,28 @@ pre {
   overflow: auto; font-size: 13.5px; line-height: 1.6;
 }
 
+/* Code blocks: a copy button in a wrapper, so it stays while the code scrolls, and the
+   tokens of the highlighter (site.js) in one blue-grey family, a soft amber for numbers. */
+.code { position: relative; }
+.code .copy {
+  position: absolute; top: 8px; right: 8px;
+  font: 500 12px/1 var(--font); color: var(--soft);
+  background: var(--panel-2); border: 1px solid var(--line-2);
+  padding: 6px 10px; border-radius: 6px; cursor: pointer;
+  opacity: 0; transition: opacity .15s;
+}
+.code:hover .copy, .code .copy:focus-visible, .code:focus-within .copy { opacity: 1; }
+.code .copy:hover { color: var(--text); border-color: var(--muted); }
+@media (hover: none) { .code .copy { opacity: 1; } }
+.hl-keyword, .hl-tag, .hl-at { color: var(--text); }
+.hl-selector, .hl-type { color: #bcd3ea; }
+.hl-attr, .hl-prop, .hl-fn { color: #c6d4e2; }
+.hl-var { color: #d6e4f2; }
+.hl-string { color: #a9c7e8; }
+.hl-number { color: #e6cf8a; }
+.hl-comment { color: #6b7785; font-style: italic; }
+.hl-punct { color: #7d8996; }
+
 table { width: 100%; border-collapse: collapse; margin: 0 0 24px; font-size: 14.5px; }
 th, td { text-align: left; vertical-align: top; padding: 9px 12px; border-bottom: 1px solid var(--line); }
 th { color: var(--text); font-weight: 500; }

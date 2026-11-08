@@ -8,5 +8,5 @@ export default [
   // Node scripts (the core's generator of the coasts).
   { files: ['**/scripts/**/*.mjs'], languageOptions: { globals: { process: 'readonly', console: 'readonly', fetch: 'readonly', URL: 'readonly', URLSearchParams: 'readonly', WebSocket: 'readonly', setTimeout: 'readonly', clearTimeout: 'readonly', setInterval: 'readonly', clearInterval: 'readonly', AbortSignal: 'readonly' } } },
   // The site (docs/), plain browser scripts.
-  { files: ['docs/assets/*.js'], languageOptions: { globals: { document: 'readonly', location: 'readonly', window: 'readonly' } } },
+  { files: ['docs/assets/*.js'], languageOptions: { globals: { document: 'readonly', location: 'readonly', window: 'readonly', navigator: 'readonly', setTimeout: 'readonly' } } },
 ];
