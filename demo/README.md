@@ -48,7 +48,7 @@ Screen width is checked when the page loads.
 | [main.ts](main.ts) | Demo state, board, system views, detail views and interactions |
 | [elements.ts](elements.ts) | Component gallery with sample data |
 | [strings.ts](strings.ts) | Demo interface text |
-| [greenhouse/](greenhouse/) | The tutorial's greenhouse: a simulated source (`source.ts`), its systems (`model.ts`), the host (`host.ts`) and the board mounted on it (`main.ts`); built step by step in [the tutorial](../docs/tutorial.html) |
+| [greenhouse/](greenhouse/) | The tutorial's greenhouse: a simulated source (`source.ts`), its systems (`model.ts`), the host (`host.ts`) and the board mounted on it (`main.ts`); built step by step in [the tutorial](https://zumerlab.com/pulse/tutorial.html) |
 
 The demo uses the core's radial components directly and builds its own small
 board; the apps on the core, Pulse for Home Assistant among them, use the
@@ -60,7 +60,7 @@ the lower-level components.
 Orbit handles the rings and layer depth. Zumly handles navigation between
 the board, a system and its detail. Pulse connects the readings, controls and
 alert behavior. See the [README](../README.md) for the shared components and
-the [Elements page](../docs/elements.html) for their parameters.
+the [Elements page](https://zumerlab.com/pulse/elements.html) for their parameters.
 
 ## Development and checks
 

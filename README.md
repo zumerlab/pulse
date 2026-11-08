@@ -12,12 +12,13 @@ resolved, the layer moves behind the active one. You can see what needs
 attention while keeping the other readings and controls within reach.
 
 This repository is the core, `@zumer/pulse`: the object, the board and the
-contract a source fills, with a demo of simulated data. The sources are apps
-on it, each in its own repository (see [Sources](#sources)).
+contract a source fills, with a demo of simulated data. The apps that connect
+a real source are separate repositories (see [Sources](#sources)).
 
-Site: [zumerlab.com/pulse](https://zumerlab.com/pulse/) (the pages are in
-[`docs/`](docs/)). Rings and layers are [Orbit](https://zumerlab.com/orbit/);
-the zoom between levels is [Zumly](https://zumerlab.com/zumly/).
+The site, with the full documentation, is
+[zumerlab.com/pulse](https://zumerlab.com/pulse/). Rings and layers are
+[Orbit](https://zumerlab.com/orbit/); the zoom between levels is
+[Zumly](https://zumerlab.com/zumly/).
 
 ![The board of a home: the pulse in the center, the systems around it](docs/images/board-orbit.png)
 
@@ -46,21 +47,18 @@ the zoom between levels is [Zumly](https://zumerlab.com/zumly/).
 | ![The board by room](docs/images/board-rooms.png) | ![The gear: what each screen chooses](docs/images/gear.png) |
 | The same home by room, each area an object. | Settings for this screen, saved in this browser. |
 
-Read about the [design decisions](docs/principles.html),
-[object structure](docs/object.html), [components](docs/elements.html)
-and [board views](docs/board.html).
+Read about the [design decisions](https://zumerlab.com/pulse/principles.html),
+[object structure](https://zumerlab.com/pulse/object.html), [components](https://zumerlab.com/pulse/elements.html)
+and [board views](https://zumerlab.com/pulse/board.html).
 
 ## Sources
 
-The object is the same whatever feeds it. Each source is an app on the core,
-in its own repository: a home through
-[Home Assistant or openHAB](https://github.com/zumerlab/pulse-home) (a card,
-a dashboard, a section, a page the server itself serves, or a standalone
-app); a machine, the world's calamities
-from public feeds, a boat over Signal K, a fleet of trams over MQTT, a fleet
-of hosts over Prometheus, a swarm of drones, the sky from ADS-B, the space
-station from NASA's telemetry and a city's traffic cameras, private while they
-mature.
+The object is the same whatever feeds it. Each source is an app built on the
+core, in its own repository. The first is the home:
+[Pulse for the home](https://github.com/zumerlab/pulse-home) runs on Home
+Assistant and on openHAB, as a card, a dashboard, a section, a page the server
+itself serves, or a standalone app. [Your own source](#your-own-source) below
+is how to write another.
 
 ## Install
 
@@ -89,7 +87,7 @@ board.destroy();
 
 Here, `canvas` is the element inside your page's shell and `host` implements
 `PulseHost`. For the page structure and a complete adapter, follow
-[In your project](docs/adapt.html).
+[In your project](https://zumerlab.com/pulse/adapt.html).
 
 ## Your own source
 
@@ -122,8 +120,8 @@ Actions belong to the host. The board sends them through `act`, tracks the
 ids they affect and waits for reported changes. An action that requires a
 code opens a keypad first; one that asks for words opens an input instead.
 
-Start with [Your own source](docs/sources.html) for the data model and
-[In your project](docs/adapt.html) for the setup. The [Tutorial](docs/tutorial.html)
+Start with [Your own source](https://zumerlab.com/pulse/sources.html) for the data model and
+[In your project](https://zumerlab.com/pulse/adapt.html) for the setup. The [Tutorial](https://zumerlab.com/pulse/tutorial.html)
 builds one from zero, with screens: a simulated greenhouse as three objects,
 whose code is in [demo/greenhouse/](demo/greenhouse/). The component gallery at
 `demo/elements.html` shows individual components with sample data under each
