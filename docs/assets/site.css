@@ -11,15 +11,15 @@
 
 :root {
   color-scheme: dark;
-  --bg: #0e1013;
-  --panel: #14171b;
-  --panel-2: #1a1e24;
-  --line: #23282f;
-  --line-2: #30363f;
+  --bg: #1a1e25;
+  --panel: #20252d;
+  --panel-2: #262c36;
+  --line: #2f3641;
+  --line-2: #3c4451;
   --text: #f2f3f5;
   --soft: #c4c9d0;
   --muted: #8a919b;
-  --faint: #4b525b;
+  --faint: #57606d;
   --minor: #ffb020;
   --critical: #ff5a4f;
   --accent: #f2f3f5;
