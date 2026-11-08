@@ -16,8 +16,9 @@ npm ci
 npm run dev
 ```
 
-Open [the demo](http://127.0.0.1:5173) or
-[the component gallery](http://127.0.0.1:5173/elements.html).
+Open [the demo](http://127.0.0.1:5173),
+[the component gallery](http://127.0.0.1:5173/elements.html) or
+[the tutorial's greenhouse](http://127.0.0.1:5173/greenhouse/).
 
 ## Try the controls
 
@@ -47,10 +48,13 @@ Screen width is checked when the page loads.
 | [main.ts](main.ts) | Demo state, board, system views, detail views and interactions |
 | [elements.ts](elements.ts) | Component gallery with sample data |
 | [strings.ts](strings.ts) | Demo interface text |
+| [greenhouse/](greenhouse/) | The tutorial's greenhouse: a simulated source (`source.ts`), its systems (`model.ts`), the host (`host.ts`) and the board mounted on it (`main.ts`); built step by step in [the tutorial](../docs/tutorial.html) |
 
 The demo uses the core's radial components directly and builds its own small
 board; the apps on the core, Pulse for Home Assistant among them, use the
-core's `mountBoard` instead. The demo is useful as an example of working with
+core's `mountBoard` instead. So does the greenhouse in `greenhouse/`, the
+shortest example of the way an app is built: a source, its systems, a host,
+`mountBoard`. The demo is useful as an example of working with
 the lower-level components.
 
 Orbit handles the rings and layer depth. Zumly handles navigation between

@@ -1,0 +1,365 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tutorial · Pulse</title>
+  <meta name="description" content="Pulse from zero: a greenhouse made up in a few lines, simulated in the browser, built into three objects step by step, with a screen at each step.">
+  <link rel="preload" href="assets/roboto-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+<header data-site-head></header>
+<div class="site">
+  <nav class="site-nav" data-site-nav></nav>
+  <main class="page">
+    <article class="prose">
+      <p class="eyebrow">In use</p>
+      <h1>A greenhouse from zero</h1>
+      <p class="lede">Pulse over a source that does not exist: a greenhouse made up in a few lines and simulated in the browser, built into three objects one step at a time. Each step adds a file or a field and shows what the board does with it. Nothing here needs a server, a device or an account.</p>
+
+      <figure class="shot">
+        <img src="images/tutorial-board-orbit.jpg" alt="The greenhouse on the board, in the orbit view: Light, Water and Climate around the pulse, the tank calling in the center" loading="lazy">
+        <figcaption>Where this ends: Climate, Water and Light around the pulse, the tank calling. Four files, about two hundred lines.</figcaption>
+      </figure>
+
+      <p>The finished code is in <a href="https://github.com/zumerlab/pulse/tree/main/demo/greenhouse">demo/greenhouse/</a> of the repository, four files: <code>source.ts</code>, the greenhouse itself; <code>model.ts</code>, its systems; <code>host.ts</code>, what the board reads; <code>main.ts</code>, the page. Every app on Pulse has these four, whatever its source. To see it run:</p>
+<pre><code>git clone https://github.com/zumerlab/pulse.git
+cd pulse &amp;&amp; npm ci
+npm run dev        # then http://127.0.0.1:5173/greenhouse/</code></pre>
+      <p>To build it in a project of your own instead, start at step 1. The code is the same; only the imports resolve from npm.</p>
+
+      <h2>What we are building</h2>
+      <p>A greenhouse has a few things worth watching and a few worth touching. Three systems come out of them:</p>
+      <ul>
+        <li><strong>Climate.</strong> The air temperature, with the heater's target as a dial; the humidity; three vents to open and close.</li>
+        <li><strong>Water.</strong> A rain tank that empties as the beds are watered, and calls when it is nearly empty; three zones to start and stop; when to water, one of four choices.</li>
+        <li><strong>Light.</strong> Two lamps; the growth stage, one of three.</li>
+      </ul>
+      <p>That is eight channels over fourteen things. The three kinds of ring Pulse has are all in there: a band with a dial, switches, a choice. So are an alert with an action, and a detail with a day of history.</p>
+
+      <h2>1. The page</h2>
+      <p>Pulse is <code>@zumer/pulse</code>, with Orbit and Zumly beside it, and any bundler that takes TypeScript; the repository uses Vite.</p>
+<pre><code>npm install @zumer/pulse @zumer/orbit zumly
+npm install -D vite typescript</code></pre>
+      <p>The page is a shell that fills the viewport, and inside it the element the board mounts on. Nothing else.</p>
+<pre data-file="demo/greenhouse/index.html"><code>&lt;div class="shell"&gt;
+  &lt;div id="canvas" class="zumly-canvas"&gt;&lt;/div&gt;
+&lt;/div&gt;
+&lt;script type="module" src="./main.ts"&gt;&lt;/script&gt;</code></pre>
+      <p>The script starts with the four stylesheets and the two runtimes, then the board and our own two files, which do not exist yet.</p>
+<pre data-file="demo/greenhouse/main.ts"><code>import 'zumly/style.css';
+import '@zumer/orbit/style';
+import '@zumer/orbit';
+import '@zumer/pulse/style.css';
+import { mountBoard } from '@zumer/pulse';
+import { Greenhouse } from './source.ts';
+import { hostOf } from './host.ts';</code></pre>
+
+      <h2>2. A greenhouse that is not there</h2>
+      <p>A source, to Pulse, is anything with things that have a state, a way to hear when one changes, and actions that change them. A real greenhouse would give you that from a serial port, an MQTT broker or an HTTP API. Ours is a class, <code>source.ts</code>. It knows nothing about Pulse except the shape of an <code>Action</code>: the <code>ids</code> of the things it touches, and whatever else the source needs to run it. Ours needs a verb and sometimes a value.</p>
+<pre data-file="demo/greenhouse/source.ts"><code>export type Thing = { id: string; name: string; state: number | string; unit: string; changed: number };
+// What the greenhouse can do: set a target, flip a switch, pick one of a few
+// words, refill the tank. `ids` is the core's: the things the action touches.
+export type Act = Action &amp; { do: 'set' | 'flip' | 'choose' | 'refill'; value?: number | string };
+
+export const VENTS = ['vent.north', 'vent.south', 'vent.roof'];
+export const ZONES = ['zone.beds', 'zone.pots', 'zone.trays'];
+export const LAMPS = ['lamp.east', 'lamp.west'];</code></pre>
+      <p>The greenhouse holds its things in a map, keeps a status, and lets two kinds of listener in: one for changes, one for the status. <code>start</code> declares it live and sets a clock going.</p>
+<pre data-file="demo/greenhouse/source.ts"><code>export class Greenhouse {
+  readonly things = new Map&lt;string, Thing&gt;([
+    thing('air.temperature', 'Air temperature', 23.4, '°C'),
+    thing('air.target', 'Heater target', 24, '°C'),
+    thing('air.humidity', 'Humidity', 62, '%'),
+    thing('vent.north', 'North vent', 'closed'),
+    thing('vent.south', 'South vent', 'closed'),
+    thing('vent.roof', 'Roof vent', 'open'),
+    thing('tank.level', 'Rain tank', 34, '%'),
+    thing('zone.beds', 'Beds', 'on'),
+    thing('zone.pots', 'Pots', 'off'),
+    thing('zone.trays', 'Seed trays', 'off'),
+    thing('water.when', 'Watering', 'dawn'),
+    thing('lamp.east', 'East lamp', 'on'),
+    thing('lamp.west', 'West lamp', 'on'),
+    thing('light.stage', 'Growth stage', 'growing'),
+  ]);
+  status: Status = 'connecting';
+  private timer = 0;
+  private changeListeners = new Set&lt;(ids: string[]) =&gt; void&gt;();
+  private statusListeners = new Set&lt;() =&gt; void&gt;();
+
+  onChange(fn: (ids: string[]) =&gt; void) { this.changeListeners.add(fn); return () =&gt; { this.changeListeners.delete(fn); }; }
+  onStatus(fn: () =&gt; void) { this.statusListeners.add(fn); return () =&gt; { this.statusListeners.delete(fn); }; }
+
+  start() {
+    this.status = 'live';
+    this.statusListeners.forEach((fn) =&gt; fn());
+    this.timer = window.setInterval(() =&gt; this.tick(), 2000);
+  }
+  stop() { clearInterval(this.timer); }</code></pre>
+      <p>Every change goes through one method, <code>set</code>, which tells the listeners. The clock calls it every two seconds with a little physics: the heater pulls the air toward its target, the sun warms it, an open vent lets some out, the zones that are on drain the tank.</p>
+<pre data-file="demo/greenhouse/source.ts"><code>  number(id: string) { return Number(this.things.get(id)?.state ?? 0); }
+  is(id: string, state: string) { return this.things.get(id)?.state === state; }
+
+  // Sets a thing and tells whoever listens. The console can call it too:
+  // `greenhouse.set('tank.level', 9)` empties the tank.
+  set(id: string, state: number | string) {
+    const th = this.things.get(id);
+    if (!th || th.state === state) return;
+    th.state = state;
+    th.changed = Date.now();
+    this.changeListeners.forEach((fn) =&gt; fn([id]));
+  }
+
+  // Every two seconds the greenhouse breathes: the heater pulls the air toward
+  // its target, the sun warms it, each open vent lets some out; the humidity
+  // drifts, up with the watering and down with the vents; the zones that are
+  // on drain the tank.
+  private tick() {
+    const open = VENTS.filter((id) =&gt; this.is(id, 'open')).length;
+    const on = ZONES.filter((id) =&gt; this.is(id, 'on')).length;
+    const air = this.number('air.temperature'), target = this.number('air.target');
+    this.set('air.temperature', round(clamp(air + (target - air) * 0.08 + 0.25 - 0.2 * open + (Math.random() - 0.5) * 0.3, 5, 45)));
+    this.set('air.humidity', round(clamp(this.number('air.humidity') + 0.3 * on - 0.4 * open + (Math.random() - 0.5) * 1.5, 20, 99), 0));
+    if (on) this.set('tank.level', round(clamp(this.number('tank.level') - 0.4 * on, 0, 100)));
+  }</code></pre>
+      <p>Actions take a moment, as they do over a wire, and then change the things through the same <code>set</code>. That is what lets the board know an action went through: it hears the change.</p>
+<pre data-file="demo/greenhouse/source.ts"><code>  // The controller takes a moment to answer, as a real one would; then the
+  // things change, and the board sees the action confirmed.
+  async act(a: Act) {
+    await new Promise((r) =&gt; setTimeout(r, 400));
+    for (const id of a.ids) {
+      const state = this.things.get(id)?.state;
+      if (a.do === 'set') this.set(id, Number(a.value));
+      else if (a.do === 'flip') this.set(id, state === 'on' ? 'off' : state === 'off' ? 'on' : state === 'open' ? 'closed' : 'open');
+      else if (a.do === 'choose') this.set(id, String(a.value));
+      else if (a.do === 'refill') this.set(id, 100);
+    }
+  }</code></pre>
+      <p>Three helpers round it out: <code>thing</code> builds an entry for the map, <code>clamp</code> and <code>round</code> keep the numbers tidy. That is the whole source. A real one would be longer where it talks to the hardware and identical where it talks to Pulse.</p>
+
+      <h2>3. The first system, with one channel</h2>
+      <p>A system is a title and a few channels. A channel is a key, a name, a glyph, and a function that reads the greenhouse into a <code>Reading</code>, or returns null when there is nothing to read. These are the shapes, in <code>model.ts</code>; the glyphs are SVG paths on a 24×24 grid.</p>
+<pre data-file="demo/greenhouse/model.ts"><code>export type Channel = { key: string; name: string; glyph: string; read: (g: Greenhouse) =&gt; Reading | null };
+export type System = { id: string; title: string; channels: Channel[] };</code></pre>
+      <p>Start with one system and one channel: the air temperature, with the heater's target on the ring. A reading is one of three kinds; <code>'p'</code> is a band. <code>v</code> is how far the band goes, from 0 to 1: here, where the target sits between the dial's ends. <code>now</code> is the measurement, in the dial's units, drawn as a mark on the band. The <code>dial</code> makes the band draggable: its range and step, its unit and label, the thing it moves, and <code>set</code>, which turns a new value into an action for the greenhouse. <code>big</code> and <code>label</code> are the face. <code>ids</code> names the things the reading depends on: the board beats them while an action is on its way, and logs them when they change.</p>
+<pre><code>// The heater's dial: what the band of the temperature ring spans.
+const HEATER = { min: 10, max: 35 };
+
+export const systems: System[] = [
+  { id: 'climate', title: 'Climate', channels: [
+    { key: 'air', name: 'Temperature', glyph: glyph.thermometer, read: (g) =&gt; {
+      const air = g.number('air.temperature'), target = g.number('air.target');
+      return {
+        kind: 'p', v: (target - HEATER.min) / (HEATER.max - HEATER.min), now: air,
+        dial: { ...HEATER, step: 0.5, unit: '°', label: 'heater target', value: target, id: 'air.target',
+          set: (value) =&gt; ({ ids: ['air.target'], do: 'set', value }) as Act },
+        big: `${num(air)}°`, label: `target ${num(target)}°`,
+        ids: ['air.temperature', 'air.target'],
+      };
+    } },
+  ] },
+];</code></pre>
+      <p>The board reads everything through one interface, <code>PulseHost</code>. Ours, in <code>host.ts</code>, binds each channel's <code>read</code> to the greenhouse and answers the rest from its things: the status, the changes, the actions, and words for a thing, its name and its state with its unit. The <code>logged</code> flag says which changes deserve a line in the board's log: a vent opening does, a temperature drifting every two seconds does not. This is the whole file.</p>
+<pre data-file="demo/greenhouse/host.ts"><code>export function hostOf(g: Greenhouse): PulseHost {
+  const bound: System[] = systems.map((sys) =&gt; ({
+    ...sys, channels: sys.channels.map((ch) =&gt; ({ ...ch, read: () =&gt; ch.read(g) })),
+  }));
+  return {
+    get status() { return g.status; },
+    error: '',
+    hasData: true,
+    systems: bound,
+    // A word changing (a vent opened, a zone started) is worth a line in the
+    // log; a number moving every two seconds is not.
+    onChange: (fn) =&gt; g.onChange((ids) =&gt; fn(ids.map((id) =&gt; ({ id, logged: typeof g.things.get(id)?.state === 'string' })))),
+    onStatus: (fn) =&gt; g.onStatus(fn),
+    act: (a) =&gt; g.act(a as Act),
+    nameOf: (id) =&gt; g.things.get(id)?.name ?? id,
+    stateOf: (id) =&gt; {
+      const th = g.things.get(id);
+      return th ? `${typeof th.state === 'number' ? num(th.state) : th.state}${th.unit}` : '';
+    },
+    changedAt: (id) =&gt; g.things.get(id)?.changed,
+    unitOf: (id) =&gt; g.things.get(id)?.unit ?? '',
+    url: (path) =&gt; path,
+    history: async (id, hours) =&gt; g.history(id, hours),
+  };
+}</code></pre>
+      <p>Then mount. In <code>main.ts</code>, after the imports: make the greenhouse, hand its host to the board, wait for the board, start the clock. <code>settings</code> is the key under which this browser keeps the viewer's choices.</p>
+<pre><code>const greenhouse = new Greenhouse();
+const board = mountBoard(document.querySelector&lt;HTMLElement&gt;('#canvas')!, {
+  host: hostOf(greenhouse),
+  settings: 'pulse-greenhouse-settings',
+});
+await board.ready;
+greenhouse.start();</code></pre>
+      <div class="shots">
+        <figure class="shot"><img src="images/tutorial-one-board.jpg" alt="The board with a single object, Climate, as one tile: a ring and the value 23.4°" loading="lazy"><figcaption>The board with one object. The tile shows the front channel's ring and its value, and the line at the bottom left says the greenhouse is live.</figcaption></figure>
+        <figure class="shot"><img src="images/tutorial-one-object.jpg" alt="Inside Climate: one ring, the temperature; the band is the heater's target with a knob, the face reads 23.4° and target 24°" loading="lazy"><figcaption>Tap the tile: the object. The band is the heater's target with its knob at 24°; the face says what the air is at. One channel, one layer.</figcaption></figure>
+      </div>
+      <p>Drag the knob, or focus the ring and use the arrows. On release the board calls <code>dial.set</code>, hands the action to the host, and marks <code>air.target</code> as sending: the ring beats. Four hundred milliseconds later the greenhouse changes the thing, the host reports it, and the ring settles on the new value. If <code>act</code> had thrown, the ring would keep a red outline and the strip would offer Retry with the message.</p>
+
+      <h2>4. Three channels: layers</h2>
+      <p>Two more channels make Climate a system worth the name. Humidity is a band without a dial: nothing to drag. The vents are switches, kind <code>'s'</code>: one segment per vent, each with its own action. A small helper makes a segment out of a thing: its name, whether it is on, and the action that flips it.</p>
+<pre data-file="demo/greenhouse/model.ts"><code>// A switch's segment: tapping it flips the thing.
+const flip = (g: Greenhouse, id: string, on: string): Seg =&gt; {
+  const th = g.things.get(id)!;
+  return { label: th.name, on: th.state === on, id, act: { ids: [id], do: 'flip' } as Act };
+};</code></pre>
+<pre data-file="demo/greenhouse/model.ts"><code>    { key: 'humidity', name: 'Humidity', glyph: glyph.drop, read: (g) =&gt; {
+      const h = g.number('air.humidity');
+      return { kind: 'p', v: h / 100, big: `${num(h, 0)}%`, label: 'relative humidity', ids: ['air.humidity'], history: 'air.humidity' };
+    } },
+    { key: 'vents', name: 'Vents', glyph: glyph.wind, read: (g) =&gt; {
+      const open = VENTS.filter((id) =&gt; g.is(id, 'open'));
+      return {
+        kind: 's', segs: VENTS.map((id) =&gt; flip(g, id, 'open')),
+        big: `${open.length} of ${VENTS.length}`, label: open.length ? `${names(g, open)} open` : 'all closed',
+        ids: VENTS,
+      };
+    } },</code></pre>
+      <p><code>names</code> is one line over the core's <code>listOf</code>: "north vent and roof vent". The <code>history</code> field names the thing whose day the detail shows; step 7 comes back to it.</p>
+      <figure class="shot">
+        <img src="images/tutorial-layers.jpg" alt="Climate with three layers in 3D: the temperature in front, the humidity and the vents behind, named along their rings and listed on the left" loading="lazy">
+        <figcaption>Climate with three channels, as layers. The temperature in front; humidity and vents behind, named along their rings and listed at the left. The toggle at the bottom right shows them flat or in depth.</figcaption>
+      </figure>
+      <p>The front layer is the channel that calls the most; with nothing calling, the one the viewer last picked; otherwise the first. Tap a ring behind, or its name in the list, to bring it forward. Three layers are drawn on a desktop and two on a phone; the rest are named under the object and come forward the same way. Two to four channels that compete for attention make a good system. More than that is usually two systems.</p>
+
+      <h2>5. An alert, and what to do about it</h2>
+      <p>The second system is Water. Its tank is a band like the humidity, with one thing more: when the level is under 15 %, the reading carries an <code>alert</code>. An alert has a level, 1 for minor and 2 for critical; its own <code>big</code> and <code>label</code> for the face while it calls; <code>why</code>, one sentence; a <code>verb</code> for the button; and <code>acts</code>, the actions that resolve it. With no actions, the verb only marks the alert as seen. The <code>key</code> says what the alert is about: the words carry the level, which drifts, and without a key each new number would be a new alert.</p>
+<pre data-file="demo/greenhouse/model.ts"><code>    { key: 'tank', name: 'Tank', glyph: glyph.tank, read: (g) =&gt; {
+      const level = g.number('tank.level'), on = ZONES.filter((id) =&gt; g.is(id, 'on'));
+      return {
+        kind: 'p', v: level / 100, big: `${num(level, 0)}%`, label: 'rain tank', ids: ['tank.level'],
+        history: 'tank.level',
+        alert: level &lt; 15 ? {
+          level: 2, key: 'tank', big: `${num(level, 0)}%`, label: 'tank',
+          why: `Down to ${num(level, 0)}%${on.length ? `, with ${names(g, on)} watering` : ''}`,
+          verb: 'Refill', acts: [{ ids: ['tank.level'], do: 'refill' } as Act],
+        } : undefined,
+      };
+    } },</code></pre>
+      <figure class="shot">
+        <img src="images/tutorial-alert.jpg" alt="Water with the tank at 9% in front: the band in the brightest tone, the strip under the object says why and offers Refill and Mute" loading="lazy">
+        <figcaption>The tank at 9 %. Its layer comes to the front, zoomed; the band takes the theme's most urgent tone; the strip says why and offers the verb. Mute marks it as seen and does nothing.</figcaption>
+      </figure>
+      <p>Press Refill: the board sends the action, the tank beats, the greenhouse fills it, the alert goes, and the layer settles back where it was. On the board the same alert reaches the tile, the orbit's center and the list, in that tone, with the count in the headline. The beds are watering, so the tank empties on its own in about a minute and a half; to hurry it, the page leaves the greenhouse on the console:</p>
+<pre><code>greenhouse.set('tank.level', 9)
+greenhouse.set('air.temperature', 33)</code></pre>
+      <p>The second line trips the other alert, which is in the temperature channel from the finished file: over 30° the air is too warm, level 1, and the verb opens every vent that is closed, one action per vent. An alert's actions can be several; the board sends them in turn and waits for all of them.</p>
+<pre data-file="demo/greenhouse/model.ts"><code>        alert: air &gt; 30 ? {
+          level: 1, key: 'warm', big: `${num(air)}°`, label: 'too warm', why: `The air is at ${num(air)}°, over 30°`,
+          verb: closed.length ? 'Open the vents' : 'Noted',
+          acts: closed.map((id) =&gt; ({ ids: [id], do: 'flip' }) as Act),
+        } : undefined,</code></pre>
+
+      <h2>6. Switches and a choice</h2>
+      <p>Water has two channels more. The zones are switches, like the vents. When to water is a choice, kind <code>'c'</code>: a few options along the ring, one of them on. A segment of a choice carries the value it stands for; tapping it sends a <code>choose</code>.</p>
+<pre data-file="demo/greenhouse/model.ts"><code>// A choice's segment: tapping it picks that value for the thing.
+const choose = (g: Greenhouse, id: string, value: string, label: string): Seg =&gt;
+  ({ label, on: g.is(id, value), id, act: { ids: [id], do: 'choose', value } as Act });
+// The chosen option of a choice, as its label.
+const chosen = (g: Greenhouse, id: string, options: [string, string][]) =&gt;
+  (options.find(([v]) =&gt; g.is(id, v)) ?? options[0])[1];</code></pre>
+<pre data-file="demo/greenhouse/model.ts"><code>const WATERING: [string, string][] = [['off', 'Off'], ['dawn', 'Dawn'], ['dusk', 'Dusk'], ['both', 'Dawn and dusk']];</code></pre>
+<pre data-file="demo/greenhouse/model.ts"><code>    { key: 'zones', name: 'Zones', glyph: glyph.sprinkler, read: (g) =&gt; {
+      const on = ZONES.filter((id) =&gt; g.is(id, 'on'));
+      return {
+        kind: 's', segs: ZONES.map((id) =&gt; flip(g, id, 'on')),
+        big: `${on.length} of ${ZONES.length}`, label: on.length ? `${names(g, on)} watering` : 'nothing watering',
+        ids: ZONES,
+      };
+    } },
+    { key: 'when', name: 'Watering', glyph: glyph.clock, read: (g) =&gt; ({
+      kind: 'c', segs: WATERING.map(([v, label]) =&gt; choose(g, 'water.when', v, label)),
+      big: chosen(g, 'water.when', WATERING), label: 'every day', ids: ['water.when'],
+    }) },</code></pre>
+      <figure class="shot">
+        <img src="images/tutorial-choice.jpg" alt="Watering as a choice in front: Off, Dawn, Dusk and Dawn and dusk along the ring, Dawn on; the tank and the zones behind" loading="lazy">
+        <figcaption>Watering as a choice: the options along the ring, the chosen one on. Tap another and the segment beats until the greenhouse confirms it.</figcaption>
+      </figure>
+      <p>Light, the third system, is the same two shapes again, in twelve lines: the lamps as switches, the growth stage as a choice.</p>
+<pre data-file="demo/greenhouse/model.ts"><code>  { id: 'light', title: 'Light', channels: [
+    { key: 'lamps', name: 'Lamps', glyph: glyph.lamp, read: (g) =&gt; {
+      const on = LAMPS.filter((id) =&gt; g.is(id, 'on'));
+      return {
+        kind: 's', segs: LAMPS.map((id) =&gt; flip(g, id, 'on')),
+        big: `${on.length} of ${LAMPS.length}`, label: on.length ? `${names(g, on)} on` : 'both off',
+        ids: LAMPS,
+      };
+    } },
+    { key: 'stage', name: 'Stage', glyph: glyph.leaf, read: (g) =&gt; ({
+      kind: 'c', segs: STAGES.map(([v, label]) =&gt; choose(g, 'light.stage', v, label)),
+      big: chosen(g, 'light.stage', STAGES), label: 'growth stage', ids: ['light.stage'],
+    }) },
+  ] },</code></pre>
+      <p>A segment or a dial resolved on the face has no detail: the ring is where it is operated. Tap the disc of the lamps and nothing opens, because there is nothing more to show.</p>
+
+      <h2>7. A day, in the detail</h2>
+      <p>Some readings have more to show than a face holds. A number worth a day gets <code>history</code>: the id of the thing. The host answers <code>history(id, hours)</code> with one value per hour, the oldest first, and the detail draws them as a ring around the value of now. Our greenhouse remembers nothing, so it makes a plausible day up.</p>
+<pre data-file="demo/greenhouse/source.ts"><code>  // A day of a numeric thing, one value per hour, the oldest first. The
+  // greenhouse remembers nothing, so it makes a plausible day up: the air
+  // warmest mid-afternoon and coolest before dawn, the humidity the other way
+  // round, the tank draining toward where it is now.
+  history(id: string, hours: number): (number | null)[] {
+    const now = this.number(id), hour = new Date().getHours();
+    const curve = (h: number) =&gt; Math.sin(((h - 9) / 24) * 2 * Math.PI);
+    const swing = id === 'air.temperature' ? 4 : id === 'air.humidity' ? -12 : 0;
+    return Array.from({ length: hours }, (_, i) =&gt; {
+      const ago = hours - 1 - i, h = (hour - ago + 48) % 24;
+      const drift = id === 'tank.level' ? 0.6 * ago : swing * (curve(h) - curve(hour));
+      return round(now + drift + (Math.random() - 0.5) * 0.6);
+    });
+  }</code></pre>
+      <p>The host already passes it on (<code>history: async (id, hours) =&gt; g.history(id, hours)</code>) and the temperature, the humidity and the tank already name their thing. A real source would query its database here; the core's <code>hourly</code> turns rows of (value, time) into the hours.</p>
+      <figure class="shot">
+        <img src="images/tutorial-detail.jpg" alt="The detail of Temperature: the last 24 hours as a ring of bars around 23.6 °C, and under it the heater's dial, large" loading="lazy">
+        <figcaption>Tap the temperature's disc: its detail. The last 24 hours as a ring, now at the top; the dial large under it, the same control with more room; the things behind the reading, folded.</figcaption>
+      </figure>
+      <p>A detail opens only when it adds something: a day, a picture, a long list, a color, several things to name. The other things a reading can ask for are in <a href="adapt.html">In your project</a>: a picture or a live stream, a color wheel, a month of a meter, a radar, a globe, a map.</p>
+
+      <h2>8. The board</h2>
+      <p>Three systems make a board. It has four views and the viewer picks one from the gear: a grid of tiles, the orbit with the pulse in the center, the systems as layers of one object, or a list by urgency. What calls comes first in all of them; what is calm folds away while something calls.</p>
+      <div class="shots">
+        <figure class="shot"><img src="images/tutorial-board-grid.jpg" alt="The grid: three tiles, Climate, Water and Light, each with its ring and value, all calm" loading="lazy"><figcaption>The grid, all calm: one tile per system, the front channel's ring and value on each.</figcaption></figure>
+        <figure class="shot"><img src="images/tutorial-gear.jpg" alt="The orbit view with the gear open on its Look tab: eight themes, the ground behind the board, the dial's shape" loading="lazy"><figcaption>The gear, Look tab. The theme, the ground, how the rings are drawn: each screen chooses its own, kept in that browser.</figcaption></figure>
+      </div>
+      <p>None of this is in our code. The board, the views, the gear, the detail, the log of changes, the phone layout: they come with <code>mountBoard</code>. What our code decides is the frame the viewer chooses within, and that is the last step.</p>
+
+      <h2>9. The frame, and your own words</h2>
+      <p>The options of <code>mountBoard</code> are what the shell fixes: which systems the gear may offer, the view and the system it opens on, how it looks until the viewer changes it, and the words it uses for your things. The finished <code>main.ts</code> sets a look, a status line and two strings.</p>
+<pre data-file="demo/greenhouse/main.ts"><code>const greenhouse = new Greenhouse();
+
+const board = mountBoard(document.querySelector&lt;HTMLElement&gt;('#canvas')!, {
+  host: hostOf(greenhouse),
+  settings: 'pulse-greenhouse-settings',
+  look: { theme: 'night', ground: 'glow' },
+  status: () =&gt; `&lt;span class="conn conn-${greenhouse.status}"&gt;&lt;span class="conn-dot"&gt;&lt;/span&gt;Greenhouse · ${greenhouse.status}&lt;/span&gt;`,
+  strings: { things: 'In the greenhouse', connecting: 'Reading the greenhouse…' },
+});
+
+await board.ready;
+greenhouse.start();</code></pre>
+      <ul>
+        <li><strong><code>look</code></strong> is the default appearance: here the Night theme, one blue-grey family that tells urgency by tone, over a glow. The viewer can pick another in the gear; <code>look</code> is only where it starts. The seven themes and the grounds are in <a href="adapt.html">In your project</a>.</li>
+        <li><strong><code>status</code></strong> is the connection line at the bottom of the board, as HTML. The <code>conn</code> classes are the core's; the words are yours.</li>
+        <li><strong><code>strings</code></strong> replaces the board's words where your source has its own: what it calls the things behind a reading, what it says while connecting. The whole dictionary is the core's <code>t</code>; another language is another dictionary.</li>
+      </ul>
+      <p>The last line of the file puts <code>greenhouse</code> and <code>board</code> on <code>window</code>, for the console. That is the tutorial's convenience, not a requirement.</p>
+
+      <h2>Where to go from here</h2>
+      <ul>
+        <li><strong>A real source.</strong> Keep the surface of <code>Greenhouse</code> and fill it from the wire: things from a first read, <code>set</code> from each message, <code>act</code> as a request, <code>history</code> from a database. <code>model.ts</code> and <code>host.ts</code> do not change. The apps on Pulse do this over a collector, public feeds, Signal K, MQTT, Prometheus, MAVLink; <a href="sources.html">Your own source</a> names them.</li>
+        <li><strong>Groups.</strong> With benches or beds as groups, <code>groups()</code> lets the gear filter by them and <code>byGroup()</code> gives the board a second axis, one object per bed with the systems' channels read within it. A home does this with its rooms.</li>
+        <li><strong>One object per thing.</strong> <code>objectOf(id)</code> makes a thing a segment names into an object of its own, zoomed into from the ring: a bed, a plant, an aircraft.</li>
+        <li><strong>The contract.</strong> <code>PulseHost</code>, <code>System</code>, <code>Channel</code>, <code>Reading</code> and <code>Action</code> are in <code>src/model.ts</code> of the repository, commented; <a href="adapt.html">In your project</a> walks the options of <code>mountBoard</code>, the themes, the strings and a shadow root; <a href="elements.html">Elements</a> shows each primitive alone with what it takes.</li>
+      </ul>
+    </article>
+    <nav data-pager></nav>
+  </main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

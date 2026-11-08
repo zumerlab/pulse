@@ -122,7 +122,9 @@ ids they affect and waits for reported changes. An action that requires a
 code opens a keypad first; one that asks for words opens an input instead.
 
 Start with [Your own source](docs/sources.html) for the data model and
-[In your project](docs/adapt.html) for the setup. The component gallery at
+[In your project](docs/adapt.html) for the setup. The [Tutorial](docs/tutorial.html)
+builds one from zero, with screens: a simulated greenhouse as three objects,
+whose code is in [demo/greenhouse/](demo/greenhouse/). The component gallery at
 `demo/elements.html` shows individual components with sample data under each
 of the seven built-in themes.
 
@@ -145,7 +147,7 @@ The `ready` promise tracks initialization. See
 | Directory | Contents |
 |---|---|
 | [src/](src/) | The package: the contract, the board, the radial components, the themes, the strings, the stylesheet |
-| [demo/](demo/README.md) | Simulated systems and a component gallery; `npm run dev` serves it |
+| [demo/](demo/README.md) | Simulated systems, a component gallery and the tutorial's greenhouse; `npm run dev` serves them |
 | `tests/` | Playwright tests, run against the demo |
 | [docs/](docs/) | Website, component reference and design documentation |
 | `scripts/` | `land.mjs`, which generates the globe's coasts |
@@ -182,7 +184,7 @@ Requires Node.js 22.18+ or 24+ and npm.
 
 ```sh
 npm ci
-npm run dev        # the demo, http://127.0.0.1:5173; the component gallery at /elements.html
+npm run dev        # the demo, http://127.0.0.1:5173; the component gallery at /elements.html; the tutorial's greenhouse at /greenhouse/
 npm test           # lint, types, the build, then Playwright over the demo
 npm run compile    # the package into dist/: index.js, its types, the stylesheet
 ```
