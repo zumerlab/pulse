@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>openHAB · Pulse</title>
+  <meta name="description" content="Pulse on openHAB: a page your openHAB serves itself, or a standalone app, over the items of your semantic model, with nothing to list by hand.">
+  <link rel="preload" href="assets/roboto-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+<header data-site-head></header>
+<div class="site">
+  <nav class="site-nav" data-site-nav></nav>
+  <main class="page">
+    <article class="prose">
+      <p class="eyebrow">In use</p>
+      <h1>openHAB</h1>
+      <p class="lede">Pulse reads the items openHAB already has, through the semantic model: a Location, the Equipment in it, the Points of each and what they are about. Nothing is listed by hand; a home modeled under Settings › Model is ready. It lives in its own repository, with Pulse for Home Assistant: <a href="https://github.com/zumerlab/pulse-home">zumerlab/pulse-home</a>.</p>
+
+      <figure class="shot">
+        <img src="images/openhab-orbit.png" alt="The orbit of an openHAB home" loading="lazy">
+        <figcaption>The openHAB project's demo house, as Pulse sees it: the heating on in the living room while its window is open.</figcaption>
+      </figure>
+
+      <h2>Two ways in</h2>
+      <ul class="terms">
+        <li><strong>Served by openHAB</strong><p>A folder in the <code>html</code> of your configuration, open at <code>/static/pulse/</code>. The page reads the openHAB that serves it: no CORS, no proxy, nothing to point anywhere. A Web Frame page in Main UI puts it in the sidebar.</p></li>
+        <li><strong>The app</strong><p>A standalone page that reads any openHAB by its address, with an API token when it asks for one. For a kiosk, a round screen, a tablet on the wall.</p></li>
+      </ul>
+      <p>Both are static files over the REST API and its event stream: no binding, no add-on, nothing on the server. Install, the parameters and troubleshooting are in the <a href="https://github.com/zumerlab/pulse-home#openhab">openHAB section of the README</a>.</p>
+
+      <h2>The systems</h2>
+      <table>
+        <tr><th>System</th><th>What it looks for</th></tr>
+        <tr><td>Lights</td><td>Every light source as a segment; the one chosen as a dial, in its color; past twelve, a swarm with a tick per light</td></tr>
+        <tr><td>Climate</td><td>The HVAC of each room: its setpoint as a dial, with the room's windows on its timeline; heating and cooling with a segment per room; the coldest room with its day</td></tr>
+        <tr><td>Openings</td><td>Windows and doors by their contact; roller shutters, the one chosen as a dial</td></tr>
+        <tr><td>Security</td><td>Locks; the alarm points of your devices: smoke, water, gas</td></tr>
+        <tr><td>Media</td><td>Players, with the cover of what plays from their Image point; the input as a choice; the volume</td></tr>
+        <tr><td>Energy</td><td>The energy management system: load, grid, battery and solar power, the state of charge, the day in kWh with its forecast; an inverter by plane</td></tr>
+        <tr><td>Weather</td><td>The weather service: temperature on a band, humidity, the wind as an arrow, the condition, its warnings by severity; the sun's height and azimuth from Astro, and its next rising or setting in the home's time</td></tr>
+        <tr><td>People</td><td>Every Location item on a map; each person an object of their own; presence as who is home</td></tr>
+      </table>
+      <p>By room, each Location of the model is one object with those channels read within it, floor by floor; the garden and the garage, on no floor, are outside and elsewhere.</p>
+
+      <h2>Alerts are rules over states</h2>
+      <p>The interesting ones cross systems. Heating with that room's window open. A door open, or a lock unlocked, at night: night is the sun below the horizon as your home computes it. A room under sixteen degrees. More than four kilowatts from the grid, the home battery under fifteen percent. A device's alarm, a weather warning by its severity. Each alert comes with its action, a real command: turn that heating off, lock, or just "Got it".</p>
+      <figure class="shot">
+        <img src="images/openhab-alert.png" alt="The heating alert, in amber, with Turn off heating under the object" loading="lazy">
+      </figure>
+
+      <h2>Command feedback</h2>
+      <p>A control pulses while the command is on its way and settles when openHAB reports the new state over its event stream. A refused command keeps a red outline and a Retry. Times are told in the home's time zone, the one openHAB reports, and a state uses the words its own state description gives it.</p>
+
+      <h2>Try it without openHAB</h2>
+      <p>Pulse for the home carries the openHAB project's demo house, as it stood on demo.openhab.org one evening, as an interactive demo source: a light that turns on, a heating that turns off, a speaker that pauses. The tests run over it, and so can you: <code>npm run dev</code> in its repository, then open the gallery.</p>
+      <figure class="shot">
+        <img src="images/openhab-rooms.png" alt="The demo house by room: a floor per object" loading="lazy">
+        <figcaption>The demo house by room: each floor an object of its rooms.</figcaption>
+      </figure>
+    </article>
+    <nav data-pager></nav>
+  </main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

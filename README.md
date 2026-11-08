@@ -54,8 +54,9 @@ and [board views](docs/board.html).
 
 The object is the same whatever feeds it. Each source is an app on the core,
 in its own repository: a home through
-[Home Assistant](https://github.com/zumerlab/pulse-home) (a custom card, a
-dashboard, a section or a standalone app); a machine, the world's calamities
+[Home Assistant or openHAB](https://github.com/zumerlab/pulse-home) (a card,
+a dashboard, a section, a page the server itself serves, or a standalone
+app); a machine, the world's calamities
 from public feeds, a boat over Signal K, a fleet of trams over MQTT, a fleet
 of hosts over Prometheus, a swarm of drones, the sky from ADS-B, the space
 station from NASA's telemetry and a city's traffic cameras, private while they

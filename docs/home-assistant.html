@@ -16,7 +16,7 @@
     <article class="prose">
       <p class="eyebrow">In use</p>
       <h1>Home Assistant</h1>
-      <p class="lede">Pulse connects to the states Home Assistant already sends to your dashboard. Each channel finds its entities by domain, device class or capability, so you do not need to write an entity list. Channels appear when there is something to show. It is the most complete source so far, in its own repository: <a href="https://github.com/zumerlab/pulse-home">zumerlab/pulse-home</a>.</p>
+      <p class="lede">Pulse connects to the states Home Assistant already sends to your dashboard. Each channel finds its entities by domain, device class or capability, so you do not need to write an entity list. Channels appear when there is something to show. It lives in its own repository, with Pulse for openHAB: <a href="https://github.com/zumerlab/pulse-home">zumerlab/pulse-home</a>.</p>
 
       <figure class="shot">
         <img src="images/board-orbit.png" alt="The orbit of a Home Assistant home" loading="lazy">
@@ -29,7 +29,7 @@
         <li><strong>The strategies</strong><p>A dashboard type, Pulse, that is one full-screen object; and a section strategy to drop a Pulse into a sections view.</p></li>
         <li><strong>The app</strong><p>A standalone page that signs in with Home Assistant's own login and talks over its WebSocket. For a kiosk, a round screen, a tablet on the wall.</p></li>
       </ul>
-      <p>The card is a single JavaScript module, a dashboard resource only: no integration, no add-on, nothing on the server. Install, options and troubleshooting are in the <a href="https://github.com/zumerlab/pulse-home#readme">README of Pulse for Home Assistant</a> and the <a href="https://github.com/zumerlab/pulse-home/blob/main/card/README.md">card's reference</a>.</p>
+      <p>The card is a single JavaScript module, a dashboard resource only: no integration, no add-on, nothing on the server. Install, options and troubleshooting are in the <a href="https://github.com/zumerlab/pulse-home#home-assistant">Home Assistant section of the README</a>.</p>
 
       <h2>The systems</h2>
       <table>
@@ -57,7 +57,7 @@
       <p>A control pulses while the service call is on its way and settles when Home Assistant reports the new state. A refused call keeps a red outline and a Retry. Numbers and times follow the language of your Home Assistant profile, and the states in the pulse's list of changes come in your language from Home Assistant itself.</p>
 
       <h2>Try it without Home Assistant</h2>
-      <p>Pulse for Home Assistant carries the six homes of demo.home-assistant.io as an interactive demo source: lights that turn on, a thermostat that heats, a scene that activates. The tests run over them, and so can you: <code>npm run dev</code> in its repository, then open the gallery.</p>
+      <p>Pulse for the home carries the six homes of demo.home-assistant.io as an interactive demo source: lights that turn on, a thermostat that heats, a scene that activates. The tests run over them, and so can you: <code>npm run dev</code> in its repository, then open the gallery.</p>
       <figure class="shot">
         <img src="images/system-scenes.png" alt="The scenes of a demo home on a ring: Movie Time, Morning Lights" loading="lazy">
         <figcaption>The scenes of one of the demo homes. Movie Time was just activated.</figcaption>

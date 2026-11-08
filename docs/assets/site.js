@@ -10,6 +10,7 @@ const NAV = [
   ]],
   ['In use', [
     ['Home Assistant', 'home-assistant.html'],
+    ['openHAB', 'openhab.html'],
     ['Your own source', 'sources.html'],
     ['Tutorial', 'tutorial.html'],
     ['In your project', 'adapt.html'],
