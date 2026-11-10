@@ -69,3 +69,30 @@ test('the temperature opens a detail with a day of the air as a ring', async ({ 
   await expect(current(page).locator('.detail .history .time-ring')).toBeVisible();
   await expect(current(page).locator('.detail .history .time-label')).toHaveText('last 24 hours');
 });
+
+// What is fine folds only while something critical calls: a notice (level 1)
+// leaves the board as it is, its system first.
+test('a notice keeps the board whole; a critical alert folds what is calm into one tile', async ({ page }) => {
+  await nudge(page, 'air.temperature', 34);
+  await expect(page.locator('.tile[data-system].has-alert')).toHaveCount(1);
+  await expect(page.locator('.tile[data-system]')).toHaveCount(3);
+  await expect(page.locator('.tile[data-system]').first()).toHaveAttribute('data-system', 'climate');
+  await expect(page.locator('.tile.calm-fold')).toHaveCount(0);
+  await nudge(page, 'tank.level', 9);
+  // What is critical opens its system by itself: back to the board to see it folded.
+  await expect(current(page).locator('.sys-title')).toHaveText('Water');
+  await expect(page.locator('.z-view.is-current-view')).toHaveCount(1);
+  await page.locator('.z-nav-back').click();
+  await expect(current(page).locator('.board')).toBeVisible();
+  await expect(page.locator('.z-view')).toHaveCount(1);
+  const fold = page.locator('.tile.calm-fold');
+  await expect(fold).toHaveAttribute('aria-expanded', 'false');
+  // Only what calls is left, the critical one first.
+  await expect(page.locator('.tile[data-system]:not(.has-alert)')).toHaveCount(0);
+  await expect(page.locator('.tile[data-system]').first()).toHaveAttribute('data-system', 'water');
+  await fold.click();
+  await expect(page.locator('.tile[data-system]')).toHaveCount(3);
+  await expect(page.locator('.tile.calm-fold')).toHaveText('Fold the calm');
+  await page.locator('.tile.calm-fold').click();
+  await expect(page.locator('.tile[data-system]:not(.has-alert)')).toHaveCount(0);
+});

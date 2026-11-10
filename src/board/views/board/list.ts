@@ -24,7 +24,7 @@ export function paintList(b: Board, body: HTMLElement, ids: string[]) {
   // The hand turns from where it points now, the short way.
   const hand = body.querySelector<SVGGElement>('.queue-hand'), near = hand ? parseFloat(hand.style.rotate) : undefined;
   const look = { center: tune.listCenter, inner: tune.listInner, outer: tune.listOuter, item: tune.listItem, link: tune.listLink };
-  setHTML(body.querySelector<HTMLElement>('.queue-stage .one')!, queueRings(queue.map((id) => listItem(b, id)), { focus, open: calmOpen(b), look, near: Number.isFinite(near) ? near : undefined }));
+  setHTML(body.querySelector<HTMLElement>('.queue-stage .one')!, queueRings(queue.map((id) => listItem(b, id)), { focus, open: calmOpen(b) || !calmFolds(b, queue), look, near: Number.isFinite(near) ? near : undefined }));
   // Under the object: back to what matters when a calm one is in the center, and the fold once open.
   const back = focus && !worst(b, focus) && first && worst(b, first)
     ? `<button class="queue-back" data-qfocus="${first}"><span class="queue-back-dot"></span>${esc(b.t.needsYou(b.sys[first].title))}</button>` : '';
