@@ -2,6 +2,39 @@
 
 All notable changes to this project will be documented in this file.
 
+#### [v0.1.0](https://github.com/zumerlab/pulse/compare/v0.0.0...v0.1.0)
+
+> 10 November 2026
+
+**Features**
+
+- the calm fold only while something critical calls [`e194dce`](https://github.com/zumerlab/pulse/commit/e194dcec68ad1022711cef74981b3c4be1584c88)
+- the object's ground at #1a1e25 [`6f8de8e`](https://github.com/zumerlab/pulse/commit/6f8de8e1b1f039aaa5dcb9363afa5112e9c0766a)
+- a lighter ground for the object [`77b5fbf`](https://github.com/zumerlab/pulse/commit/77b5fbfd1e36b69b66434f16b23153a7dfe0fd0d)
+
+**Fixes**
+
+- the object, the detail and the phone read and reach better [`31c6dd8`](https://github.com/zumerlab/pulse/commit/31c6dd818085d29f91b43a432132cd036b3d5781)
+
+**Docs**
+
+- a tutorial from zero, a simulated greenhouse step by step [`0223a84`](https://github.com/zumerlab/pulse/commit/0223a84326b96b9277c86f8f51663e6aa09ef8ef)
+- the site at Lighthouse 100, with a sitemap, WebP pictures and the sources page retired [`b0c2349`](https://github.com/zumerlab/pulse/commit/b0c23491dfe9ab4600c445406055db576f17322f)
+- a copy button and syntax highlighting on the site's code blocks [`258a962`](https://github.com/zumerlab/pulse/commit/258a9628762039785a882a37d5091e806e5ca88d)
+- the site's screens taken again, with a script for them [`bb6b115`](https://github.com/zumerlab/pulse/commit/bb6b115fa8b64089bee913d3a63102671b85860b)
+- openHAB on the site, beside Home Assistant [`06e46eb`](https://github.com/zumerlab/pulse/commit/06e46eb1711cbc42540f8b7114420e9b4be873bb)
+- trim the README's intro and sources, link the docs pages on the site [`af06f26`](https://github.com/zumerlab/pulse/commit/af06f26f5c72915d0d39878c907f0278bbb39a48)
+- the site's ground at #1a1e25, like the object [`7375849`](https://github.com/zumerlab/pulse/commit/737584919669ded35b8cc7aceb195ecfbbb3315a)
+- link the demo online from the Home Assistant and openHAB pages [`87f2d2d`](https://github.com/zumerlab/pulse/commit/87f2d2d4ff725d9409ee6480ebedb9aeff51e078)
+
+**Chores**
+
+- keep CLAUDE.md local, out of the repository [`04b1129`](https://github.com/zumerlab/pulse/commit/04b112938131ca693a645392897b84900e56390a)
+
+**Other**
+
+- Update [`4d5e5c1`](https://github.com/zumerlab/pulse/commit/4d5e5c106bd1ea428d87ef543f8911e4c81bb18f)
+
 #### v0.0.0
 
 > 7 November 2026
