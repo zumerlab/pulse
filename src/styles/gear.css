@@ -21,8 +21,8 @@
 .settings h2 { font-size: 18px; font-weight: 600; margin: 0; }
 .settings-close { min-height: 0; width: 36px; height: 36px; padding: 0; border-radius: 50%; font-size: 20px; line-height: 1; }
 /* The tabs: the same pill as the board's views. */
-.settings-tabs { display: flex; gap: 2px; margin: 0 var(--sheet-pad) 4px; padding: 3px; border: 1px solid var(--line); border-radius: 999px; }
-.settings-tab { flex: 1; min-height: 0; padding: 7px 4px; border: 0; border-radius: 999px; background: none; color: var(--muted); font: inherit; font-size: 13px; cursor: pointer; white-space: nowrap; }
+.settings-tabs { display: flex; gap: 2px; margin: 0 var(--sheet-pad) 4px; padding: 3px; border: 1px solid var(--line); border-radius: 11px; }
+.settings-tab { flex: 1; min-height: 0; padding: 7px 4px; border: 0; border-radius: 8px; background: none; color: var(--muted); font: inherit; font-size: 13px; cursor: pointer; white-space: nowrap; }
 .settings-tab:hover { color: var(--ink); }
 .settings-tab[aria-selected="true"] { background: var(--ink); color: var(--bg); }
 .settings-tab:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }

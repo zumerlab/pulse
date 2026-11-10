@@ -53,5 +53,5 @@
 .hub-slide .hub-dot[aria-current="true"]::before { opacity: 1; }
 /* The list of changes: whether it is still open, and the way to its system. */
 .changes-still { font-size: 13px; color: var(--muted); }
-.changes-go { justify-self: start; min-height: 36px; padding: 6px 14px; border-radius: 999px; margin-top: 4px; white-space: nowrap; }
+.changes-go { justify-self: start; min-height: 36px; padding: 6px 14px; border-radius: 8px; margin-top: 4px; white-space: nowrap; }
 

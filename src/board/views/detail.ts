@@ -89,11 +89,18 @@ export function detailView(b: Board, ctx: ViewContext) {
         st, { key: sk, name: r.name ?? ch.name, rows: true, choice, pending: r.ids.some((e) => b.pending.has(e)) });
     } else if (r.segs) {
       // Switches, or the options of a choice (radios: the one that is on has no action).
+      // A thing that is only read (a sensor, a battery) is not a control: a row with a
+      // dot, lit while it is on, in the alert's color when it is what fails, and how it is.
       const type = r.kind === 'c' ? 'radio' : 'checkbox';
-      control = `<ul class="switches${r.kind === 'c' ? ' choice' : ''}">${r.segs.map((s, i) => `<li><label class="${b.pending.has(s.id) ? 'is-pending' : ''}${
-        r.alert?.fail?.includes(i) ? ` fail level-${r.alert.level}` : ''}">
-        <input type="${type}" name="seg" data-seg="${i}"${s.on ? ' checked' : ''}${s.act ? '' : ' disabled'}> ${esc(s.label)}
-        <span class="state">${esc(r.kind === 'c' ? '' : host.stateOf(s.id))}</span></label></li>`).join('')}</ul>`;
+      control = `<ul class="switches${r.kind === 'c' ? ' choice' : ''}">${r.segs.map((s, i) => {
+        const fail = r.alert?.fail?.includes(i) ? ` fail level-${r.alert.level}` : '';
+        const state = `<span class="state">${esc(r.kind === 'c' ? '' : host.stateOf(s.id))}</span>`;
+        return r.kind !== 'c' && !s.act
+          ? `<li><span class="switch-row is-read${s.on ? ' is-on' : ''}${fail}" data-row="${i}"><span class="seg-dot"></span><span class="switch-name">${esc(s.label)}</span>${state}</span></li>`
+          : `<li><label class="switch-row${b.pending.has(s.id) ? ' is-pending' : ''}${fail}" data-row="${i}">
+        <input type="${type}" name="seg" data-seg="${i}"${s.on ? ' checked' : ''}${s.act ? '' : ' disabled'}> <span class="switch-name">${esc(s.label)}</span>
+        ${state}</label></li>`;
+      }).join('')}</ul>`;
     }
     // The picture, round like the face or square on request; a live one can stream.
     let figure = '';
@@ -164,7 +171,7 @@ export function detailView(b: Board, ctx: ViewContext) {
       ${inRing ? '' : `<p class="detail-big${a ? ` level-${a.level}` : ''}">${esc(a ? a.big : r.big)}</p>
       <p class="detail-label">${esc(a ? a.label : r.label)}</p>`}
       ${a ? `<p class="detail-why level-${a.level}">${esc(a.why)}. ${a.busy ? `<span class="face-wait">${t.inProgress}</span>`
-        : `<button class="primary" data-resolve>${esc(a.verb)}</button>`}</p>` : ''}
+        : `<button class="primary level-${a.level}" data-resolve>${esc(a.verb)}</button>`}</p>` : ''}
       ${failuresOf(b, r).length ? `<p class="detail-fail">${retryCard(b, r)}</p>` : b.toast ? `<p class="error">${esc(b.toast)}</p>` : ''}
       ${pair ? `<div class="detail-pair">${figure}${control}</div>${link}` : `${figure}${link}
       ${day}
@@ -188,6 +195,25 @@ export function detailView(b: Board, ctx: ViewContext) {
     const rowId = i == null ? undefined : b.readings[id]?.get(key)?.r.list?.[i]?.id;
     for (const dot of el.querySelectorAll('.detail-pair [data-plot]')) dot.classList.toggle('is-lit', !!rowId && (dot as SVGElement).dataset.plot === rowId);
   };
+  // A day of rings and the rows under it are the same things in the same order:
+  // a row pointed at (or in focus) lights its ring and a ring pointed at its row, the rest step back.
+  const tie = (i: number | null) => {
+    const tracks = el.querySelectorAll('.timeline .track'), rows = el.querySelectorAll('.switches [data-row]');
+    if (!tracks.length || tracks.length > rows.length) return;
+    el.querySelector('.detail')?.classList.toggle('is-pairing', i != null && i < tracks.length);
+    tracks.forEach((x, k) => x.classList.toggle('is-lit', k === i));
+    rows.forEach((x, k) => x.classList.toggle('is-lit', k === i && i < tracks.length));
+  };
+  const tieAt = (target: EventTarget | null) => {
+    const x = target as HTMLElement | null, row = x?.closest?.<HTMLElement>('.switches [data-row]');
+    if (row) return Number(row.dataset.row);
+    const track = x?.closest?.('.timeline .track');
+    return track ? [...el.querySelectorAll('.timeline .track')].indexOf(track) : null;
+  };
+  el.addEventListener('pointerover', (e) => { const i = tieAt(e.target); if (i != null && e.pointerType !== 'touch') tie(i); });
+  el.addEventListener('pointerout', (e) => { if (tieAt(e.target) != null && tieAt(e.relatedTarget) == null) tie(null); });
+  el.addEventListener('focusin', (e) => { const i = tieAt(e.target); if (i != null && (e.target as HTMLElement).matches(':focus-visible')) tie(i); });
+  el.addEventListener('focusout', (e) => { if (tieAt(e.target) != null) tie(null); });
   const rowAt = (target: EventTarget | null) => (target as HTMLElement | null)?.closest?.<HTMLElement>('.sl-rows .scroll-item[data-opt]');
   el.addEventListener('pointerover', (e) => { const row = rowAt(e.target); if (row) light(Number(row.dataset.opt)); });
   el.addEventListener('pointerout', (e) => { if (rowAt(e.target) && !rowAt(e.relatedTarget)) light(null); });

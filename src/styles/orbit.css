@@ -1,8 +1,10 @@
 /* ─── Orbit: the pulse in the center, the systems around ── */
 /* Visible: the text of the systems at the bottom may go just past the edge of the universe. */
 .orbit-stage { position: absolute; inset: 0; overflow: visible; }
-/* No zoom; the layers behind keep size and color (they only move away). */
-.orbit-stage .obj { --zoom: 1; }
+/* No zoom, and no fit: the universe is already the space left (--S); the
+   layers view's --fit, set on the same body, would shrink the orbit on a phone.
+   The layers behind keep size and color (they only move away). */
+.orbit-stage .obj { --zoom: 1; --fit: 1; }
 .orbit-stage .obj .depth { --o-depth-grow: 0; --o-back-opacity: 1; --o-depth-step: var(--t-orbit-step, -110); }
 /* The universe is the largest square that fits (--S). Each system's ring fills
    its satellite: 3.5 lanes (0.15 of the universe). They shift 20 px inward so
@@ -37,7 +39,7 @@
   font-size: clamp(10px, 4.4cqw, 15px); color: var(--muted); max-width: 28ch;
   display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
 }
-.slide-go { min-height: 0; padding: 1.6cqw 4cqw; margin: 1cqw 0 0; font-size: clamp(10px, 3.8cqw, 13px); border-radius: 999px; }
+.slide-go { min-height: 0; padding: 1.6cqw 4cqw; margin: 1cqw 0 0; font-size: clamp(10px, 3.8cqw, 13px); border-radius: 8px; }
 .hub-rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 1.2cqw; width: 56cqw; max-width: 100%; font-size: clamp(9px, 4cqw, 14px); color: var(--muted); }
 .hub-rows li { display: flex; gap: 8px; justify-content: space-between; white-space: nowrap; min-width: 0; }
 .hub-rows li span { overflow: hidden; text-overflow: ellipsis; }

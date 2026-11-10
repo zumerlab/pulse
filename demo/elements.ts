@@ -113,7 +113,7 @@ const samples: [string, string][] = [
   ['dots', `<nav class="dots" style="display:flex;gap:4px">${dots(ids.map((id) => {
     const sys = systems[id], key = sys.front[0], ch = sys.ch[key];
     const r: RingReading = ch.type === 'p' ? { kind: 'p', v: ch.ok.v } : { kind: 's', segs: Array.from({ length: ch.segs ?? 4 }, (_, k) => ({ label: '', on: k < (ch.ok.on ?? 0) })) };
-    return { id, title: sys.title, level: id === 'car' ? 2 : 0, ring: ring(key, r, DOT_LANES, { muted: true }) };
+    return { id, title: sys.title, level: id === 'car' ? 2 : 0, ring: ring(key, r, DOT_LANES, { muted: true }), glyph: ch.glyph };
   }), 'home')}</nav>`],
   ['time-ring', `<div class="history">${timeRing({ values: hours, label: 'last 24 h', unit: '%', marks: true })}</div>`],
   ['timeline', `<div class="history">${timeline({ hours: 24, tracks, events: [{ ago: 13, text: 'Left on', tone: 'warn' }, { ago: 5, text: 'Sunset' }],
@@ -148,7 +148,8 @@ css.textContent = `
   .sample-box .history { min-height: 0; width: 440px; display: grid; justify-items: center; container-type: inline-size; }
   .sample-box .month-ring { width: 300px; margin: 24px; }
   .sample-box .scroll-list { margin: 16px 60px; }
-  .sample-box .list-stage { width: 340px; margin: 36px 40px; }
+  .sample-box .list-stage { position: relative; inset: auto; width: 340px; height: 340px; margin: 36px 40px; }
+  .sample-box .list-stage > .bigbang { width: 100%; }
   .sample-box .stage.is-3d .obj { rotate: .5 1 0 16deg; }
   .sample-box .stage { width: 600px; max-width: none; }
   .sample-name { margin: 6px 0 0; font-size: 12px; color: var(--muted); font-family: ui-monospace, monospace; }

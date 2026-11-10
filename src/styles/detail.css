@@ -1,7 +1,14 @@
 /* ─── Detail ──────────────────────────────────────────── */
 /* Rows at their content's size: a scroll container's auto rows stop at their
    minimum once the content overflows, and the timeline would overlap what follows. */
-.detail { height: 100%; max-width: 520px; margin: 0 auto; display: grid; grid-auto-rows: max-content; align-content: center; gap: 14px; padding: 24px 16px; }
+.detail { height: 100%; max-width: 520px; margin: 0 auto; display: grid; grid-auto-rows: max-content; align-content: center; gap: 14px; padding: 24px 16px 88px; }
+/* On a narrow screen the way back (Zumly's button, bottom left) floats over the
+   column: what scrolls under it sinks into the ground before it gets there, and
+   the last row can always be scrolled clear of it (the padding above). A
+   gradient over the view, not a mask on the scroller: nothing to draw again. */
+@media (max-width: 760px) {
+  .z-view:has(> .detail)::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 88px; pointer-events: none; background: linear-gradient(to top, var(--bg) 50%, transparent); }
+}
 .detail h1 { display: flex; align-items: center; gap: 12px; font-size: 30px; font-weight: 550; }
 .detail-big { font-size: 64px; font-weight: 600; letter-spacing: -2px; }
 .detail-label, .hint { color: var(--muted); }
@@ -41,13 +48,14 @@
 .time-bar { --o-fill: var(--ink); --o-stroke: transparent; cursor: default; }
 .time-bar.is-now { opacity: 1 !important; --o-stroke: color-mix(in srgb, var(--ink) 45%, transparent); --o-stroke-width: 3; }
 .time-center { display: grid; justify-items: center; text-align: center; gap: 1px; }
-.time-range { font-size: 10px; color: var(--ink); white-space: nowrap; }
+.time-range { font-size: 11px; color: var(--ink); white-space: nowrap; }
 .time-ring.has-marks { margin: 26px auto; }
 .time-tick { height: 1px; background: var(--dim); --o-alignment: 5px; }
 .time-tick.is-major { height: 2px; background: var(--muted); }
-.time-hour { --o-fill: transparent; --o-color: var(--muted); font-size: 10px; }
+.time-hour { --o-fill: transparent; --o-color: var(--muted); font-size: 11px; }
+.time-hour.is-now { --o-color: var(--ink); }
 .time-big { font-size: 13px; font-weight: 600; letter-spacing: -.3px; white-space: nowrap; }
-.time-label { font-size: 10px; color: var(--muted); white-space: nowrap; }
+.time-label { font-size: 11px; color: var(--muted); white-space: nowrap; }
 
 /* ─── Timeline: a day per entity ──────────────────────── */
 /* Sized in container units: a percentage width with an aspect ratio gives the
@@ -67,7 +75,7 @@
 .track.is-pending { animation: track-beat 1.2s ease-in-out infinite; }
 .capsule.time-event { width: max-content; height: auto; }
 @keyframes track-beat { 50% { opacity: .35; } }
-.time-event { position: relative; padding-left: 10px; font-size: 10px; color: var(--muted); white-space: nowrap; }
+.time-event { position: relative; padding-left: 10px; font-size: 11px; color: var(--muted); white-space: nowrap; }
 .time-event::before { content: ''; position: absolute; left: 0; top: 50%; width: 6px; height: 6px; margin-top: -3px; border-radius: 50%; background: var(--ink); }
 .time-event.warn::before { background: var(--minor); }
 .time-event.critical::before { background: var(--critical); }
@@ -107,6 +115,18 @@
 .toggle:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; border-radius: 50%; }
 .how { flex-basis: 100%; font-size: 12px; color: var(--muted); }
 .switches { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
-.switches label { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 14px; border: 1px solid var(--dim); border-radius: 8px; cursor: pointer; }
-.switches input { width: 18px; height: 18px; accent-color: var(--ink); }
+.switch-row { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 14px; border: 1px solid var(--dim); border-radius: 8px; }
+label.switch-row { cursor: pointer; }
+.switches input { flex: none; width: 20px; height: 20px; margin: 0; accent-color: var(--ink); }
+.switch-name { min-width: 0; overflow-wrap: anywhere; }
+/* What is only read: no box to tick, a dot. Hollow while off, in ink while on, in the alert's color when it is what fails. */
+.switch-row.is-read { border-color: var(--line); }
+.seg-dot { flex: none; width: 10px; height: 10px; margin: 0 5px; border-radius: 50%; border: 1.5px solid var(--muted); box-sizing: border-box; }
+.is-read.is-on .seg-dot { background: var(--ink); border-color: var(--ink); }
+.is-read.fail.level-1 .seg-dot { background: var(--minor); border-color: var(--minor); }
+.is-read.fail.level-2 .seg-dot { background: var(--critical); border-color: var(--critical); }
+/* A row and its ring of the day, pointed at together. */
+.switch-row.is-lit { border-color: var(--muted); background: color-mix(in srgb, var(--ink) 6%, transparent); }
+.detail.is-pairing .timeline .track:not(.is-lit), .detail.is-pairing .timeline .track:not(.is-lit) + .track-name-orbit { opacity: .3; }
+.timeline .track, .timeline .track-name-orbit { transition: opacity .15s; }
 

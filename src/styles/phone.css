@@ -5,7 +5,8 @@
 .stage .layer-index-slot { position: absolute; left: 0; top: 50%; translate: 0 -50%; max-width: 32%; z-index: 2; }
 .compact .layer-index-slot { display: none; }
 @media (max-width: 640px) { .layer-index-slot { display: none; } }
-.layer-index { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
+/* Over a narrow stage the rings behind pass under the index: it carries a veil of the ground, so its words stay readable. */
+.layer-index { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 4px 4px 4px 0; border-radius: 14px; background: color-mix(in srgb, var(--bg) 78%, transparent); }
 .layer-item {
   display: flex; align-items: center; gap: 8px; min-height: 28px; padding: 2px 10px 2px 6px; border: 0; border-radius: 14px;
   background: none; color: var(--muted); font: inherit; font-size: 12px; cursor: pointer; text-align: left; max-width: 180px;
@@ -16,35 +17,42 @@
 .layer-item[aria-current] .layer-dot { background: currentColor; opacity: 1; }
 .layer-item.level-1, .layer-item.level-1 .layer-dot { color: var(--minor); }
 .layer-item.level-2, .layer-item.level-2 .layer-dot { color: var(--critical); }
-.layer-item.is-off { opacity: .45; }
-.layer-item.is-off .layer-dot { border-style: dotted; }
-.layer-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.layer-big { font-variant-numeric: tabular-nums; opacity: .7; }
+/* Past the stack a layer is not drawn: its dot dotted, its words as readable as the rest (it is a button). */
+.layer-item.is-off .layer-dot { border-style: dotted; opacity: .7; }
+.layer-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 550; }
+.layer-big { font-variant-numeric: tabular-nums; white-space: nowrap; }
 
 .dots { display: flex; justify-content: center; gap: 10px; }
-.dot { width: 34px; height: 34px; padding: 6px; border: 0; border-radius: 50%; background: none; cursor: pointer; opacity: .45; }
-.dot[aria-current] { opacity: 1; background: color-mix(in srgb, var(--ink) 6%, transparent); }
-.dot .bigbang { width: 22px; }
-.dot { position: relative; }
-.dot.has-alert { opacity: 1; }
+/* A dot is a system: its mini ring with its glyph inside, so each one is told apart; the one open is in ink. */
+.dot { position: relative; width: 44px; height: 44px; padding: 0; border: 0; border-radius: 50%; background: none; cursor: pointer; display: grid; place-items: center; color: var(--muted); }
+.dot[aria-current] { color: var(--ink); background: color-mix(in srgb, var(--ink) 8%, transparent); }
+.dot .bigbang { width: 30px; grid-area: 1 / 1; }
+.dot .dot-glyph { grid-area: 1 / 1; display: grid; }
+.dot.level-1 { color: var(--minor); }
+.dot.level-2 { color: var(--critical); }
 /* A dot that calls keeps its size: a wave leaves it (quicker for the more serious). */
-.dot.has-alert::after { content: ""; position: absolute; inset: 4px; border-radius: 50%; border: 1.5px solid var(--minor); pointer-events: none; animation: wave 2.6s ease-out infinite; }
+.dot.has-alert::after { content: ""; position: absolute; inset: 7px; border-radius: 50%; border: 1.5px solid var(--minor); pointer-events: none; animation: wave 2.6s ease-out infinite; }
 .dot.level-2::after { border-color: var(--critical); animation-duration: 1.5s; }
 @media (max-width: 600px) {
   .tiles { flex-wrap: nowrap; gap: 6px; }
-  .tile { width: 64px; height: 96px; gap: 6px; }
+  .tile { width: 68px; height: 96px; gap: 6px; }
   .mini-ring { width: 56px; }
   .mini-glyph { top: 19px; }
   .mini-glyph svg { width: 20px; height: 20px; }
-  .tile-title { font-size: 11px; }
-  .system { gap: 10px; padding: 12px 12px 72px; }
-  /* The footer: the back button with its name at the left, seven dots in one row, the toggle. */
-  .foot { grid-template-columns: 104px minmax(0, 1fr) 52px; padding: 0 4px 0 0; }
-  .foot .dots { flex-wrap: nowrap; gap: 3px; }
-  .dot { width: 26px; height: 26px; padding: 4px; }
-  .dot .bigbang { width: 18px; }
-  /* The alert's actions as full-width pills, stacked. */
-  .strip .primary, .strip .plain { flex: 1 1 100%; min-height: 52px; margin: 0; border-radius: 26px; font-size: 16px; }
+  .tile-title { font-size: 12px; }
+  /* The footer: the back button with its name at the left and the toggle at the right; the systems' dots
+     in a row of their own over it, each a finger wide (they shrink only past eight). */
+  .system { gap: 10px; padding: 12px 12px 120px; }
+  .foot { grid-template-columns: minmax(0, 1fr) 52px; padding: 0 4px 0 0; }
+  .foot .foot-back { display: none; }
+  .foot .controls { grid-column: 2; }
+  .foot .dots { position: absolute; left: 6px; right: 6px; bottom: 72px; flex-wrap: nowrap; gap: 0; }
+  .foot .dot { flex: 0 1 44px; min-width: 30px; }
+  .system:not(:has(.dot)) { padding-bottom: 72px; }
+  /* The names of the layers behind, in the strip, a finger tall. */
+  .strip .more { padding: 13px 4px; }
+  /* The alert's actions full width, stacked. */
+  .strip .primary, .strip .plain { flex: 1 1 100%; min-height: 52px; margin: 0; border-radius: 12px; font-size: 16px; }
   /* With two layers and less growth, 1.1× lets the ring behind fit. */
   .obj { --zoom: 1.1; }
 }

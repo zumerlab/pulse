@@ -2,7 +2,7 @@
 .board-stage { position: absolute; inset: 0; }
 .board-strip { position: absolute; left: 0; right: 0; bottom: 0; min-height: 36px; font-size: 13px; }
 .board-stage .obj, .board-stage[data-zoom="alert"] .obj { --zoom: var(--t-layer-zoom, 1.1); }
-.board-stage .obj .depth { --o-back-opacity: var(--t-layer-opacity, .6); --o-depth-step: var(--t-layer-step, -70); }
+.board-stage .obj .depth { --o-back-opacity: var(--t-layer-opacity, .7); --o-depth-step: var(--t-layer-step, -70); }
 /* The rings behind soften with the distance: a halo of their color (see the core's 3D rule). */
 .board-stage .layer:not(.layer-front) > .orbit-12 :is(o-arc, o-progress) { --o-stroke: color-mix(in srgb, var(--o-fill, var(--muted)) 30%, transparent); --o-stroke-width: var(--halo, 0); }
 .board-stage .face-label { max-width: 150px; }

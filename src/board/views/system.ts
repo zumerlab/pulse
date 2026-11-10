@@ -20,6 +20,7 @@ export function systemView(b: Board, ctx: ViewContext, id: string) {
   const el = ctx.target;
   el.dataset.title = sys.title;
   let flat = true, locked = false, dragging = false, alertWas = false;
+  let tilt = () => {};
   const visuals = new Map<HTMLCanvasElement, () => void>();
   ctx.onCleanup(() => { for (const stop of visuals.values()) stop(); });
 
@@ -31,7 +32,11 @@ export function systemView(b: Board, ctx: ViewContext, id: string) {
   // The object fills the stage: what fits depends on the state (calm shows the
   // layers behind, an alert zooms the front), so it is set again on each paint.
   let box = { width: 0, height: 0 };
-  const refit = (alert: boolean) => { if (box.width) stage.style.setProperty('--fit', fitFor(box.width, box.height, alert, stackShown(b)).toFixed(3)); };
+  const refit = (alert: boolean) => {
+    if (!box.width) return;
+    const behind = Math.min(order(b, id).length, sizes(stackShown(b)).length) - 1;
+    stage.style.setProperty('--fit', fitFor(box.width, box.height, alert, stackShown(b), Math.max(0, behind)).toFixed(3));
+  };
   const fit = new ResizeObserver(([entry]) => { box = entry.contentRect; refit(stage.dataset.zoom === 'alert'); });
   fit.observe(stage);
   ctx.onCleanup(() => fit.disconnect());
@@ -83,6 +88,7 @@ export function systemView(b: Board, ctx: ViewContext, id: string) {
     alertWas = alert;
     stage.dataset.zoom = alert ? 'alert' : 'calm';
     refit(alert);
+    if (stage.classList.contains('is-3d') === flat) tilt();   // the 3D view opened or closed: its resting tilt with it
     stage.classList.toggle('is-3d', !flat);
     depth.classList.toggle('is-flat', flat);
     setViewToggle(el.querySelector<HTMLElement>('[data-act="view"]')!, flat);
@@ -107,9 +113,9 @@ export function systemView(b: Board, ctx: ViewContext, id: string) {
         ? face({ glyph: ch.glyph, name: ch.name, big: shown.big, label: shown.label,
           // A reading about one thing with an object of its own opens that object; the rest, a detail when it adds something.
           to: r.to && b.host.objectOf ? undefined : detailAdds(r) ? 'detail' : undefined, object: r.to && b.host.objectOf ? r.to : undefined,
-          props: { system: id, channel: key }, aria: t.details(ch.name), image: imageOf(b, r), plots: r.plots, radar: r.radar, globe: r.globe, map: r.map,
+          props: { system: id, channel: key }, aria: t.details(ch.name), image: imageOf(b, r), plots: r.plots, radar: r.radar, globe: r.globe, map: r.map, choice: r.kind === 'c',
           extra: (isPending(b, r) ? `<span class="face-wait">${t.sending}</span>` : '') + visualFor(id, key) })
-        : backLayer({ text: `${ch.name} · ${shown.big}`, at: labelAt(i), grow, stroke: strokeAt(d), hit: 12,
+        : backLayer({ text: `${ch.name} · ${shown.big}`, at: labelAt(i, alert), grow, stroke: strokeAt(d), hit: 12,
           pick: { attr: 'data-pick', value: key, aria: t.bringToFront(ch.name) } })));
     });
 
@@ -136,7 +142,7 @@ export function systemView(b: Board, ctx: ViewContext, id: string) {
     if (dotsEl) {
       setHTML(dotsEl, !b.ids.includes(id) ? '' : dots(b.ids.filter((other) => order(b, other).length).map((other) => {
         const k = order(b, other)[0];
-        return { id: other, title: b.sys[other].title, level: worst(b, other), ring: ring(b, k, b.readings[other].get(k)!.r, DOT_LANES) };
+        return { id: other, title: b.sys[other].title, level: worst(b, other), ring: ring(b, k, b.readings[other].get(k)!.r, DOT_LANES), glyph: b.readings[other].get(k)!.ch.glyph };
       }), id));
     }
     setHTML(strip, b.toast ? `<span class="error">${esc(b.toast)}</span>`
@@ -150,7 +156,33 @@ export function systemView(b: Board, ctx: ViewContext, id: string) {
 
     if (opened) stage.querySelector<HTMLInputElement>('.code-input')?.focus({ preventScroll: true });
     else if (focusSel) el.querySelector<HTMLElement>(focusSel)?.focus({ preventScroll: true });
+    nameSeg(naming);
   };
+
+  // A ring of switches does not say which segment is which: the one pointed at,
+  // or in focus from the keyboard, is named in the face (its name and how it
+  // is) before it is tapped; the face says its own line again when it is left.
+  let naming: number | null = null;
+  const nameSeg = (i: number | null) => {
+    naming = i;
+    const key = order(b, id)[0], item = key ? b.readings[id]?.get(key) : undefined;
+    const label = key ? layers.get(key)?.querySelector<HTMLElement>('.face-label') : null;
+    if (!item || !label) return;
+    const s = i == null ? undefined : item.r.segs?.[i];
+    const shown = item.r.alert && !uiOf(b, id).seen.has(key) ? item.r.alert : item.r;
+    const text = s ? [s.label, item.r.kind === 'c' ? '' : b.host.stateOf(s.id)].filter(Boolean).join(' · ') : shown.label;
+    if (label.textContent !== text) label.textContent = text;
+    label.classList.toggle('is-naming', !!s);
+  };
+  const segAt = (target: EventTarget | null) => {
+    const seg = (target as HTMLElement | null)?.closest?.<HTMLElement>('.layer-front o-arc[data-seg]');
+    return seg ? Number(seg.dataset.seg) : null;
+  };
+  // On a move, not on `pointerover`: a segment that appears under a pointer at rest (the view just opened) names nothing.
+  el.addEventListener('pointermove', (e) => { const i = segAt(e.target); if (i != null && i !== naming && e.pointerType !== 'touch') nameSeg(i); });
+  el.addEventListener('pointerout', (e) => { if (segAt(e.target) != null && segAt(e.relatedTarget) == null) nameSeg(null); });
+  el.addEventListener('focusin', (e) => { const i = segAt(e.target); if (i != null && (e.target as HTMLElement).matches(':focus-visible')) nameSeg(i); });
+  el.addEventListener('focusout', (e) => { if (segAt(e.target) != null) nameSeg(null); });
 
   // The selector that finds a control again after a repaint.
   const focusKey = (target: HTMLElement) => {
@@ -289,7 +321,9 @@ export function systemView(b: Board, ctx: ViewContext, id: string) {
   // The browser leaves the horizontal gesture to the page (otherwise it cancels
   // it as a scroll) so Zumly's lateral swipe sees it.
   if (PHONE) el.style.touchAction = 'pan-y';
-  parallax(stage, () => obj, () => !flat);
+  // No tilt at rest: a turned object under a perspective is drawn by Chromium at one pixel per CSS pixel,
+  // whatever the screen, and its rings and words come out jagged for as long as the tilt is held.
+  tilt = parallax(stage, () => obj, () => !flat);
 
   paint();
   whenCurrent(b, ctx, paint);

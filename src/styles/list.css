@@ -6,6 +6,11 @@
 /* On a phone the names of the list ride outside the ring: the object leaves them room. */
 @media (max-width: 640px) {
   .one { width: min(calc(var(--S) * .8), 560px); }
+  /* The queue on a phone: beside the items there is room for the names of what calls only. The calm are
+     their glyphs (a tap brings one to the center, which names it), and the fold says how many under itself. */
+  .queue-item:not(.level-1, .level-2) .queue-label { display: none; }
+  .queue-fold .queue-label.is-end { right: auto; left: 50%; top: calc(100% + 6px); translate: -50% 0; text-align: center; }
+  .queue-fold .queue-big { display: none; }
   /* A smaller disc: one line for the label, and no Open pill (the disc itself is the button). */
   .list-center .face-label { -webkit-line-clamp: 1; }
   .list-center .list-open { display: none; }
@@ -32,14 +37,14 @@
 .calm-fold:hover .calm-ring, .calm-fold:focus-visible .calm-ring { border-color: var(--muted); }
 @media (max-width: 600px) { .calm-ring { width: 56px; gap: 3px; } .calm-ring i { width: 4px; height: 4px; } }
 /* Under the layers and the list: one quiet button. */
-.calm-toggle { min-height: 36px; padding: 6px 14px; border-radius: 999px; border: 1px solid var(--line); background: none; color: var(--muted); font-size: 13px; cursor: pointer; }
+.calm-toggle { min-height: 36px; padding: 6px 14px; border-radius: 8px; border: 1px solid var(--line); background: none; color: var(--muted); font-size: 13px; cursor: pointer; }
 .calm-toggle:hover, .calm-toggle:focus-visible { color: var(--ink); border-color: var(--muted); }
 
 /* ─── List: the queue on two rings ──────────────────────── */
 /* Room on both sides for the names beside the items. */
 .queue-stage .one { width: min(calc(var(--S) * .78), 520px); }
 .queue-foot { position: absolute; left: 0; right: 0; bottom: 4px; display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
-.queue-back { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 6px 14px; border-radius: 999px;
+.queue-back { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 6px 14px; border-radius: 8px;
   border: 1px solid color-mix(in srgb, var(--critical) 45%, transparent); background: none; color: var(--critical); font-size: 13px; cursor: pointer; }
 .queue-back-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--critical); }
 

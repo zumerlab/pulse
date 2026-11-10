@@ -18,8 +18,8 @@
 o-arc.is-failed { --o-stroke: var(--critical); --o-stroke-width: 2; }
 .orbit-12.is-failed o-progress { --o-back-fill: var(--critical); }
 /* The card that says so, with its Retry. */
-.errc { display: inline-flex; align-items: center; gap: 10px; padding: 6px 6px 6px 14px; border-radius: 999px; border: 1px solid var(--critical); color: var(--ink); font-size: 13px; text-align: left; }
-.errc .plain { min-height: 36px; padding: 6px 14px; border-radius: 999px; }
+.errc { display: inline-flex; align-items: center; gap: 10px; padding: 6px 6px 6px 14px; border-radius: 10px; border: 1px solid var(--critical); color: var(--ink); font-size: 13px; text-align: left; }
+.errc .plain { min-height: 36px; padding: 6px 14px; border-radius: 8px; }
 .ring-hit:hover, .ring-hit:focus-visible { --o-fill: color-mix(in srgb, var(--ink) 8%, transparent); outline: none; }
 
 /* ─── System ──────────────────────────────────────────── */
@@ -32,7 +32,12 @@ o-arc.is-failed { --o-stroke: var(--critical); --o-stroke-width: 2; }
 .icon-btn { width: 44px; min-height: 44px; padding: 0; display: inline-grid; place-items: center; border-radius: 50%; color: var(--muted); }
 .icon-btn[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
 .icon-btn .glyph { stroke-width: 1.5; }
-.stage { position: relative; width: 100%; overflow: hidden; perspective: 900px; }
+/* The perspective only while the object is in 3D (and on the board's orbit and
+   layers, which always are): under a perspective Chromium draws every layer at
+   scale 1 and stretches it by the object's scale, and the face's text comes out
+   soft. Flat, nothing sits at a depth, so nothing is lost without it. */
+.stage { position: relative; width: 100%; overflow: hidden; }
+.stage.is-3d, .stage.orbit-stage, .stage.board-stage { perspective: 900px; }
 .obj {
   position: absolute; inset: 0; display: grid; place-items: center;
   transform-style: preserve-3d;
@@ -42,8 +47,10 @@ o-arc.is-failed { --o-stroke: var(--critical); --o-stroke-width: 2; }
   /* --fit is set by the view from the stage's size (fitFor): the object fills what it has. */
   transform: scale(calc(var(--zoom, 1.2) * var(--fit, 1)));
   transition: transform .8s cubic-bezier(.2,.8,.2,1);
-  /* The tilt with the pointer (parallax) animates `rotate` on the compositor. */
-  will-change: transform, rotate;
+  /* No `will-change` here: with it Chromium keeps the texture drawn at scale 1
+     and stretches it by the transform, and the face's text comes out soft. The
+     transition and the tilt (an animation of `rotate`) are composited anyway
+     while they run; at rest the object is drawn again at its real size. */
 }
 /* In 3D the rings behind soften with the distance: a translucent halo of
    their own color, wider the farther (--halo, set by the view). A blur filter
@@ -55,8 +62,11 @@ o-arc.is-failed { --o-stroke: var(--critical); --o-stroke-width: 2; }
 .obj .depth {
   --o-perspective: 900;             /* the same as .stage */
   --o-depth-grow: .42;
-  --o-back-opacity: .55;
+  --o-back-opacity: .7;
 }
+/* A layer behind is drawn fainter as a whole (--o-back-opacity), its name with it:
+   the name starts from the ink, so what is left still reads (4.5:1 on every theme). */
+.layer:not(.layer-front) .arc-label { --o-color: var(--ink); }
 .obj .depth.is-flat { --o-depth-step: 0; }
 .stage.is-locked .ring-hit { pointer-events: none; }
 .layer.is-alert[data-level="2"] .arc-label { --o-color: var(--critical); }
@@ -72,8 +82,17 @@ o-arc.is-failed { --o-stroke: var(--critical); --o-stroke-width: 2; }
 /* A face about one thing with an object of its own opens it, like a disc that opens its detail. */
 .disc.opens-object { cursor: pointer; }
 .disc.opens-object:focus-visible { outline: 2px solid var(--ink); outline-offset: 4px; }
-/* Each line of the face is one line, sized from the disc, and never past it. */
-.face-name, .face-big, .face-label { max-width: 78cqw; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* The name and the value of the face are one line each, sized from the disc and
+   never past it; the line under them may take two before it is cut. */
+.face-name, .face-big { max-width: 78cqw; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.face-label { max-width: 72cqw; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; line-height: 1.2; text-wrap: balance; overflow-wrap: anywhere; }
+/* A choice names its options along the inside of the ring: the face keeps clear of them. */
+.disc.has-choice :is(.face-name, .face-big) { max-width: 66cqw; }
+.disc.has-choice .face-big { font-size: clamp(16px, 12cqw, 28px); }
+.disc.has-choice .face-label { max-width: 58cqw; }
+/* A segment pointed at or in focus is named in the face before it is tapped. */
+.face-label.is-naming { color: var(--ink); }
+o-arc.toggle:is(:hover, :focus-visible):not(.is-failed) { --o-stroke: color-mix(in srgb, var(--ink) 55%, transparent); --o-stroke-width: 2; }
 .face-name { font-size: clamp(11px, 6.5cqw, 15px); color: var(--muted); }
 .face-big { font-size: clamp(18px, 14.5cqw, 34px); font-weight: 600; letter-spacing: -1px; line-height: 1.1; }
 /* A long value ("−5,200 ft/min") takes a smaller size rather than an ellipsis. */
@@ -117,7 +136,7 @@ o-arc.is-failed { --o-stroke: var(--critical); --o-stroke-width: 2; }
 .disc.has-radar .face-name, .disc.has-radar .face-big, .disc.has-radar .face-label { text-shadow: 0 0 6px var(--bg), 0 0 2px var(--bg); }
 
 /* The open dial: its ends named just outside, a mark where the measurement is. */
-.dial-end { font-size: 10px; color: var(--muted); white-space: nowrap; }
+.dial-end { font-size: 11px; color: var(--muted); white-space: nowrap; }
 .now-mark { height: 2px; background: var(--muted); border-radius: 1px; }
 .layer:not(.layer-front) .dial-ends, .layer:not(.layer-front) .now-orbit { display: none; }
 

@@ -67,11 +67,11 @@ export function timeRing(tr: TimeRing) {
 export const TIME_RING = 220;        // px; the universe of the time ring (see .time-ring in the CSS)
 
 // Hour marks, on request: a tick per hour on the rim, longer every six, and
-// "6 h ago", "12 h ago", "18 h ago" along the outside; now is the top.
+// "now" at the top with "6 h ago", "12 h ago", "18 h ago" along the outside.
 const hourMarks = () => `<div class="orbit-13 time-ticks">${Array.from({ length: 24 }, (_, k) =>
     `<div class="vector time-tick${k % 6 === 0 ? ' is-major' : ''}" style="--o-size-ratio:${k % 6 === 0 ? 1 : 0.5}"></div>`).join('')}</div>
-  <div class="orbit-14 time-hours" style="--o-max:24">${[6, 12, 18].map((h) =>
-    `<o-arc range="auto" text-anchor="middle" start="${24 - h}"${h === 12 ? ' flip' : ''} class="time-hour">${esc(t.hAgo(h))}</o-arc>`).join('')}</div>`;
+  <div class="orbit-14 time-hours" style="--o-max:24">${[0, 6, 12, 18].map((h) =>
+    `<o-arc range="auto" text-anchor="middle" start="${(24 - h) % 24}"${h === 12 ? ' flip' : ''} class="time-hour${h ? '' : ' is-now'}">${esc(h ? t.hAgo(h) : t.now)}</o-arc>`).join('')}</div>`;
 
 // ─── Timeline: a day per entity ─────────────────────────────────────
 
@@ -119,9 +119,11 @@ export function timeline(tl: Timeline) {
       return `<o-arc class="track-span${tr.failed ? ' is-failed' : ''}" start="${at(f).toFixed(1)}" value="${Math.max(len, 3).toFixed(1)}" interactive data-track="${esc(tr.key)}" title="${esc(title)}"></o-arc>`;
     }).join('');
     // Each ring is named on itself, a step further round than the one outside
-    // it (the names would pile up at one angle), over whatever is there.
-    const name = tl.names ? `<div class="orbit-${12 - i} track-name-orbit" style="--o-from:${(half / S * 360 + 6 + i * 38).toFixed(1)}deg">
-      <o-arc range="auto" class="arc-label track-name" style="font-size:${i ? 9.5 : 10.5}px">${esc(tr.name)}</o-arc></div>` : '';
+    // it (the names would pile up at one angle), over whatever is there; the
+    // ones that land in the lower half are flipped, so none reads upside down.
+    const nameAt = half / S * 360 + 6 + i * 38, lower = nameAt % 360 > 95 && nameAt % 360 < 265;
+    const name = tl.names ? `<div class="orbit-${12 - i} track-name-orbit" style="--o-from:${nameAt.toFixed(1)}deg">
+      <o-arc range="auto"${lower ? ' flip' : ''} class="arc-label track-name" style="font-size:${i ? 10.5 : 11}px">${esc(tr.name)}</o-arc></div>` : '';
     return `<div class="orbit-${12 - i} ${cls}" style="--o-max:${S}; --o-gap:0; --o-stroke-width:0; --o-size-ratio:.3">
       <o-arc class="track-back" start="${at(tl.hours).toFixed(1)}" value="${W}" interactive data-track="${esc(tr.key)}" title="${esc(tr.name)}"></o-arc>${spans}</div>${name}`;
   }).join('');

@@ -19,12 +19,20 @@ export const LANE = UNIVERSE / 2 / 12;
 export const ZOOM = { calm: PHONE ? 1.1 : 1.2, alert: 1.35 };   // --zoom of .obj (see .stage[data-zoom])
 
 // How much the object scales to fill its stage (--fit): calm, the outermost
-// visible layer touches the shorter side; in an alert, the front disc at its
-// zoom does. Never below half nor past 1.5, so a wall panel gets a big object
-// and a narrow phone a whole one.
-export function fitFor(width: number, height: number, alert: boolean, layers = SIZE.length) {
+// visible layer touches the shorter side; in an alert the object comes closer
+// and the first layer behind does, so what waits behind an alert is still seen
+// and named (on a phone that layer only has to fit the height: it runs past the
+// sides there, and its label sits near the top, see labelAt). `behind`: how
+// many layers the object has behind the front one right now. Never below half
+// nor past 1.5, so a wall panel gets a big object and a narrow phone a whole one.
+export function fitFor(width: number, height: number, alert: boolean, layers = SIZE.length, behind = 0) {
   const side = Math.min(width, height);
-  const extent = alert ? UNIVERSE * ZOOM.alert : UNIVERSE * (1 + GROW * (Math.max(1, layers) - 1)) * ZOOM.calm;
+  if (alert) {
+    const front = UNIVERSE * ZOOM.alert, ring = front * (behind ? 1 + GROW : 1);
+    // On the phone the label of that layer rides over its top: a lane and a half of room for it.
+    return Math.min(1.5, Math.max(0.5, PHONE ? Math.min(width / front, height / (ring * (behind ? 1.12 : 1))) : side / ring));
+  }
+  const extent = UNIVERSE * (1 + GROW * (Math.max(1, layers) - 1)) * ZOOM.calm;
   return Math.min(1.5, Math.max(0.5, side / extent));
 }
 
