@@ -14,7 +14,7 @@ This skill is for `@zumer/pulse` **0.1.x** (ES module, TypeScript types included
 - It is a UI core. You give it a **host**: an object that lists systems, reports changes and runs actions. Pulse draws the board, the system view with its layers, the detail, the alert order, command feedback and a settings panel (the gear).
 - It has **no data layer**. There are no adapters inside the package: nothing in `@zumer/pulse` talks to Home Assistant, openHAB, MQTT or anything else. You write the host over your source.
 - It has no custom elements or framework components to write: the API is functions that render into an element you provide. (It registers one element for its own use, `<pulse-video>`, behind a reading's `image.video`.)
-- It is browser-only: importing it touches `matchMedia`, `HTMLElement` and `document` at module load and throws in Node, so do not import it during server rendering (load it on the client, for example with a dynamic `import()`).
+- It draws in the browser only: call `mountBoard` on the client (in an effect, or a client component), never during server rendering. Importing the module on a server is safe from the release after 0.1.1. Up to 0.1.1 the import itself touches `matchMedia`, `HTMLElement` and `document` and throws in Node, so with those versions load it on the client too, for example with a dynamic `import()`.
 
 ## Pulse, Orbit or Zumly?
 
