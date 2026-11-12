@@ -1,0 +1,9 @@
+{
+  "name": "pulse",
+  "description": "Agent skill for Pulse (@zumer/pulse): radial interfaces for monitoring and controlling systems, one object per system with its readings and controls as layers.",
+  "author": { "name": "Juan Martin Muda", "url": "https://zumerlab.com" },
+  "homepage": "https://zumerlab.com/pulse/agents.html",
+  "repository": "https://github.com/zumerlab/pulse",
+  "license": "MIT",
+  "keywords": ["pulse", "dashboard", "monitoring", "radial", "orbit", "zumly"]
+}
