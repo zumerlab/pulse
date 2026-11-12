@@ -33,6 +33,7 @@ import '@zumer/orbit/style';
 import '@zumer/orbit';
 import '@zumer/pulse/style.css';
 import { mountBoard, type PulseHost, type Reading } from '@zumer/pulse';</code></pre>
+      <p>The core is an ES module with bare imports, so it goes through a bundler; the examples here use Vite. In TypeScript the stylesheet imports need a declaration: with Vite, add <code>"types": ["vite/client"]</code> to the <code>compilerOptions</code> of your <code>tsconfig.json</code>, or <code>tsc</code> reports that it cannot find <code>zumly/style.css</code>. The core runs in the browser only: it reads the page as it loads, so under server rendering import it on the client.</p>
       <p>The page needs one element to mount on: a shell that fills the viewport and the Zumly canvas inside it.</p>
 <pre><code>&lt;div class="shell"&gt;&lt;div id="canvas" class="zumly-canvas"&gt;&lt;/div&gt;&lt;/div&gt;</code></pre>
 
