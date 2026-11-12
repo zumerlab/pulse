@@ -13,7 +13,7 @@ This skill is for `@zumer/pulse` **0.1.x** (ES module, TypeScript types included
 
 - It is a UI core. You give it a **host**: an object that lists systems, reports changes and runs actions. Pulse draws the board, the system view with its layers, the detail, the alert order, command feedback and a settings panel (the gear).
 - It has **no data layer**. There are no adapters inside the package: nothing in `@zumer/pulse` talks to Home Assistant, openHAB, MQTT or anything else. You write the host over your source.
-- It has no custom elements and no framework components. The API is functions that render into an element you provide.
+- It has no custom elements or framework components to write: the API is functions that render into an element you provide. (It registers one element for its own use, `<pulse-video>`, behind a reading's `image.video`.)
 - It is browser-only: importing it touches `matchMedia`, `HTMLElement` and `document` at module load and throws in Node, so do not import it during server rendering (load it on the client, for example with a dynamic `import()`).
 
 ## Pulse, Orbit or Zumly?
@@ -202,7 +202,7 @@ Full field lists, with the optional detail content (history, timeline, picture, 
 - **Too many channels in a system.** Only a few layers are drawn (three by default, five at most); the rest are only named. Split into two systems.
 - **Painting alerts by hand.** Set `alert` on the reading; the board orders, colors and folds. Do not restyle discs to show urgency.
 - **Adding systems after mount.** `host.systems` is read when `mountBoard` runs, and `setHost` expects the same system ids. Remount for a different set.
-- **Looking for `<pulse-...>` elements, a React component or a `Pulse` class.** There are none; the entry point is `mountBoard`.
+- **Looking for `<pulse-...>` elements to write, a React component or a `Pulse` class.** There are none; the entry point is `mountBoard`.
 - **`[orbit] … has no size` warnings at mount.** The published 0.1.0 logs a few when the board opens directly in the `orbit` or `list` view; it renders correctly and they are not caused by your code. Later versions size those views on their first frame. If you see the warning elsewhere, an element you added has no width.
 
 ## Docs

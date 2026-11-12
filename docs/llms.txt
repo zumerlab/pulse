@@ -25,7 +25,7 @@ The page needs `<div class="shell"><div id="canvas" class="zumly-canvas"></div><
 - Controls do not change state: they hand an `Action` (`{ ids, ...your fields }`) to `host.act`. The control beats until `host.onChange` reports one of those ids; a rejected action leaves a Retry.
 - The host is a `PulseHost`: `systems`, `status`, `error`, `hasData`, `onChange`, `onStatus`, `act`, `nameOf`, `stateOf`, `url`, plus optional history, groups and more.
 - The board shows every system in four views (`grid`, `orbit`, `layers`, `list`), queued by urgency. The gear lets each viewer choose what that screen shows; the choices stay in that browser.
-- The package has no data adapters and no custom elements. Pulse for Home Assistant and openHAB are apps on the core, in their own repository: https://github.com/zumerlab/pulse-home
+- The package has no data adapters and no custom elements to write: the entry point is the function `mountBoard`. Pulse for Home Assistant and openHAB are apps on the core, in their own repository: https://github.com/zumerlab/pulse-home
 
 ## Pulse
 
