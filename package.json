@@ -23,6 +23,10 @@
   "bugs": {
     "url": "https://github.com/zumerlab/pulse/issues"
   },
+  "funding": {
+    "type": "github",
+    "url": "https://github.com/sponsors/tinchox5"
+  },
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -36,6 +40,7 @@
   },
   "files": [
     "dist/",
+    "skills/",
     "README.md"
   ],
   "publishConfig": {
