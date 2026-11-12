@@ -157,8 +157,7 @@ The `ready` promise tracks initialization. See
 The repository carries an agent skill, [skills/pulse/](skills/pulse/SKILL.md):
 what Pulse is, when to use it, a tested example, the contract and the common
 mistakes, for a coding agent that has never seen Pulse. Install it in Claude
-Code with `/plugin marketplace add zumerlab/orbit` and
-`/plugin install pulse@zumer`, with `npx skills add zumerlab/pulse`, or by
+Code with `/plugin install pulse --marketplace zumerlab/orbit`, with `npx skills add zumerlab/pulse`, or by
 copying the folder into `.claude/skills/pulse/`. The other ways, and what the
 skill asks of agents, are on [the site](https://zumerlab.com/pulse/agents.html).
 
