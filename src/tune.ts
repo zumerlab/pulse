@@ -80,7 +80,8 @@ function apply() {
   s.setProperty('--t-layer-opacity', String(tune.layerOpacity));
   s.setProperty('--t-layer-blur', `${tune.layerBlur}px`);
 }
-apply();
+// On load, where there is a page (a server only imports the module).
+if (typeof document !== 'undefined') apply();
 
 function changed() {
   try {

@@ -17,7 +17,10 @@ export function videoMarkup(v: { src: string; poster: string; alt: string; cls: 
   return `<pulse-video class="${esc(v.cls)}" src="${esc(v.src)}" poster="${esc(v.poster)}" aria-label="${esc(v.alt)}" role="img"></pulse-video>`;
 }
 
-class PulseVideo extends HTMLElement {
+// Imported where there are no elements (a server), the class has nothing to extend and is never registered.
+const Base = typeof HTMLElement !== 'undefined' ? HTMLElement : class {} as typeof HTMLElement;
+
+class PulseVideo extends Base {
   static observedAttributes = ['src', 'poster'];
   private video: HTMLVideoElement | null = null;
   private hls: HlsLike | null = null;

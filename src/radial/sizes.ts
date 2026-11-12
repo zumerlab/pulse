@@ -3,8 +3,9 @@
 // much the object scales to fill its stage. Decided on load, phone or not.
 
 // On a phone you look at one system at a time: two visible layers and less
-// growth between layers. Decided on load.
-export const PHONE = matchMedia('(max-width: 600px)').matches;
+// growth between layers. Decided on load. Where there is no page to measure
+// (the module imported on a server, to be mounted in the browser): not a phone.
+export const PHONE = typeof matchMedia !== 'undefined' && matchMedia('(max-width: 600px)').matches;
 export const GROW = PHONE ? 0.24 : 0.42;                   // --o-depth-grow
 export const SIZE = Array.from({ length: PHONE ? 2 : 3 }, (_, d) => 1 + GROW * d);
 export const STROKE = [6, 3, 2.5];                         // apparent stroke per depth, px
