@@ -2,6 +2,36 @@
 
 All notable changes to this project will be documented in this file.
 
+#### [v0.1.1](https://github.com/zumerlab/pulse/compare/v0.1.0...v0.1.1)
+
+> 12 November 2026
+
+**Fixes**
+
+- the orbit and the list sized on their first frame, so Orbit finds no empty universe [`80f4a43`](https://github.com/zumerlab/pulse/commit/80f4a4343d66f305d60955e4fbe9e635b6369dc8)
+
+**Docs**
+
+- an agent skill for Pulse, with the contract as a reference [`4aa98cb`](https://github.com/zumerlab/pulse/commit/4aa98cbd5a0fc402532fd7fbe9206a1088e24fc3)
+- a page for AI agents, llms.txt and a note in the README [`a9dd7d3`](https://github.com/zumerlab/pulse/commit/a9dd7d3e8aefe9011188771250fa82122d2d2db4)
+- the skill names the one element the core registers, and the sitemap dated again [`0a695ad`](https://github.com/zumerlab/pulse/commit/0a695ad5b47089bcc2c2c84fab7c28f5a17e87b7)
+- the types a TypeScript project needs for the stylesheets, and what the core touches as it loads [`93e3a54`](https://github.com/zumerlab/pulse/commit/93e3a5452cfd99fff49bcd46a19675e8fbabc394)
+- three stylesheets in the README, as the site says [`8a7a71e`](https://github.com/zumerlab/pulse/commit/8a7a71e3b9df646107b3b9f5f6cd1dffdf76ba56)
+- link the Zumly agent page [`4321f93`](https://github.com/zumerlab/pulse/commit/4321f93d5fe5562a7175a3c8b3aca140d3f9bc40)
+
+**Tests**
+
+- the phone's note names the file it refers to [`e0632e0`](https://github.com/zumerlab/pulse/commit/e0632e09a9a554df7c81134c6a3d37145648b090)
+
+**Chores**
+
+- a Claude Code plugin manifest, and the zumer marketplace in the install lines [`f1651f2`](https://github.com/zumerlab/pulse/commit/f1651f24337a466dd83e5bd19da48fde01e70b98)
+- the skill in the package files, and funding [`7bf28e0`](https://github.com/zumerlab/pulse/commit/7bf28e0bf10e505e2c6825571c4ad4dedb1c8c17)
+
+**Other**
+
+- round screen [`63c06c5`](https://github.com/zumerlab/pulse/commit/63c06c5b63caa35728c2ed1fa43c4fd71c80e09e)
+
 #### [v0.1.0](https://github.com/zumerlab/pulse/compare/v0.0.0...v0.1.0)
 
 > 10 November 2026
