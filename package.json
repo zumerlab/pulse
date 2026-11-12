@@ -1,6 +1,6 @@
 {
   "name": "@zumer/pulse",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A radial interface for monitoring and controlling systems: one object per system, its readings and controls as layers, the urgent one in front. Built on Orbit and Zumly.",
   "keywords": [
     "radial",
