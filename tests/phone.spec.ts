@@ -49,7 +49,7 @@ test('a pinch born on the dial zooms out to the board', async ({ page }) => {
 
 // The greenhouse (demo/greenhouse/) with the orbit chosen: on a phone the
 // board waits one step out, behind the system that opens, and it is sized
-// from its first frame there too (tests/views.spec.ts): Orbit warns of nothing.
+// from its first frame there too (tests/orbit.spec.ts): Orbit warns of nothing.
 test('the phone opens over a board in orbit without a warning', async ({ page }) => {
   const said: string[] = [];
   page.on('pageerror', (e) => said.push(e.message));
