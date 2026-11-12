@@ -15,3 +15,4 @@
 @import './styles/list.css';        /* The list: one object in the space left, the calm folded, the queue on two rings. */
 @import './styles/time.css';        /* Time in the orbit, the changes of the last hours, the orbit's face with time on. */
 @import './styles/ground.css';      /* The ground: a glow or a photo behind every view. */
+@import './styles/kiosk.css';       /* A round screen (everything inside the circle) and the knob's cursor. */

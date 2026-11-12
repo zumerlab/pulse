@@ -17,8 +17,9 @@ npm run dev
 ```
 
 Open [the demo](http://127.0.0.1:5173),
-[the component gallery](http://127.0.0.1:5173/elements.html) or
-[the tutorial's greenhouse](http://127.0.0.1:5173/greenhouse/).
+[the component gallery](http://127.0.0.1:5173/elements.html) [the tutorial's greenhouse](http://127.0.0.1:5173/greenhouse/) or
+[the greenhouse on a round screen with one knob](http://127.0.0.1:5173/round/)
+(arrows or the wheel turn, Enter presses, Enter held goes back).
 
 ## Try the controls
 

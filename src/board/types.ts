@@ -5,6 +5,7 @@ import type Zumly from 'zumly';
 import type { PulseHost, Status } from '../model.ts';
 import { DEFAULT_THEME, type Theme, type ThemeName } from '../themes.ts';
 import type { t as T } from '../i18n.ts';
+import type { Knob } from './knob.ts';
 
 export type BoardMode = 'grid' | 'orbit' | 'layers' | 'list';
 export const BOARD_MODES: BoardMode[] = ['grid', 'orbit', 'layers', 'list'];
@@ -92,6 +93,13 @@ export type BoardOptions = {
   // A way out of the host (sign out, leave the demo): an icon next to the gear, `data-action="signout"`.
   exit?: () => string | null;
   onStatus?: (status: Status) => void;
+  // A round screen: the canvas is the circle inscribed in its box and every view keeps inside it (the way
+  // back at the bottom of the circle, no gear, no corners). Opens on the orbit unless `mode` says otherwise,
+  // and keeps no choices in the browser unless `settings` names where.
+  round?: boolean;
+  // Handled with one knob: the arrows and the wheel turn, Enter and Space press, a long press or Escape
+  // goes back (see knob.ts). Without it the knob is still there to be driven by code: `BoardHandle.knob`.
+  knob?: boolean;
   // The shell's words over the object's (what the host calls its things, its groups, its errors).
   strings?: Partial<Strings>;
 };
@@ -104,6 +112,8 @@ export type BoardHandle = {
   settings(): BoardSettings;
   setSettings(patch: BoardSettings): void;
   repaint(): void;
+  // The object by one knob, for an input the browser does not bring as keys or a wheel (a GPIO encoder, a message).
+  knob: Knob;
   ready: Promise<unknown>;
   destroy(): void;
   ui: unknown;

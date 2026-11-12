@@ -137,6 +137,16 @@ starting system, appearance, layer counts, status text and translated strings.
 Browser preferences are saved under the key supplied as `settings`.
 Set `settings: false` to disable the settings panel and saved preferences.
 
+Set `round: true` for a round display: the canvas becomes the circle
+inscribed in its container, every view keeps inside it with the object in the
+center, and the gear is left out. Set `knob: true` to handle the board with one
+knob: the arrow keys or the wheel turn, Enter or Space presses, and a long
+press or Escape goes back. Turning walks what the view offers, pressing opens
+or acts, and a dial or a list takes the turn while it is held. An encoder that
+reaches the page some other way calls `board.knob.turn(1)`,
+`board.knob.press()` and `board.knob.back()`. Round is laid out for displays
+of 720 px and up.
+
 Use `setHost` to change data sources, `setSettings` to update display choices,
 `repaint` to refresh the views and `destroy` to release the board's resources.
 The `ready` promise tracks initialization. See

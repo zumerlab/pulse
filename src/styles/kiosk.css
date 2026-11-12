@@ -1,0 +1,46 @@
+/* ─── A round screen, and the object by one knob ─── */
+/* Round (BoardOptions.round): the canvas is the circle inscribed in the shell, and nothing of a view
+   sits in a corner, where a round display has no pixels. The shell's own ground is black: on a
+   square window it is the bezel, on the display it is not there. */
+.shell:has(> .zumly-canvas.round) { display: grid; place-items: center; container-type: size; background: #000; }
+.zumly-canvas.round { width: min(100cqw, 100cqh); height: min(100cqw, 100cqh); border-radius: 50%; overflow: hidden; }
+/* The board: the object alone. The headline stays for screen readers; the connection line, the view
+   switch, the gear and the way out are a shell's, and a round screen has no room that is not the object. */
+.round .board { padding: 4%; gap: 0; grid-template-rows: minmax(0, 1fr); }
+.round .board-head { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+.round :is(.gear, .exit) { display: none; }
+/* A system: the object in the center of the circle, always: its name, the strip and the way back sit
+   around it (top, bottom, and under the strip, in the middle: Zumly puts it in the corner) and never
+   push it off the center. The index beside the object and the 3D toggle, second ways to what the
+   rings already offer, stay out. */
+.round .system { display: block; padding: 0; }
+.round .system .stage { position: absolute; inset: 14%; width: auto; overflow: visible; }
+.round .sys-title { position: absolute; top: 4.5%; left: 0; right: 0; padding: 0; text-align: center; font-size: 13px; }
+.round .strip { position: absolute; left: 50%; bottom: 10.5%; translate: -50% 0; width: max-content; max-width: 66%; min-height: 0; flex-wrap: nowrap; font-size: 13px; z-index: 2; }
+.round .strip :is(.primary, .plain) { min-height: 32px; padding: 4px 12px; margin-left: 4px; white-space: nowrap; }
+.round :is(.layer-index-slot, .foot) { display: none; }
+.round .z-depth-nav--bottom-left { left: 50%; bottom: 3.5%; translate: -50% 0; }
+/* What calls comes closer, but less than on a square: the layers behind it run off a stage's
+   sides there, and here the rim would cut them and their names. */
+.round .stage[data-zoom="alert"] .obj { --zoom: 1.04; }
+/* The detail and the changes, centered too, clear of the rim and of the way back. */
+/* A detail taller than the circle scrolls inside it (the knob brings what it is at to the middle). */
+.round .detail { max-width: 70%; padding: 13% 0; gap: 6px; text-align: center; align-content: safe center; overflow-y: auto; scrollbar-width: none; }
+.round .detail h1 { justify-content: center; font-size: 24px; }
+.round .changes-view { padding: 13% 9%; }
+.round .z-view:has(> .detail)::after { display: none; }
+
+/* The knob's cursor (knob.ts marks the canvas while it is in use): where it is shows on shapes
+   whose focus is quiet for a keyboard, and what it holds (a dial, a list) shows a second rim. */
+/* (Zumly outlines its triggers, a square around a round tile.) */
+.zumly-canvas :is(.otile, .tile):focus-visible { outline: none; }
+.otile:focus-visible .otile-ring, .tile:focus-visible .mini-ring { border-radius: 50%; box-shadow: 0 0 0 4px var(--bg), 0 0 0 6px var(--ink); }
+[data-knob] .ring-hit:focus-visible { --o-fill: color-mix(in srgb, var(--ink) 24%, transparent); }
+[data-knob] .layer:has(.ring-hit:focus-visible) { --o-back-opacity: 1; opacity: 1; }
+[data-knob] .layer:has(.ring-hit:focus-visible) .arc-label { font-weight: 700; }
+[data-knob] .detail-ring:has(.dial:focus-visible) .knob { box-shadow: 0 0 0 3px var(--bg), 0 0 0 5px var(--ink); }
+[data-knob="held"] :is(.layer, .detail-ring):has(.dial:focus-visible) .knob,
+[data-knob="held"] .knob[data-handle]:focus-visible,
+[data-knob="held"] .ring-grab:focus-visible + .knob-orbit .knob,
+[data-knob="held"] .color-wheel:focus-visible { box-shadow: 0 0 0 3px var(--bg), 0 0 0 5px var(--ink), 0 0 0 10px color-mix(in srgb, var(--ink) 35%, transparent); }
+[data-knob="held"] .scroll-list:focus-visible, [data-knob="held"] .radial-list:focus-visible { outline: 2px solid var(--ink); outline-offset: 6px; border-radius: 50%; }

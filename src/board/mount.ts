@@ -13,6 +13,7 @@ import type { Changed, PulseHost } from '../model.ts';
 import { PHONE, startInside, zoomOutGestures, zumlyOptions } from '../radial/index.ts';
 import type { Board } from './context.ts';
 import { loadTab } from './gear.ts';
+import { wireKnob } from './knob.ts';
 import { applySettings, loadSettings, setSettings, settings, startId, valid } from './settings.ts';
 import { compute, repaint, watched, worst } from './state.ts';
 import { AXES, type BoardHandle, type BoardOptions } from './types.ts';
@@ -24,7 +25,8 @@ import { systemView } from './views/system.ts';
 export function mountBoard(canvas: HTMLElement, options: BoardOptions): BoardHandle {
   const host = options.host;
   const all = host.systems.map((s) => s.id);
-  const store = options.settings === false ? null : options.settings ?? 'pulse-settings';
+  // A round screen has no gear: it keeps the viewer's choices only where the shell says.
+  const store = options.settings === false || (options.round && !options.settings) ? null : options.settings ?? 'pulse-settings';
   const b: Board = {
     canvas, options,
     t: { ...T, ...options.strings },
@@ -46,7 +48,7 @@ export function mountBoard(canvas: HTMLElement, options: BoardOptions): BoardHan
   };
   // The frame: what the shell allows.
   b.frame = {
-    systems: valid(b, options.systems).length ? valid(b, options.systems) : all, mode: options.mode, start: options.start,
+    systems: valid(b, options.systems).length ? valid(b, options.systems) : all, mode: options.mode ?? (options.round ? 'orbit' : undefined), start: options.start,
     axis: options.axis && AXES.includes(options.axis) ? options.axis : undefined,
     groups: options.groups?.length ? options.groups : undefined,
     look: options.look,
@@ -54,6 +56,7 @@ export function mountBoard(canvas: HTMLElement, options: BoardOptions): BoardHan
     stack: options.stack && options.stack >= 1 ? Math.floor(options.stack) : undefined,
   };
   applySettings(b);
+  canvas.classList.toggle('round', !!options.round);
 
   // In a small box (a card in a section of a dashboard, a narrow window) the
   // board tightens: smaller headline, fewer lines of ticker, the object bigger.
@@ -75,6 +78,7 @@ export function mountBoard(canvas: HTMLElement, options: BoardOptions): BoardHan
   b.app = app;
   app.on('afterZoomOut', () => repaint(b));
   const stopGestures = zoomOutGestures(app, canvas);
+  const knob = wireKnob(b, !!options.knob);
 
   // ─── The host ───
 
@@ -147,10 +151,11 @@ export function mountBoard(canvas: HTMLElement, options: BoardOptions): BoardHan
     settings: () => settings(b),
     setSettings: (patch) => setSettings(b, patch),
     repaint: () => repaint(b),
+    knob: knob.knob,
     // A host already live at mount time (a card's `hass`) starts as soon as
     // the board is in the DOM; otherwise the first live change starts it.
     ready: app.init().then(() => { if (!b.loaded && b.host.status === 'live') { b.loaded = true; return start(); } }),
-    destroy: () => { unsubscribe.forEach((fn) => fn()); compact.disconnect(); stopGestures(); app.destroy(); },
+    destroy: () => { unsubscribe.forEach((fn) => fn()); compact.disconnect(); stopGestures(); knob.stop(); app.destroy(); },
     ui: b.ui,
     readings: () => b.readings,
   };
