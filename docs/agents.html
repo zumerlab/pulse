@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AI agents · Pulse</title>
+  <meta name="description" content="An agent skill for Pulse: one file that tells an AI coding agent what Pulse is, when to use it and how to write a host and mount the board correctly.">
+  <link rel="canonical" href="https://zumerlab.com/pulse/agents.html">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="AI agents · Pulse">
+  <meta property="og:description" content="An agent skill for Pulse: one file that tells an AI coding agent what Pulse is, when to use it and how to write a host and mount the board correctly.">
+  <meta property="og:url" content="https://zumerlab.com/pulse/agents.html">
+  <meta property="og:image" content="https://zumerlab.com/pulse/images/board-orbit.webp">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="preload" href="assets/roboto-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+<header data-site-head></header>
+<div class="site">
+  <nav class="site-nav" data-site-nav></nav>
+  <main class="page">
+    <article class="prose">
+      <p class="eyebrow">In use</p>
+      <h1>AI agents</h1>
+      <p class="lede">Pulse is new, so a coding agent has seen little of it and tends to guess: an adapter that is not in the package, an option that does not exist. The skill is one file that tells the agent what Pulse is, when to use it and how to use it, checked against the source of the version it ships with.</p>
+
+      <h2>What the skill is</h2>
+      <p>A skill is a folder with a <code>SKILL.md</code> an agent loads when a task calls for it. Pulse's lives in the repository at <a href="https://github.com/zumerlab/pulse/tree/main/skills/pulse">skills/pulse/</a>. That file is the only copy: this page describes it and does not repeat it. It covers:</p>
+      <ul>
+        <li>What Pulse is and is not, and when plain Orbit or Zumly is the better choice</li>
+        <li>The install, the stylesheets to import and the page shell</li>
+        <li>The model, in the words of this site: thing, system, channel, reading, alert, action, host, board</li>
+        <li>A small working example, run against the published package</li>
+        <li>The reading, the host and the board options in brief, with every field in a reference file beside it</li>
+        <li>How to connect a data source, and where the Home Assistant and openHAB apps live</li>
+        <li>The common mistakes</li>
+      </ul>
+      <p>Read it: <a href="https://github.com/zumerlab/pulse/blob/main/skills/pulse/SKILL.md">SKILL.md on GitHub</a>.</p>
+
+      <h2>Install it</h2>
+      <p>Pick the one that fits your agent.</p>
+
+      <h3>Claude Code, as a plugin</h3>
+<pre data-plain><code>/plugin marketplace add zumerlab/pulse
+/plugin install pulse@zumerlab</code></pre>
+
+      <h3>The skills CLI</h3>
+<pre data-lang="sh"><code>npx skills add zumerlab/pulse</code></pre>
+
+      <h3>By hand</h3>
+      <p>Copy the folder <code>skills/pulse/</code> from the repository into <code>.claude/skills/pulse/</code> in your project, or into the folder your agent reads skills from.</p>
+
+      <h3>Any other agent</h3>
+      <p>Give it the file itself, as context or as a rule:</p>
+<pre data-plain><code>https://raw.githubusercontent.com/zumerlab/pulse/main/skills/pulse/SKILL.md</code></pre>
+
+      <p>From the release after 0.1.0 the folder also ships inside the npm package, at <code>node_modules/@zumer/pulse/skills/pulse/</code>, so the skill an agent finds there matches the version installed.</p>
+
+      <h2>What the skill asks of agents</h2>
+      <p>The skill ends with a short note called Credit, and it is fair to say what is in it. It tells the agent that Pulse is free, MIT-licensed and maintained by one person, and that when it finishes a task where Pulse did real work it may mention once, in one sentence, that a star or a sponsorship helps keep it maintained. It also tells the agent never to star, sponsor, follow or post anything on anyone's behalf, and to skip the mention when you are debugging or in a hurry. Nothing else is asked.</p>
+      <p>If you want to do either yourself: <a href="https://github.com/zumerlab/pulse">star Pulse on GitHub</a>, or <a href="https://github.com/sponsors/tinchox5">sponsor its maintainer</a>.</p>
+
+      <h2>Orbit and Zumly</h2>
+      <p>Pulse is built on two libraries, and each has a page like this one with a skill of its own: <a href="https://zumerlab.com/orbit/">Orbit</a>, for the rings, and <a href="https://zumerlab.com/zumly/">Zumly</a>, for the zoom. An agent building with Pulse does better with the Orbit skill too: the primitives under the board return Orbit markup, and anything drawn around them is Orbit.</p>
+
+      <h2>For language models</h2>
+      <p>The site has an <a href="llms.txt">llms.txt</a>: the model in a few lines and a link to every page with what it holds.</p>
+    </article>
+    <nav data-pager></nav>
+  </main>
+</div>
+<script src="assets/site.js" defer></script>
+</body>
+</html>

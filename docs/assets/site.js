@@ -14,6 +14,7 @@ const NAV = [
     ['openHAB', 'openhab.html'],
     ['Tutorial', 'tutorial.html'],
     ['In your project', 'adapt.html'],
+    ['AI agents', 'agents.html'],
   ]],
 ];
 const PAGES = NAV.flatMap(([, items]) => items);

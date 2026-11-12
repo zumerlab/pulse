@@ -1,0 +1,51 @@
+# Pulse
+
+> Pulse is a radial interface for monitoring and controlling systems: one round object per system, its readings and controls as layers, the urgent one in front, and a board of every system. It is a UI core built on Orbit (rings and depth) and Zumly (zoom): a host you write hands it systems and readings, and runs the actions it hands back. Package: `@zumer/pulse` (0.1.x, ES module with types, MIT).
+
+Install: `npm install @zumer/pulse @zumer/orbit zumly`, with a bundler. Then, in this order:
+
+```ts
+import 'zumly/style.css';
+import '@zumer/orbit/style';
+import '@zumer/orbit';
+import '@zumer/pulse/style.css';
+import { mountBoard } from '@zumer/pulse';
+
+const board = mountBoard(document.querySelector('#canvas'), { host });
+```
+
+The page needs `<div class="shell"><div id="canvas" class="zumly-canvas"></div></div>`.
+
+## The model
+
+- A thing is anything in the source with an id: a sensor, a switch, a setpoint. Ids are opaque; the host names them.
+- A system is one round object: `{ id, title, channels }`. A channel is one layer of it: `{ key, name, glyph, read }`.
+- `read()` returns a `Reading`, or `null` when there is nothing to show. A reading is one of three rings: `'p'` a band (`v` from 0 to 1; with a `dial` it is dragged), `'s'` switches (`segs`), `'c'` a choice (`segs`, one on). It carries `big` and `label` for the face and `ids`, the things it depends on.
+- The front layer is the channel being read and used. An `alert` (`level` 1 minor, 2 critical, with `why`, a `verb` and the `acts` that resolve it) brings its layer forward and colors only what fails.
+- Controls do not change state: they hand an `Action` (`{ ids, ...your fields }`) to `host.act`. The control beats until `host.onChange` reports one of those ids; a rejected action leaves a Retry.
+- The host is a `PulseHost`: `systems`, `status`, `error`, `hasData`, `onChange`, `onStatus`, `act`, `nameOf`, `stateOf`, `url`, plus optional history, groups and more.
+- The board shows every system in four views (`grid`, `orbit`, `layers`, `list`), queued by urgency. The gear lets each viewer choose what that screen shows; the choices stay in that browser.
+- The package has no data adapters and no custom elements. Pulse for Home Assistant and openHAB are apps on the core, in their own repository: https://github.com/zumerlab/pulse-home
+
+## Pulse
+
+- [Home](https://zumerlab.com/pulse/): Pulse is a radial interface for monitoring and controlling systems: a core any source can feed, with the components, the board and the guides to build your own.
+- [Why](https://zumerlab.com/pulse/principles.html): Why Pulse is round, what depth means, and the rules that keep layers from confusing anyone.
+- [The object](https://zumerlab.com/pulse/object.html): The anatomy of a Pulse object: layers, faces, rings as controls, the strip, the detail, and the few primitives they are made of.
+- [Elements](https://zumerlab.com/pulse/elements.html): Every element of a Pulse object, one by one: the rings, the face, the layers, the index, the strip, the days, the lists, the wheel, drawn with sample data.
+- [The board](https://zumerlab.com/pulse/board.html): The board of Pulse: four ways to see every system at once, two axes to group a home by, and the gear where each screen chooses its own.
+
+## In use
+
+- [Home Assistant](https://zumerlab.com/pulse/home-assistant.html): Pulse on Home Assistant: a custom card, a dashboard strategy and a standalone app over your own entities, with no entity list to write.
+- [openHAB](https://zumerlab.com/pulse/openhab.html): Pulse on openHAB: a page your openHAB serves itself, or a standalone app, over the items of your semantic model, with nothing to list by hand.
+- [Tutorial](https://zumerlab.com/pulse/tutorial.html): Pulse from zero: a greenhouse made up in a few lines, simulated in the browser, built into three objects step by step, with a screen at each step.
+- [In your project](https://zumerlab.com/pulse/adapt.html): How to put Pulse over your own data: describe your systems, write a host, mount the board, wire the actions, set a theme and your strings.
+- [AI agents](https://zumerlab.com/pulse/agents.html): An agent skill for Pulse: one file that tells an AI coding agent what Pulse is, when to use it and how to write a host and mount the board correctly.
+
+## Optional
+
+- [Agent skill](https://raw.githubusercontent.com/zumerlab/pulse/main/skills/pulse/SKILL.md): the skill file, with a tested example, the contract in brief and the common mistakes
+- [Contract reference](https://raw.githubusercontent.com/zumerlab/pulse/main/skills/pulse/references/contract.md): every field of a reading, the host and the board options
+- [Source on GitHub](https://github.com/zumerlab/pulse)
+- [Orbit](https://zumerlab.com/orbit/llms.txt) and [Zumly](https://zumerlab.com/zumly/llms.txt): the two libraries Pulse is built on

@@ -141,6 +141,16 @@ Use `setHost` to change data sources, `setSettings` to update display choices,
 The `ready` promise tracks initialization. See
 [src/board/types.ts](src/board/types.ts) for the full options and handle types.
 
+## AI agents
+
+The repository carries an agent skill, [skills/pulse/](skills/pulse/SKILL.md):
+what Pulse is, when to use it, a tested example, the contract and the common
+mistakes, for a coding agent that has never seen Pulse. Install it in Claude
+Code with `/plugin marketplace add zumerlab/pulse` and
+`/plugin install pulse@zumerlab`, with `npx skills add zumerlab/pulse`, or by
+copying the folder into `.claude/skills/pulse/`. The other ways, and what the
+skill asks of agents, are on [the site](https://zumerlab.com/pulse/agents.html).
+
 ## Layout
 
 | Directory | Contents |
