@@ -66,7 +66,8 @@ is how to write another.
 npm install @zumer/pulse @zumer/orbit zumly
 ```
 
-Four stylesheets and two runtimes, then the board:
+Three stylesheets and two runtimes (Orbit's, imported here; Zumly's, which the
+core brings), then the board:
 
 ```ts
 import 'zumly/style.css';
