@@ -1,6 +1,6 @@
 /* ─── Orbit: the pulse in the center, the systems around ── */
 /* Visible: the text of the systems at the bottom may go just past the edge of the universe. */
-.orbit-stage { position: absolute; inset: 0; overflow: visible; }
+.orbit-stage { position: absolute; inset: 0; overflow: visible; container-type: size; --space: var(--S, max(240px, min(100cqw, 100cqh))); }
 /* No zoom, and no fit: the universe is already the space left (--S); the
    layers view's --fit, set on the same body, would shrink the orbit on a phone.
    The layers behind keep size and color (they only move away). */
@@ -8,8 +8,11 @@
 .orbit-stage .obj .depth { --o-depth-grow: 0; --o-back-opacity: 1; --o-depth-step: var(--t-orbit-step, -110); }
 /* The universe is the largest square that fits (--S). Each system's ring fills
    its satellite: 3.5 lanes (0.15 of the universe). They shift 20 px inward so
-   the text hanging outside fits. */
-.orbit-stage .obj > .bigbang { width: var(--S); }
+   the text hanging outside fits. --S comes from an observer, which answers
+   once the first frame is laid out, and Orbit measures its universe within
+   that frame: until then the stage gives the same square itself (--space), so
+   the universe is never 0 px wide. */
+.orbit-stage .obj > .bigbang { width: var(--space); }
 .orbit-stage .orbit-tiles { --o-size-ratio: var(--t-tile, 3.5); --o-alignment: var(--t-align, 20px); }
 /* The pulse: the center satellite, 11 lanes (0.46 of the universe), drawn over
    the systems' rings, which cross it: its face is opaque and above them. Only

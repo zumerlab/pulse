@@ -1,11 +1,13 @@
 /* ─── List, clock, calendar: one object in the space left ── */
-.list-stage, .clock-stage, .calendar-stage { position: absolute; inset: 0; display: grid; place-items: center; overflow: visible; }
+.list-stage, .clock-stage, .calendar-stage { position: absolute; inset: 0; display: grid; place-items: center; overflow: visible;
+  /* The space left, as in the orbit (orbit.css): --S once the observer has answered, the stage's own square on the first frame. */
+  container-type: size; --space: var(--S, max(240px, min(100cqw, 100cqh))); }
 /* One flat object (no 3D, no parallax): the largest square that fits, up to 560 px. */
-.one { width: min(var(--S), 560px); aspect-ratio: 1; }
+.one { width: min(var(--space), 560px); aspect-ratio: 1; }
 .one > .bigbang { width: 100%; }
 /* On a phone the names of the list ride outside the ring: the object leaves them room. */
 @media (max-width: 640px) {
-  .one { width: min(calc(var(--S) * .8), 560px); }
+  .one { width: min(calc(var(--space) * .8), 560px); }
   /* The queue on a phone: beside the items there is room for the names of what calls only. The calm are
      their glyphs (a tap brings one to the center, which names it), and the fold says how many under itself. */
   .queue-item:not(.level-1, .level-2) .queue-label { display: none; }
@@ -42,7 +44,7 @@
 
 /* ─── List: the queue on two rings ──────────────────────── */
 /* Room on both sides for the names beside the items. */
-.queue-stage .one { width: min(calc(var(--S) * .78), 520px); }
+.queue-stage .one { width: min(calc(var(--space) * .78), 520px); }
 .queue-foot { position: absolute; left: 0; right: 0; bottom: 4px; display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
 .queue-back { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 6px 14px; border-radius: 8px;
   border: 1px solid color-mix(in srgb, var(--critical) 45%, transparent); background: none; color: var(--critical); font-size: 13px; cursor: pointer; }

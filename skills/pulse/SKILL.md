@@ -203,7 +203,7 @@ Full field lists, with the optional detail content (history, timeline, picture, 
 - **Painting alerts by hand.** Set `alert` on the reading; the board orders, colors and folds. Do not restyle discs to show urgency.
 - **Adding systems after mount.** `host.systems` is read when `mountBoard` runs, and `setHost` expects the same system ids. Remount for a different set.
 - **Looking for `<pulse-...>` elements, a React component or a `Pulse` class.** There are none; the entry point is `mountBoard`.
-- **Console noise in orbit view.** Opening directly on `mode: 'orbit'` logs a few `[orbit] … has no size` warnings while the first view mounts in 0.1.0. The board renders correctly; they are not caused by your code.
+- **`[orbit] … has no size` warnings at mount.** The published 0.1.0 logs a few when the board opens directly in the `orbit` or `list` view; it renders correctly and they are not caused by your code. Later versions size those views on their first frame. If you see the warning elsewhere, an element you added has no width.
 
 ## Docs
 

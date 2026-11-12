@@ -46,3 +46,21 @@ test('a pinch born on the dial zooms out to the board', async ({ page }) => {
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
   await expect(page.locator('.z-view.is-current-view .board')).toBeVisible();
 });
+
+// The greenhouse (demo/greenhouse/) with the orbit chosen: on a phone the
+// board waits one step out, behind the system that opens, and it is sized
+// from its first frame there too (tests/views.spec.ts): Orbit warns of nothing.
+test('the phone opens over a board in orbit without a warning', async ({ page }) => {
+  const said: string[] = [];
+  page.on('pageerror', (e) => said.push(e.message));
+  page.on('console', (m) => { if (m.type() === 'error' || m.type() === 'warning') said.push(m.text()); });
+  await page.addInitScript(() => localStorage.setItem('pulse-greenhouse-settings', JSON.stringify({ mode: 'orbit' })));
+  await page.goto('/greenhouse/');
+  const current = page.locator('.z-view.is-current-view');
+  await expect(current.locator('.dots .dot')).toHaveCount(3);
+  await page.locator('.z-nav-back').click();
+  await expect(page.locator('.z-view.is-current-view .board.mode-orbit')).toBeVisible();
+  await expect(page.locator('.orbit-stage .otile')).toHaveCount(3);
+  await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));
+  expect(said).toEqual([]);
+});
